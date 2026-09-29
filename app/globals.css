@@ -1,26 +1,134 @@
 @import "tailwindcss";
 
+/*
+ * 디자인 토큰 — 디자인 피클(designpickle.com)의 구조를 벤치마킹하되 색은 페이지프렌즈(파랑·하늘색)로.
+ *   디자인 피클: 거의 검정 바탕 + 라임 액센트 알약 버튼 + 흰 섹션 교차
+ *   페이지프렌즈: 짙은 네이비(night) 바탕 + 하늘색(sky) 액센트 + 흰 섹션 교차
+ * 색은 네이비·파랑·하늘색 + 무채색만 쓴다. 요청 네모 표시용 빨강 하나만 예외.
+ */
+@theme {
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", sans-serif;
+
+  /* 어두운 바탕 (디자인 피클의 검정 역할) */
+  --color-night-950: #0b1220;
+  --color-night-900: #111a2e;
+  --color-night-800: #182440;
+  --color-night-700: #243354;
+
+  /* 액센트 (디자인 피클의 라임 역할) — 어두운 글자와 함께 쓴다 */
+  --color-sky-50: #f0f9ff;
+  --color-sky-100: #e0f2fe;
+  --color-sky-200: #bae6fd;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
+  --color-sky-500: #0ea5e9;
+  --color-sky-600: #0284c7;
+
+  /* 본문 파랑 (흰 바탕의 큰 숫자·링크) */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+
+  --color-ink-900: #0f172a;
+  --color-ink-700: #334155;
+  --color-ink-500: #64748b;
+  --color-ink-400: #94a3b8;
+  --color-ink-300: #cbd5e1;
+  --color-ink-200: #e2e8f0;
+  --color-ink-100: #f1f5f9;
+  --color-ink-50: #f8fafc;
+
+  --color-mark: #dc2626;
+
+  /* 표면색: 흰 바탕에서는 흰색, theme-dark 안에서는 네이비 카드색 */
+  --color-surface: #ffffff;
+
+  /* 버튼은 알약(rounded-full), 카드는 12px. 그 외 컨트롤은 6px. */
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * 앱 영역(대시보드·편집기·결제·관리자) 어두운 톤.
+ * ink 계열·표면색·연한 틴트 토큰만 반전시키므로 페이지 코드는 흰 바탕과 같은 클래스를 그대로 쓴다.
+ * 예: bg-surface → 네이비 카드, text-ink-900 → 흰 글자, border-ink-200 → 어두운 경계선.
+ */
+.theme-dark {
+  color-scheme: dark;
+  --color-surface: #111a2e;
+  --color-ink-50: #0b1220;
+  --color-ink-100: #182440;
+  --color-ink-200: #243354;
+  --color-ink-300: #33466e;
+  --color-ink-400: #6b7a99;
+  --color-ink-500: #94a3b8;
+  --color-ink-700: #cbd5e1;
+  --color-ink-900: #ffffff;
+  --color-brand-50: #172554;
+  --color-brand-100: #1e3a8a;
+  --color-brand-200: #1e40af;
+  --color-brand-600: #60a5fa;
+  --color-brand-700: #93c5fd;
+  --color-brand-800: #bfdbfe;
+  --color-sky-50: #0c2a3d;
+  --color-sky-100: #0e3a55;
+  --color-sky-200: #075985;
+  --color-sky-600: #7dd3fc;
+  --color-red-50: #2a1215;
+  --color-red-200: #7f1d1d;
+  --color-red-800: #fecaca;
+  background: var(--color-ink-50);
+  color: var(--color-ink-900);
+}
+
+/* 디자인 피클식 눈썹 라벨: 작은 대문자, 액센트 색 */
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* 큰 헤드라인: 굵고 행간을 바짝 */
+.display {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* 편집 캔버스: 브라우저 기본 제스처(핀치 줌·스크롤)를 막아야 휠 줌·드래그가 자연스럽다 */
+.editor-canvas {
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
 }

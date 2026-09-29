@@ -1,0 +1,92 @@
+{
+  "home:mobile": {
+    "url": "/samples/home-mobile.svg",
+    "width": 390,
+    "height": 2696
+  },
+  "home:tablet": {
+    "url": "/samples/home-tablet.svg",
+    "width": 820,
+    "height": 2756
+  },
+  "home:desktop": {
+    "url": "/samples/home-desktop.svg",
+    "width": 1440,
+    "height": 2472
+  },
+  "about:mobile": {
+    "url": "/samples/about-mobile.svg",
+    "width": 390,
+    "height": 1892
+  },
+  "about:tablet": {
+    "url": "/samples/about-tablet.svg",
+    "width": 820,
+    "height": 1852
+  },
+  "about:desktop": {
+    "url": "/samples/about-desktop.svg",
+    "width": 1440,
+    "height": 1568
+  },
+  "reviews:mobile": {
+    "url": "/samples/reviews-mobile.svg",
+    "width": 390,
+    "height": 1624
+  },
+  "reviews:tablet": {
+    "url": "/samples/reviews-tablet.svg",
+    "width": 820,
+    "height": 1414
+  },
+  "reviews:desktop": {
+    "url": "/samples/reviews-desktop.svg",
+    "width": 1440,
+    "height": 1414
+  },
+  "products:mobile": {
+    "url": "/samples/products-mobile.svg",
+    "width": 390,
+    "height": 2468
+  },
+  "products:tablet": {
+    "url": "/samples/products-tablet.svg",
+    "width": 820,
+    "height": 2428
+  },
+  "products:desktop": {
+    "url": "/samples/products-desktop.svg",
+    "width": 1440,
+    "height": 1860
+  },
+  "admin:mobile": {
+    "url": "/samples/admin-mobile.svg",
+    "width": 390,
+    "height": 1268
+  },
+  "admin:tablet": {
+    "url": "/samples/admin-tablet.svg",
+    "width": 820,
+    "height": 1228
+  },
+  "admin:desktop": {
+    "url": "/samples/admin-desktop.svg",
+    "width": 1440,
+    "height": 1228
+  },
+  "contact:mobile": {
+    "url": "/samples/contact-mobile.svg",
+    "width": 390,
+    "height": 1048
+  },
+  "contact:tablet": {
+    "url": "/samples/contact-tablet.svg",
+    "width": 820,
+    "height": 1008
+  },
+  "contact:desktop": {
+    "url": "/samples/contact-desktop.svg",
+    "width": 1440,
+    "height": 1008
+  }
+}
