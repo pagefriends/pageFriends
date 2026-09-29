@@ -65,9 +65,13 @@
   color-scheme: light;
 }
 
-html,
-body {
+/* html 은 뷰포트 높이, body 는 "최소" 뷰포트 높이. body 에 height:100% 를 주면 내용이 길 때 레이아웃 래퍼가
+   뷰포트 높이에서 멈추고 그 아래로 흰 body 가 드러난다 (새 사이트 위저드 아래 흰 띠). */
+html {
   height: 100%;
+}
+body {
+  min-height: 100%;
 }
 
 body {

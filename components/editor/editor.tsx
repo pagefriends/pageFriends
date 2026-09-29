@@ -19,7 +19,9 @@ const DEVICE_ICON = { mobile: SmartphoneIcon, tablet: TabletIcon, desktop: Monit
 
 /**
  * 프로젝트 편집 화면.
- * 왼쪽: 디바이스 선택(플랜별 허용) · 가운데: 캡처 캔버스 · 오른쪽: 요청 패널 · 아래: 페이지 경로 탭.
+ * 왼쪽 사이드바: 위에 디바이스(모바일·태블릿·웹, 가로 한 줄) · 아래에 페이지 목록(세로).
+ * 가운데: 캡처 캔버스 · 오른쪽: 요청 패널.
+ * lg 미만에서는 상단 → 디바이스 → 페이지(가로 스크롤) → 캔버스 → 요청 패널 순으로 세로 스택.
  * 초안 네모는 페이지×디바이스 별로 따로 보관하고, "한번에 요청하기"는 전부 모아서 한 묶음(batch)으로 보낸다.
  */
 export function ProjectEditor({
@@ -119,9 +121,9 @@ export function ProjectEditor({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] flex-col lg:grid lg:h-[calc(100vh-64px)] lg:grid-cols-[72px_minmax(0,1fr)_340px] lg:grid-rows-[auto_minmax(0,1fr)_auto]">
-      {/* 상단: 프로젝트명 + 상태. (lg 미만은 세로 스택: 상단 → 디바이스 → 캔버스 → 페이지 탭 → 요청 패널) */}
-      <div className="order-1 flex h-11 items-center justify-between gap-3 border-b border-ink-200 bg-surface px-4 lg:order-none lg:col-span-3">
+    <div className="flex min-h-[calc(100vh-64px)] flex-col lg:grid lg:h-[calc(100vh-64px)] lg:grid-cols-[220px_minmax(0,1fr)_340px] lg:grid-rows-[auto_minmax(0,1fr)]">
+      {/* 상단: 프로젝트명 + 상태 */}
+      <div className="flex h-11 items-center justify-between gap-3 border-b border-ink-200 bg-surface px-4 lg:col-span-3">
         <div className="flex min-w-0 items-center gap-3">
           <Link href={demo ? "/" : "/dashboard"} className="shrink-0 text-xs whitespace-nowrap text-ink-500 hover:text-ink-900">
             ← {demo ? "홈" : "내 사이트"}
@@ -139,40 +141,90 @@ export function ProjectEditor({
         </div>
       </div>
 
-      {/* 왼쪽(lg) / 두 번째 줄(모바일): 디바이스 */}
-      <div className="order-2 flex flex-row items-center justify-center gap-1 border-b border-ink-200 bg-surface py-2 lg:order-none lg:flex-col lg:justify-start lg:border-r lg:border-b-0 lg:py-3">
-        {DEVICE_ORDER.map((d) => {
-          const Icon = DEVICE_ICON[d];
-          const allowed = allowedDevices.includes(d);
-          const hasShot = Boolean(page.screenshots[d]);
-          const n = draftCountFor(page.id, d);
-          return (
-            <button
-              key={d}
-              type="button"
-              disabled={!allowed || !hasShot}
-              onClick={() => {
-                setDevice(d);
-                setSelectedId(null);
-              }}
-              title={!allowed ? "비즈니스 플랜 이상에서 사용 가능" : !hasShot ? "캡처 준비 중" : DEVICE_LABEL[d]}
-              className={cn(
-                "relative flex w-14 flex-col items-center gap-1 rounded py-2 text-[11px]",
-                device === d ? "bg-sky-400 text-night-950" : "text-ink-500 hover:bg-ink-100",
-                (!allowed || !hasShot) && "cursor-not-allowed opacity-40",
-              )}
-            >
-              <Icon className="size-5" />
-              {DEVICE_LABEL[d]}
-              {!allowed ? <LockIcon className="absolute right-1 top-1 size-3" /> : null}
-              {n > 0 ? <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center bg-mark text-[10px] text-white">{n}</span> : null}
-            </button>
-          );
-        })}
-      </div>
+      {/* 왼쪽 사이드바: 디바이스(가로) + 페이지 목록(세로) */}
+      <aside className="flex flex-col border-b border-ink-200 bg-surface lg:min-h-0 lg:border-r lg:border-b-0">
+        <div className="border-b border-ink-100 px-3 pt-3 pb-2">
+          <p className="mb-1.5 text-[11px] font-semibold text-ink-400">화면</p>
+          <div className="grid grid-cols-3 gap-1">
+            {DEVICE_ORDER.map((d) => {
+              const Icon = DEVICE_ICON[d];
+              const allowed = allowedDevices.includes(d);
+              const hasShot = Boolean(page.screenshots[d]);
+              const n = draftCountFor(page.id, d);
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  disabled={!allowed || !hasShot}
+                  onClick={() => {
+                    setDevice(d);
+                    setSelectedId(null);
+                  }}
+                  title={!allowed ? "비즈니스 플랜 이상에서 사용 가능" : !hasShot ? "캡처 준비 중" : DEVICE_LABEL[d]}
+                  className={cn(
+                    "relative flex flex-col items-center gap-1 rounded py-2 text-[11px]",
+                    device === d ? "bg-sky-400 text-night-950" : "text-ink-500 hover:bg-ink-100",
+                    (!allowed || !hasShot) && "cursor-not-allowed opacity-40",
+                  )}
+                >
+                  <Icon className="size-5" />
+                  {DEVICE_LABEL[d]}
+                  {!allowed ? <LockIcon className="absolute top-1 right-1 size-3" /> : null}
+                  {n > 0 ? <span className="absolute -top-0.5 -right-0.5 grid size-4 place-items-center bg-mark text-[10px] text-white">{n}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col px-3 py-2">
+          <p className="mb-1.5 text-[11px] font-semibold text-ink-400">페이지</p>
+          <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
+            {pages.map((p) => {
+              const n = draftCountFor(p.id);
+              const pending = existing.filter((r) => r.page_id === p.id && (r.status === "pending" || r.status === "processing")).length;
+              const active = p.id === page.id;
+              return (
+                <li key={p.id} className="shrink-0 lg:shrink">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPageId(p.id);
+                      setSelectedId(null);
+                      if (!p.screenshots[device]) {
+                        const first = DEVICE_ORDER.find((d) => allowedDevices.includes(d) && p.screenshots[d]);
+                        if (first) setDevice(first);
+                      }
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-sm px-2.5 py-2 text-left text-[13px] whitespace-nowrap",
+                      active ? "bg-ink-900 text-ink-50" : "text-ink-700 hover:bg-ink-100",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate">
+                      {p.name}
+                      <span className="ml-1.5 text-[11px] text-ink-400">{p.path}</span>
+                    </span>
+                    {n > 0 ? (
+                      <span className="grid min-w-4 shrink-0 place-items-center bg-mark px-1 text-[10px] text-white" title="아직 보내지 않은 네모">
+                        {n}
+                      </span>
+                    ) : null}
+                    {pending > 0 ? (
+                      <span className="grid min-w-4 shrink-0 place-items-center bg-brand-500 px-1 text-[10px] text-white" title="접수·처리중 요청">
+                        {pending}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </aside>
 
       {/* 가운데: 캔버스 (모바일은 화면 높이의 60%) */}
-      <div className="relative order-3 h-[60vh] lg:order-none lg:h-auto lg:min-h-0">
+      <div className="relative h-[60vh] lg:h-auto lg:min-h-0">
         <EditorCanvas
           key={`${page.id}:${device}`}
           screenshot={shot}
@@ -187,8 +239,8 @@ export function ProjectEditor({
         />
       </div>
 
-      {/* 오른쪽(lg): 요청 패널 (아래 탭 행까지 차지) / 모바일: 맨 아래 */}
-      <div className="order-5 lg:order-none lg:row-span-2 lg:min-h-0">
+      {/* 오른쪽: 요청 패널 */}
+      <div className="lg:min-h-0">
         <RequestPanel
           drafts={current}
           selectedId={selectedId}
@@ -209,38 +261,6 @@ export function ProjectEditor({
           error={error}
           demo={demo}
         />
-      </div>
-
-      {/* 아래: 페이지 경로 탭 */}
-      <div className="order-4 flex h-11 items-center gap-1 overflow-x-auto border-t border-ink-200 bg-surface px-3 lg:order-none lg:col-span-2">
-        <span className="mr-2 shrink-0 text-[11px] text-ink-400">페이지</span>
-        {pages.map((p) => {
-          const n = draftCountFor(p.id);
-          const pending = existing.filter((r) => r.page_id === p.id && (r.status === "pending" || r.status === "processing")).length;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => {
-                setPageId(p.id);
-                setSelectedId(null);
-                if (!p.screenshots[device]) {
-                  const first = DEVICE_ORDER.find((d) => allowedDevices.includes(d) && p.screenshots[d]);
-                  if (first) setDevice(first);
-                }
-              }}
-              className={cn(
-                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-sm px-3 text-[13px]",
-                p.id === page.id ? "bg-ink-900 text-ink-50" : "text-ink-700 hover:bg-ink-100",
-              )}
-            >
-              {p.name}
-              <span className={cn("text-[11px]", p.id === page.id ? "text-ink-400" : "text-ink-400")}>{p.path}</span>
-              {n > 0 ? <span className="grid min-w-4 place-items-center bg-mark px-1 text-[10px] text-white">{n}</span> : null}
-              {pending > 0 ? <span className="grid min-w-4 place-items-center bg-brand-500 px-1 text-[10px] text-white">{pending}</span> : null}
-            </button>
-          );
-        })}
       </div>
     </div>
   );
