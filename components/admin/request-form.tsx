@@ -6,22 +6,42 @@ import { useActionState } from "react";
 import { updateRequestAction, type AdminActionState } from "@/app/(admin)/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
-import { Label, Select, Textarea } from "@/components/ui/input";
+import { Hint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import type { RequestKind } from "@/config/plans";
 import type { RequestStatus } from "@/lib/types/db";
 
 const STATUS_OPTIONS: { value: RequestStatus; label: string; hint: string }[] = [
   { value: "pending", label: "접수", hint: "아직 손대지 않음" },
   { value: "processing", label: "처리중", hint: "작업 중. 사용자 캔버스에 점선으로 표시" },
   { value: "done", label: "반영 완료", hint: "사이트에 반영됨" },
-  { value: "rejected", label: "반영 불가", hint: "답변에 이유를 적어주세요. 주간 한도에서 제외됨" },
+  { value: "rejected", label: "반영 불가", hint: "답변에 이유를 적어주세요. 전문가 주간 한도에서 제외됨" },
 ];
 
-/** 요청 상태 변경 + 답변 작성 폼 */
-export function RequestForm({ requestId, status, note }: { requestId: string; status: RequestStatus; note: string | null }) {
+/** 요청 상태 변경 + 답변 작성 폼. AI 반영이면 실제 사용 토큰도 함께 기록한다 (오류 신고·전문가 요청은 토큰 없음). */
+export function RequestForm({
+  requestId,
+  status,
+  note,
+  kind,
+  tokensUsed,
+}: {
+  requestId: string;
+  status: RequestStatus;
+  note: string | null;
+  kind: RequestKind;
+  tokensUsed: number;
+}) {
   const [state, action, pending] = useActionState<AdminActionState, FormData>(updateRequestAction, null);
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="requestId" value={requestId} />
+      {kind === "ai" ? (
+        <div>
+          <Label htmlFor="tokensUsed">사용 토큰 (AI 반영)</Label>
+          <Input id="tokensUsed" name="tokensUsed" type="number" min={0} step={1} inputMode="numeric" defaultValue={tokensUsed > 0 ? tokensUsed : ""} placeholder="예: 8200" />
+          <Hint>처리에 쓴 입력+출력 토큰. 비워 두면 바꾸지 않습니다. 플랜 월 한도를 넘는 만큼 사용자의 토큰 크레딧에서 차감됩니다.</Hint>
+        </div>
+      ) : null}
       <div>
         <Label htmlFor="status">상태</Label>
         <Select id="status" name="status" defaultValue={status}>

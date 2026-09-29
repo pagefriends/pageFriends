@@ -71,7 +71,7 @@ const FOOTER_COLS: { title: string; links: { href: string; label: string }[] }[]
     links: [
       { href: "/login", label: "로그인" },
       { href: "/signup", label: "회원가입" },
-      { href: "/dashboard", label: "내 프로젝트" },
+      { href: "/dashboard", label: "내 사이트" },
       { href: "/billing", label: "플랜 · 결제" },
     ],
   },

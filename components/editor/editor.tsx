@@ -46,6 +46,8 @@ export function ProjectEditor({
   const [device, setDevice] = useState<DeviceKind>(allowedDevices.includes("desktop") ? "desktop" : allowedDevices[0]);
   const [drafts, setDrafts] = useState<Record<string, DraftBox[]>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 카드 ↔ 네모 상호 강조 (어느 요청이 어느 영역인지 한눈에)
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function ProjectEditor({
   // 전체 초안 집계 (제출 버튼·한도 표시)
   const all = useMemo(() => {
     const items: SubmitItem[] = [];
-    const counts: Record<RequestKind, number> = { ai: 0, expert: 0 };
+    const counts: Record<RequestKind, number> = { ai: 0, expert: 0, bug: 0 };
     for (const p of pages) {
       for (const d of DEVICE_ORDER) {
         const s = p.screenshots[d];
@@ -122,7 +124,7 @@ export function ProjectEditor({
       <div className="col-span-3 flex h-11 items-center justify-between border-b border-ink-200 bg-surface px-4">
         <div className="flex items-center gap-3">
           <Link href={demo ? "/" : "/dashboard"} className="text-xs text-ink-500 hover:text-ink-900">
-            ← {demo ? "홈" : "내 프로젝트"}
+            ← {demo ? "홈" : "내 사이트"}
           </Link>
           <span className="text-sm font-semibold">{projectName}</span>
           {demo ? <Badge tone="sky">체험 모드</Badge> : null}
@@ -177,8 +179,10 @@ export function ProjectEditor({
           drafts={current}
           existing={existingHere}
           selectedId={selectedId}
+          hoveredId={hoveredId}
           onDraftsChange={setCurrent}
           onSelect={setSelectedId}
+          onHover={setHoveredId}
           defaultKind="ai"
         />
       </div>
@@ -188,7 +192,9 @@ export function ProjectEditor({
         <RequestPanel
           drafts={current}
           selectedId={selectedId}
+          hoveredId={hoveredId}
           onSelect={setSelectedId}
+          onHover={setHoveredId}
           onChange={(id, patch) => setCurrent(current.map((d) => (d.id === id ? { ...d, ...patch } : d)))}
           onRemove={(id) => {
             setCurrent(current.filter((d) => d.id !== id));

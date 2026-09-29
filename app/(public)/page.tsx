@@ -15,7 +15,7 @@ import Link from "next/link";
 
 import { PlanGrid } from "@/components/pricing/plan-grid";
 import { buttonClass } from "@/components/ui/button";
-import { CREDIT_PACKS, DELIVERY_DAYS, PLANS, TEMPLATE_PRICE_KRW, formatKrw } from "@/config/plans";
+import { CREDIT_PACKS, DELIVERY_DAYS, PLANS, TEMPLATE_PRICE_KRW, formatKrw, formatTokens } from "@/config/plans";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,12 +38,12 @@ const FEATURES = [
   { icon: SquareDashedMousePointerIcon, title: "네모 그려서 수정 요청", body: "완성 화면 캡처를 드래그·줌으로 살펴보고, 고칠 곳에 빨간 네모를 그린 뒤 번호별로 요청을 적습니다." },
   { icon: BotIcon, title: "AI 반영, 전문가 수정", body: "기본은 AI 가 바로 반영합니다. 사진 교체나 구조 변경처럼 사람이 필요한 건 전문가 요청으로 보냅니다." },
   { icon: MonitorSmartphoneIcon, title: "모바일 · 태블릿 · 웹", body: "화면별로 따로 확인하고 따로 수정 요청합니다. 페이지도 홈·안내·리뷰·상품·관리자까지 탭으로 오갑니다." },
-  { icon: CreditCardIcon, title: "투명한 월 요금", body: `월 ${formatKrw(PLANS[0].priceKrw)}부터. 주간 요청 한도를 넘으면 건당 ${formatKrw(CREDIT_PACKS[0].priceKrw)}부터 추가할 수 있습니다.` },
+  { icon: CreditCardIcon, title: "투명한 월 요금", body: `월 ${formatKrw(PLANS[0].priceKrw)}부터. AI 토큰을 다 쓰면 ${formatTokens(CREDIT_PACKS[0].amount)} 토큰 ${formatKrw(CREDIT_PACKS[0].priceKrw)}부터 추가할 수 있습니다.` },
 ];
 
 const STATS = [
   { value: `${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일`, body: "필수 정보 입력 후 첫 완성본까지 걸리는 시간. 에이전시 견적·미팅 없이 바로 시작합니다." },
-  { value: formatKrw(PLANS[0].priceKrw), body: "가장 작은 플랜의 월 요금. 3~5페이지 소개 사이트에 AI 수정 요청 주 3회가 포함됩니다." },
+  { value: formatKrw(PLANS[0].priceKrw), body: `가장 작은 플랜의 월 요금. 사이트 1개, 3~5페이지에 AI 토큰 월 ${formatTokens(PLANS[0].monthlyAiTokens ?? 0)}이 포함됩니다.` },
   { value: formatKrw(TEMPLATE_PRICE_KRW.demo), body: "완성 디자인 템플릿 1개 가격. 실제 운영 중인 사이트 템플릿은 8,900원입니다." },
   { value: "4개 플랜", body: "소개 사이트부터 쇼핑몰, 개인 앱까지. 규모가 커지면 플랜만 올리면 됩니다." },
 ];
@@ -83,7 +83,8 @@ const COMPARE_COLS = [
 const FAQ = [
   { q: "템플릿 없이도 만들 수 있나요?", a: "네. 원하는 사이트를 글로 설명하면 처음부터 디자인합니다. 템플릿은 완성된 구조를 빨리 가져오고 싶을 때만 고르면 됩니다." },
   { q: "수정 요청은 어떻게 하나요?", a: "완성 화면 캡처 위에 빨간 네모를 그리고, 오른쪽에 번호별 요청사항을 적은 뒤 '한번에 요청하기'를 누릅니다. 기본은 AI 반영, 필요하면 전문가 요청으로 바꿀 수 있습니다." },
-  { q: "주간 요청 횟수를 다 쓰면요?", a: `추가 크레딧을 구매해 이어갑니다. AI 반영 1회 ${formatKrw(CREDIT_PACKS[0].priceKrw)}, 전문가 요청 1회 ${formatKrw(CREDIT_PACKS[2].priceKrw)}부터이며 크레딧은 만료되지 않습니다.` },
+  { q: "AI 토큰이나 전문가 요청 횟수를 다 쓰면요?", a: `추가 크레딧을 구매해 이어갑니다. AI 토큰 ${formatTokens(CREDIT_PACKS[0].amount)} ${formatKrw(CREDIT_PACKS[0].priceKrw)}, 전문가 요청 1회 ${formatKrw(CREDIT_PACKS[2].priceKrw)}부터이며 크레딧은 만료되지 않습니다.` },
+  { q: "우리 쪽 실수로 생긴 오류도 요청 횟수에서 차감되나요?", a: "아니요. 네모를 그리고 종류를 '오류 신고'로 바꾸면 토큰·횟수 어디에서도 차감하지 않습니다." },
   { q: "언제든 해지할 수 있나요?", a: "네. 해지하면 현재 결제 기간이 끝날 때까지 그대로 이용하고, 그 뒤로는 결제되지 않습니다. 기간 안에는 해지를 취소할 수도 있습니다." },
 ];
 
@@ -338,7 +339,7 @@ export default function HomePage() {
             <div>
               <p className="eyebrow text-sky-400">투명한 요금</p>
               <h2 className="display mt-3 text-4xl sm:text-5xl">플랜은 4개, 숨은 비용은 없습니다</h2>
-              <p className="mt-3 max-w-2xl text-white/60">월 단위 결제, 언제든 상위 플랜으로. 주간 한도를 넘는 요청은 건당 추가 결제로 이어갈 수 있습니다.</p>
+              <p className="mt-3 max-w-2xl text-white/60">월 단위 결제, 언제든 상위 플랜으로. AI 는 실제 사용한 토큰만큼만 차감되고, 한도를 넘으면 토큰 크레딧으로 이어갈 수 있습니다.</p>
             </div>
             <Link href="/pricing" className="text-sm font-semibold text-sky-300 hover:text-sky-200">
               요금제 자세히 →

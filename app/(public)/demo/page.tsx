@@ -20,25 +20,31 @@ const DEMO_PAGES: EditorPage[] = [
   { id: "demo-admin", name: "관리자페이지", path: "/admin", screenshots: pick("admin") },
 ];
 
+/** 체험용 고정 사용량. 렌더 중 Date.now 를 부르면 안 되므로 모듈 로드 시 한 번만 계산한다. */
+const DEMO_USED_TOKENS = 123_400;
+const DEMO_PERIOD_END = new Date(Date.now() + 20 * 86_400_000).toISOString();
+
 export default function DemoPage() {
   const plan = PLAN_BY_CODE.business;
+  const monthly = plan.monthlyAiTokens ?? 0;
+  const usedTokens = DEMO_USED_TOKENS;
   return (
     <div className="theme-dark flex flex-1 flex-col">
       <ProjectEditor
-      projectId="demo"
-      projectName="카페 데일리 (체험)"
-      pages={DEMO_PAGES}
-      allowedDevices={plan.devices}
-      existing={[
-        { id: "e1", seq: 1, region: { x: 0.066, y: 0.05, w: 0.36, h: 0.06 }, status: "processing", kind: "ai", message: "", page_id: "demo-home", device: "desktop" },
-      ]}
-      quota={{
-        ai: { weekly: plan.weeklyAi, used: 2, remaining: (plan.weeklyAi ?? 0) - 2, credits: 0 },
-        expert: { weekly: plan.weeklyExpert, used: 0, remaining: plan.weeklyExpert, credits: 0 },
-      }}
-      hasPlan
-      demo
-    />
+        projectId="demo"
+        projectName="카페 데일리 (체험)"
+        pages={DEMO_PAGES}
+        allowedDevices={plan.devices}
+        existing={[
+          { id: "e1", seq: 1, region: { x: 0.066, y: 0.05, w: 0.36, h: 0.06 }, status: "processing", kind: "ai", message: "", page_id: "demo-home", device: "desktop" },
+        ]}
+        quota={{
+          ai: { monthly, used: usedTokens, remaining: monthly - usedTokens, credits: 0, periodEnd: DEMO_PERIOD_END },
+          expert: { weekly: plan.weeklyExpert, used: 0, remaining: plan.weeklyExpert, credits: 0 },
+        }}
+        hasPlan
+        demo
+      />
     </div>
   );
 }

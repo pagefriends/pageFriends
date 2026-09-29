@@ -8,18 +8,29 @@ import type { DraftBox } from "@/components/editor/types";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Select, Textarea } from "@/components/ui/input";
-import { REQUEST_KIND_LABEL, type RequestKind } from "@/config/plans";
+import { REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
 import type { QuotaInfo } from "@/lib/quota";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+
+const PLACEHOLDER: Record<RequestKind, string> = {
+  ai: "예: 폰트 크기가 조금 커요. 글자 색을 조금 더 밝게 해주세요.",
+  expert: "예: 이 이미지를 실제 매장 사진으로 교체해 주세요.",
+  bug: "예: 버튼을 눌러도 아무 반응이 없어요. (무료 · 차감 없음)",
+};
 
 /**
  * 오른쪽 요청 패널. 현재 페이지·디바이스의 네모 목록 + 요청사항 입력 + 한 번에 제출.
- * 주간 한도 초과분은 크레딧으로 처리된다는 것을 제출 전에 미리 보여준다.
+ *
+ * 네모와 요청은 1:1 이다: 캔버스의 N번 빨간 네모 = 이 목록의 N번 카드. 카드에 마우스를 올리면 캔버스의 네모가,
+ * 네모에 올리면 카드가 같이 강조되어 어느 요청이 어느 영역인지 헷갈리지 않는다.
  */
 export function RequestPanel({
   drafts,
   selectedId,
+  hoveredId,
   onSelect,
+  onHover,
   onChange,
   onRemove,
   totalCount,
@@ -33,7 +44,9 @@ export function RequestPanel({
 }: {
   drafts: DraftBox[];
   selectedId: string | null;
+  hoveredId: string | null;
   onSelect: (id: string | null) => void;
+  onHover: (id: string | null) => void;
   onChange: (id: string, patch: Partial<DraftBox>) => void;
   onRemove: (id: string) => void;
   /** 모든 페이지·디바이스의 초안 합계 */
@@ -47,24 +60,29 @@ export function RequestPanel({
   demo?: boolean;
 }) {
   const refs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
-  // 네모를 새로 그리면 그 요청사항 입력칸으로 바로 포커스
+  // 네모를 새로 그리거나 캔버스에서 고르면 그 카드로 스크롤 + 입력칸 포커스
   useEffect(() => {
-    if (selectedId) refs.current[selectedId]?.focus();
+    if (!selectedId) return;
+    itemRefs.current[selectedId]?.scrollIntoView({ block: "nearest" });
+    refs.current[selectedId]?.focus({ preventScroll: true });
   }, [selectedId]);
 
-  const overAi = quota.ai.remaining === null ? 0 : Math.max(0, counts.ai - quota.ai.remaining);
+  // AI: 남은 토큰(한도 + 크레딧)이 0 이면 AI 요청 불가. 실제 차감은 처리 후 사용량 기준.
+  const aiLeft = quota.ai.remaining === null ? null : quota.ai.remaining + quota.ai.credits;
+  const aiBlocked = counts.ai > 0 && aiLeft !== null && aiLeft <= 0;
+  // 전문가: 주간 한도 초과분은 횟수 크레딧에서 차감
   const overExpert = quota.expert.remaining === null ? 0 : Math.max(0, counts.expert - quota.expert.remaining);
-  const shortAi = Math.max(0, overAi - quota.ai.credits);
   const shortExpert = Math.max(0, overExpert - quota.expert.credits);
   const missingMessage = drafts.some((d) => !d.message.trim());
-  const canSubmit = totalCount > 0 && !missingMessage && shortAi === 0 && shortExpert === 0 && (hasPlan || demo);
+  const canSubmit = totalCount > 0 && !missingMessage && !aiBlocked && shortExpert === 0 && (hasPlan || demo);
 
   return (
     <aside className="flex h-full flex-col border-l border-ink-200 bg-surface">
       <div className="border-b border-ink-100 px-4 py-3">
         <h2 className="text-sm font-semibold">수정 요청</h2>
-        <p className="mt-0.5 text-xs text-ink-500">네모를 그린 뒤 각 번호에 요청사항을 적으세요. 기본은 AI 반영입니다.</p>
+        <p className="mt-0.5 text-xs text-ink-500">네모 하나에 요청 하나. 번호가 캔버스의 빨간 네모와 같습니다.</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -78,21 +96,38 @@ export function RequestPanel({
           <ol className="flex flex-col gap-3">
             {drafts.map((d, i) => {
               const selected = d.id === selectedId;
+              const hovered = d.id === hoveredId;
               return (
                 <li
                   key={d.id}
+                  ref={(el) => {
+                    itemRefs.current[d.id] = el;
+                  }}
                   onClick={() => onSelect(d.id)}
-                  className={cn("rounded border p-3 transition-colors", selected ? "border-mark bg-red-50/40" : "border-ink-200 hover:border-ink-400")}
+                  onMouseEnter={() => onHover(d.id)}
+                  onMouseLeave={() => onHover(null)}
+                  className={cn(
+                    "rounded border p-3 transition-colors",
+                    selected ? "border-mark bg-red-50/40" : hovered ? "border-mark" : "border-ink-200 hover:border-ink-400",
+                  )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                    <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-semibold">
                       <span className="grid size-5 place-items-center bg-mark text-[11px] text-white">{i + 1}</span>
                       {i + 1}번 네모
+                      {d.kind === "bug" ? <span className="text-[11px] font-medium text-sky-600">무료</span> : null}
                     </span>
                     <div className="flex items-center gap-1">
-                      <Select value={d.kind} onChange={(e) => onChange(d.id, { kind: e.target.value as RequestKind })} className="h-7 w-auto py-0 text-xs" onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={d.kind}
+                        onChange={(e) => onChange(d.id, { kind: e.target.value as RequestKind })}
+                        className="h-7 w-auto py-0 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`${i + 1}번 네모 요청 종류`}
+                      >
                         <option value="ai">{REQUEST_KIND_LABEL.ai}</option>
                         <option value="expert">{REQUEST_KIND_LABEL.expert}</option>
+                        <option value="bug">{REQUEST_KIND_LABEL.bug}</option>
                       </Select>
                       <button
                         type="button"
@@ -114,7 +149,8 @@ export function RequestPanel({
                     value={d.message}
                     onChange={(e) => onChange(d.id, { message: e.target.value })}
                     onFocus={() => onSelect(d.id)}
-                    placeholder={d.kind === "ai" ? "예: 이 제목을 더 짧고 명확하게" : "예: 이 이미지를 실제 매장 사진으로 교체해 주세요"}
+                    placeholder={PLACEHOLDER[d.kind]}
+                    aria-label={`${i + 1}번 네모 요청사항`}
                     className="mt-2 min-h-16 text-[13px]"
                     maxLength={2000}
                   />
@@ -126,8 +162,26 @@ export function RequestPanel({
       </div>
 
       <div className="border-t border-ink-100 px-4 py-3">
-        <QuotaLine label={REQUEST_KIND_LABEL.ai} q={quota.ai} pending={counts.ai} />
-        <QuotaLine label={REQUEST_KIND_LABEL.expert} q={quota.expert} pending={counts.expert} />
+        <TokenLine q={quota.ai} pending={counts.ai} />
+        <div className="mt-1.5 flex items-center justify-between text-xs">
+          <span className="text-ink-500">{REQUEST_KIND_LABEL.expert}</span>
+          <span className="tabular-nums">
+            {quota.expert.weekly === null ? (
+              <span className="text-ink-700">이번 주 무제한</span>
+            ) : (
+              <span className={cn(quota.expert.remaining !== null && counts.expert > quota.expert.remaining ? "text-mark" : "text-ink-700")}>
+                이번 주 {quota.expert.used + counts.expert}/{quota.expert.weekly}회
+              </span>
+            )}
+            {quota.expert.credits > 0 ? <span className="ml-2 text-ink-400">크레딧 {quota.expert.credits}회</span> : null}
+          </span>
+        </div>
+        {counts.bug > 0 ? (
+          <div className="mt-1.5 flex items-center justify-between text-xs">
+            <span className="text-ink-500">{REQUEST_KIND_LABEL.bug}</span>
+            <span className="text-ink-700">{counts.bug}건 · 무료</span>
+          </div>
+        ) : null}
 
         {!hasPlan && !demo ? (
           <Alert tone="blue" className="mt-3 text-xs">
@@ -137,17 +191,22 @@ export function RequestPanel({
             </Link>
           </Alert>
         ) : null}
-        {overAi > 0 || overExpert > 0 ? (
-          <Alert tone={shortAi > 0 || shortExpert > 0 ? "red" : "gray"} className="mt-3 text-xs">
-            주간 한도를 넘는 요청 {overAi > 0 ? `AI ${overAi}건` : ""}
-            {overAi > 0 && overExpert > 0 ? ", " : ""}
-            {overExpert > 0 ? `전문가 ${overExpert}건` : ""}은 크레딧에서 차감됩니다.
-            {shortAi > 0 || shortExpert > 0 ? (
+        {aiBlocked ? (
+          <Alert tone="red" className="mt-3 text-xs">
+            이번 달 AI 토큰을 모두 썼습니다. AI 반영 {counts.ai}건을 보내려면{" "}
+            <Link href="/billing#credits" className="font-medium underline">
+              토큰 크레딧
+            </Link>
+            을 구매하거나 {formatDate(quota.ai.periodEnd)} 이후에 요청하세요.
+          </Alert>
+        ) : null}
+        {overExpert > 0 ? (
+          <Alert tone={shortExpert > 0 ? "red" : "gray"} className="mt-3 text-xs">
+            주간 한도를 넘는 전문가 요청 {overExpert}건은 크레딧에서 차감됩니다.
+            {shortExpert > 0 ? (
               <>
                 {" "}
-                크레딧이 {shortAi > 0 ? `AI ${shortAi}건` : ""}
-                {shortAi > 0 && shortExpert > 0 ? ", " : ""}
-                {shortExpert > 0 ? `전문가 ${shortExpert}건` : ""} 부족합니다.{" "}
+                크레딧이 {shortExpert}회 부족합니다.{" "}
                 <Link href="/billing#credits" className="font-medium underline">
                   크레딧 구매
                 </Link>
@@ -168,20 +227,25 @@ export function RequestPanel({
   );
 }
 
-function QuotaLine({ label, q, pending }: { label: string; q: QuotaInfo["ai"]; pending: number }) {
+/** AI 토큰 사용량 줄 + 게이지. 크레딧은 한도 다음에 쓰이므로 게이지 바깥에 따로 적는다. */
+function TokenLine({ q, pending }: { q: QuotaInfo["ai"]; pending: number }) {
+  const ratio = q.monthly === null || q.monthly === 0 ? 0 : Math.min(1, q.used / q.monthly);
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-ink-500">{label}</span>
-      <span className="tabular-nums">
-        {q.weekly === null ? (
-          <span className="text-ink-700">이번 주 무제한</span>
-        ) : (
-          <span className={cn(q.remaining !== null && pending > q.remaining ? "text-mark" : "text-ink-700")}>
-            이번 주 {q.used + pending}/{q.weekly}
-          </span>
-        )}
-        {q.credits > 0 ? <span className="ml-2 text-ink-400">크레딧 {q.credits}</span> : null}
-      </span>
+    <div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-ink-500">
+          AI 토큰{pending > 0 ? <span className="ml-1 text-ink-400">· 대기 {pending}건</span> : null}
+        </span>
+        <span className="tabular-nums text-ink-700">
+          {q.monthly === null ? "이번 달 무제한" : `이번 달 ${formatTokens(q.used)} / ${formatTokens(q.monthly)}`}
+          {q.credits > 0 ? <span className="ml-2 text-ink-400">크레딧 {formatTokens(q.credits)}</span> : null}
+        </span>
+      </div>
+      {q.monthly !== null ? (
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-ink-100" aria-hidden>
+          <div className={cn("h-full rounded-full", ratio >= 0.9 ? "bg-mark" : "bg-sky-400")} style={{ width: `${ratio * 100}%` }} />
+        </div>
+      ) : null}
     </div>
   );
 }

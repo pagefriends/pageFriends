@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW, CREDIT_PACK_BY_CODE, PLAN_BY_CODE, type PlanCode } from "@/config/plans";
+import { BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW, CREDIT_PACK_BY_CODE, PLAN_BY_CODE, REQUEST_KIND_LABEL, creditAmountLabel, type PlanCode } from "@/config/plans";
 import type { SessionUser } from "@/lib/auth/session";
 import { encryptSecret } from "@/lib/crypto";
 import { isPaymentsMock, paymentsAvailable } from "@/lib/env";
@@ -44,8 +44,9 @@ export async function createOrder(user: SessionUser, purchase: OneTimePurchase) 
     const pack = CREDIT_PACK_BY_CODE[purchase.packCode];
     if (!pack) throw new PaymentError(400, "알 수 없는 크레딧 팩입니다.");
     amountKrw = pack.priceKrw;
-    orderName = `${pack.kind === "ai" ? "AI 반영" : "전문가 요청"} 크레딧 ${pack.count}회`;
-    meta = { packCode: pack.code, kind: pack.kind, count: pack.count };
+    orderName = `${REQUEST_KIND_LABEL[pack.kind]} 크레딧 ${creditAmountLabel(pack)}`;
+    // amount: AI 는 토큰 수, 전문가는 횟수. (예전 행은 count 로 저장돼 있어 completePayment 가 둘 다 읽는다)
+    meta = { packCode: pack.code, kind: pack.kind, amount: pack.amount };
   }
 
   const paymentId = `pf_${randomUUID()}`;
@@ -89,7 +90,8 @@ export async function completePayment(paymentId: string, expectedUserId?: string
   if (row.kind === "template") {
     await admin.from("template_purchases").upsert({ user_id: row.user_id, template_id: row.meta.templateId as string, payment_id: row.id }, { onConflict: "user_id,template_id" });
   } else if (row.kind === "credits") {
-    await admin.rpc("grant_credits", { p_user_id: row.user_id, p_kind: row.meta.kind as string, p_count: row.meta.count as number });
+    const amount = Number(row.meta.amount ?? row.meta.count ?? 0);
+    if (amount > 0) await admin.rpc("grant_credits", { p_user_id: row.user_id, p_kind: row.meta.kind as string, p_count: amount });
   }
   return { ...row, status: "paid" };
 }

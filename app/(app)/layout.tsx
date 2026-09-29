@@ -8,7 +8,7 @@ import { getSubscription, isAdmin, requireUser } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
 
 const NAV = [
-  { href: "/dashboard", label: "내 프로젝트", icon: LayoutGridIcon },
+  { href: "/dashboard", label: "내 사이트", icon: LayoutGridIcon },
   { href: "/templates", label: "템플릿", icon: LayoutTemplateIcon },
   { href: "/billing", label: "플랜 · 결제", icon: CreditCardIcon },
 ] as const;
@@ -41,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             ) : null}
             {plan ? <Badge tone="blue">{plan.name} 플랜</Badge> : <Badge tone="gray">플랜 없음</Badge>}
             <Link href="/projects/new" className={buttonClass("primary", "sm")}>
-              <PlusIcon className="size-3.5" /> 새 프로젝트
+              <PlusIcon className="size-3.5" /> 새 사이트
             </Link>
             <span className="hidden text-xs text-white/50 md:inline">{user.email}</span>
             <form action={signOut}>

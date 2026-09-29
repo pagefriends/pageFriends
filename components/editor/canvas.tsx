@@ -4,6 +4,7 @@ import { HandIcon, MaximizeIcon, MinusIcon, PlusIcon, SquareIcon } from "lucide-
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { DraftBox, ExistingRequest } from "@/components/editor/types";
+import { REQUEST_KIND_SHORT } from "@/config/plans";
 import type { Screenshot } from "@/lib/types/db";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,8 @@ import { cn } from "@/lib/utils";
  * 네모 좌표는 이미지 픽셀 기준으로 저장하므로 마우스 휠로 줌을 바꿔도 네모가 이미지와 같이 늘고 줄어든다
  * (요구사항: "휠로 이미지를 작게/크게 하면 네모 박스도 크기에 맞게 수정되어야 함").
  * 테두리·라벨·핸들처럼 화면에서 일정한 크기여야 하는 것만 1/zoom 로 역보정한다.
+ *
+ * 네모 하나 = 요청 하나. 라벨의 번호는 오른쪽 패널 카드 번호와 같고, hoveredId 로 서로 강조를 주고받는다.
  */
 
 type Mode = "move" | "box";
@@ -35,16 +38,21 @@ export function EditorCanvas({
   drafts,
   existing,
   selectedId,
+  hoveredId,
   onDraftsChange,
   onSelect,
+  onHover,
   defaultKind,
 }: {
   screenshot: Screenshot;
   drafts: DraftBox[];
   existing: ExistingRequest[];
   selectedId: string | null;
+  /** 오른쪽 패널 카드에 마우스를 올린 네모 (같이 강조) */
+  hoveredId: string | null;
   onDraftsChange: (next: DraftBox[]) => void;
   onSelect: (id: string | null) => void;
+  onHover: (id: string | null) => void;
   defaultKind: DraftBox["kind"];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -265,22 +273,25 @@ export function EditorCanvas({
           </div>
         ))}
 
-        {/* 초안 네모: 빨간 테두리, 선택 시 핸들 */}
+        {/* 초안 네모: 빨간 테두리, 선택 시 핸들. 라벨 번호 = 오른쪽 패널 카드 번호 */}
         {drafts.map((d, i) => {
           const selected = d.id === selectedId;
+          const hovered = d.id === hoveredId;
           return (
             <div
               key={d.id}
               data-box={d.id}
-              className={cn("group absolute border-mark", selected ? "bg-red-500/5" : "hover:bg-red-500/5")}
-              style={{ left: d.x, top: d.y, width: d.w, height: d.h, borderWidth: 2 * inv, cursor: "move" }}
+              onPointerEnter={() => onHover(d.id)}
+              onPointerLeave={() => onHover(null)}
+              className={cn("group absolute border-mark", selected || hovered ? "bg-red-500/10" : "hover:bg-red-500/5")}
+              style={{ left: d.x, top: d.y, width: d.w, height: d.h, borderWidth: (selected || hovered ? 3 : 2) * inv, cursor: "move" }}
             >
               <span
                 className="absolute left-0 bg-mark font-semibold whitespace-nowrap text-white"
                 style={{ top: -18 * inv, fontSize: 11 * inv, lineHeight: `${18 * inv}px`, paddingInline: 5 * inv, marginLeft: -2 * inv }}
               >
-                {i + 1}
-                {d.kind === "expert" ? " · 전문가" : ""}
+                {i + 1} · {REQUEST_KIND_SHORT[d.kind]}
+                {d.message.trim() ? "" : " · 요청사항 없음"}
               </span>
               {HANDLES.map((h) => (
                 <span

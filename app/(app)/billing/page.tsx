@@ -7,14 +7,14 @@ import { SubscribeCard } from "@/components/billing/subscribe-card";
 import { SubscriptionPanel } from "@/components/billing/subscription-panel";
 import { PlanGrid } from "@/components/pricing/plan-grid";
 import { Alert } from "@/components/ui/card";
-import { CREDIT_PACKS, PLAN_BY_CODE, REQUEST_KIND_LABEL, formatKrw, type PlanCode } from "@/config/plans";
+import { APPROX_TOKENS_PER_AI_REQUEST, CREDIT_PACKS, PLAN_BY_CODE, REQUEST_KIND_LABEL, creditAmountLabel, formatKrw, formatTokens, type PlanCode } from "@/config/plans";
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { getClientEnv, paymentsAvailable } from "@/lib/env";
 import { getQuota } from "@/lib/quota";
 import { MAX_RENEWAL_ATTEMPTS } from "@/lib/subscriptions";
 import { createClient } from "@/lib/supabase/server";
 import type { PaymentRow } from "@/lib/types/db";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "플랜 · 결제" };
 export const dynamic = "force-dynamic";
@@ -89,21 +89,34 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
 
       <section id="credits" className="mt-10 grid gap-6 lg:grid-cols-[1fr_1fr]">
         <div>
-          <h2 className="text-lg font-semibold">이번 주 사용량 · 크레딧</h2>
+          <h2 className="text-lg font-semibold">사용량 · 크레딧</h2>
           <div className="mt-3 overflow-hidden rounded-md border border-ink-200 bg-surface text-sm">
-            <UsageRow label={REQUEST_KIND_LABEL.ai} q={quota.ai} />
-            <UsageRow label={REQUEST_KIND_LABEL.expert} q={quota.expert} />
+            <TokenUsage q={quota.ai} />
+            <div className="flex items-center justify-between px-4 py-3">
+              <span>{REQUEST_KIND_LABEL.expert}</span>
+              <span className="tabular-nums text-ink-700">
+                {quota.expert.weekly === null ? "이번 주 무제한" : `이번 주 ${quota.expert.used} / ${quota.expert.weekly}회`}
+                <span className="ml-3 text-ink-400">크레딧 {quota.expert.credits}회</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-t border-ink-100 px-4 py-3">
+              <span>{REQUEST_KIND_LABEL.bug}</span>
+              <span className="text-ink-700">무료 · 차감 없음</span>
+            </div>
           </div>
-          <p className="mt-2 text-xs text-ink-500">주간 한도는 매주 월요일에 초기화됩니다. 크레딧은 한도를 넘는 요청에만 차감되며 만료되지 않습니다.</p>
+          <p className="mt-2 text-xs text-ink-500">
+            AI 토큰은 요청이 처리될 때 실제 사용량만큼 차감되며 결제 기간마다 초기화됩니다 (요청 1건 ≈ {formatTokens(APPROX_TOKENS_PER_AI_REQUEST)} 토큰). 전문가 한도는
+            매주 월요일에 초기화됩니다. 크레딧은 한도를 넘는 사용에만 차감되며 만료되지 않습니다.
+          </p>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">추가 요청 크레딧 구매</h2>
+          <h2 className="text-lg font-semibold">추가 크레딧 구매</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {CREDIT_PACKS.map((p) => (
               <div key={p.code} className="flex items-center justify-between rounded-md border border-ink-200 bg-surface p-4">
                 <div>
                   <p className="text-sm font-medium">
-                    {REQUEST_KIND_LABEL[p.kind]} {p.count}회
+                    {REQUEST_KIND_LABEL[p.kind]} {creditAmountLabel(p)}
                   </p>
                   <p className="text-xs text-ink-500">{formatKrw(p.priceKrw)}</p>
                 </div>
@@ -157,14 +170,28 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
   );
 }
 
-function UsageRow({ label, q }: { label: string; q: { weekly: number | null; used: number; credits: number } }) {
+/** AI 토큰: 이번 결제 기간 사용량 게이지 + 토큰 크레딧 */
+function TokenUsage({ q }: { q: { monthly: number | null; used: number; credits: number; periodEnd: string } }) {
+  const ratio = q.monthly === null || q.monthly === 0 ? 0 : Math.min(1, q.used / q.monthly);
   return (
-    <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3 last:border-b-0">
-      <span>{label}</span>
-      <span className="tabular-nums text-ink-700">
-        {q.weekly === null ? "무제한" : `${q.used} / ${q.weekly}`}
-        <span className="ml-3 text-ink-400">크레딧 {q.credits}</span>
-      </span>
+    <div className="border-b border-ink-100 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span>AI 토큰</span>
+        <span className="tabular-nums text-ink-700">
+          {q.monthly === null ? "이번 달 무제한" : `${formatTokens(q.used)} / ${formatTokens(q.monthly)}`}
+          <span className="ml-3 text-ink-400">크레딧 {formatTokens(q.credits)}</span>
+        </span>
+      </div>
+      {q.monthly !== null ? (
+        <>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink-100" aria-hidden>
+            <div className={cn("h-full rounded-full", ratio >= 0.9 ? "bg-mark" : "bg-sky-400")} style={{ width: `${ratio * 100}%` }} />
+          </div>
+          <p className="mt-1.5 text-xs text-ink-500">
+            {Math.round(ratio * 100)}% 사용 · {formatDate(q.periodEnd)}에 초기화
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }

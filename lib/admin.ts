@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { RequestKind } from "@/config/plans";
 import { createClient } from "@/lib/supabase/server";
 import type { ChangeRequestRow, ProjectPageRow, ProjectRow, RequestStatus } from "@/lib/types/db";
 
@@ -13,7 +14,7 @@ export type AdminRequestListItem = ChangeRequestRow & {
   page: Pick<ProjectPageRow, "id" | "name" | "path"> | null;
 };
 
-export type RequestFilter = { status?: RequestStatus | "open"; kind?: "ai" | "expert"; projectId?: string };
+export type RequestFilter = { status?: RequestStatus | "open"; kind?: RequestKind; projectId?: string };
 
 export async function listAdminRequests(filter: RequestFilter, limit = 200): Promise<AdminRequestListItem[]> {
   const supabase = await createClient();

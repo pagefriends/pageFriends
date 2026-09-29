@@ -1,4 +1,4 @@
-import type { DeviceKind, PlanCode, RequestKind } from "@/config/plans";
+import type { CreditKind, DeviceKind, PlanCode, RequestKind } from "@/config/plans";
 
 /** supabase/migrations/0001_init.sql 과 1:1. 컬럼을 바꾸면 여기도 같이 바꾼다. */
 
@@ -105,11 +105,14 @@ export type ChangeRequestRow = {
   region: Region;
   message: string;
   resolution_note: string | null;
+  /** 처리 시 기록된 실제 사용 토큰 (AI 반영만). 오류 신고·전문가 요청은 0 */
+  tokens_used: number;
   created_at: string;
   resolved_at: string | null;
 };
 
-export type CreditRow = { user_id: string; kind: RequestKind; balance: number };
+/** AI 크레딧은 토큰 수, 전문가 크레딧은 횟수 */
+export type CreditRow = { user_id: string; kind: CreditKind; balance: number };
 
 export type PaymentKind = "subscription" | "template" | "credits";
 export type PaymentStatus = "pending" | "paid" | "failed" | "cancelled";

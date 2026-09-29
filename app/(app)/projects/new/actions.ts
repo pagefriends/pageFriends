@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { PLAN_BY_CODE, type DeviceKind } from "@/config/plans";
 import { getSubscription, requireUser } from "@/lib/auth/session";
-import { createProject } from "@/lib/projects";
+import { countProjects, createProject } from "@/lib/projects";
 import { createClient } from "@/lib/supabase/server";
 
 const briefSchema = z.object({
@@ -25,7 +25,7 @@ const briefSchema = z.object({
 export type CreateProjectState = { error?: string } | null;
 
 /**
- * 위저드 제출. 플랜의 페이지 한도·디바이스를 여기서 강제한다 (UI 는 안내만 하고 진짜 검증은 서버).
+ * 위저드 제출. 플랜의 사이트 수·페이지 한도·디바이스를 여기서 강제한다 (UI 는 안내만 하고 진짜 검증은 서버).
  * 플랜이 없어도 프로젝트는 만들 수 있다 — 수정 요청 단계에서 플랜을 요구한다.
  */
 export async function createProjectAction(_prev: CreateProjectState, formData: FormData): Promise<CreateProjectState> {
@@ -47,6 +47,14 @@ export async function createProjectAction(_prev: CreateProjectState, formData: F
     return { error: `${effective.name} 플랜은 최대 ${effective.pageRange.max}페이지까지 만들 수 있습니다.` };
   }
   const devices: DeviceKind[] = effective.devices;
+
+  // 플랜별 사이트 수 제한 (스타터 1 · 비즈니스 2 · 프로 5 · 엔터프라이즈 10)
+  if (effective.maxSites !== null) {
+    const count = await countProjects(user.id);
+    if (count >= effective.maxSites) {
+      return { error: `${effective.name} 플랜은 사이트를 ${effective.maxSites}개까지 만들 수 있습니다. 더 만들려면 상위 플랜으로 올려주세요.` };
+    }
+  }
 
   if (parsed.templateId) {
     const supabase = await createClient();

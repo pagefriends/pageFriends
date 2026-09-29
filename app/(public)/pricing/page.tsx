@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { PlanGrid } from "@/components/pricing/plan-grid";
 import { buttonClass } from "@/components/ui/button";
-import { BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW, CREDIT_PACKS, DELIVERY_DAYS, REQUEST_KIND_LABEL, TEMPLATE_PRICE_KRW, formatKrw } from "@/config/plans";
+import { BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW, CREDIT_PACKS, DELIVERY_DAYS, REQUEST_KIND_LABEL, TEMPLATE_PRICE_KRW, creditAmountLabel, formatKrw } from "@/config/plans";
 
 export const metadata: Metadata = { title: "요금제" };
 
@@ -31,7 +31,7 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
     group: "결제 · 운영",
     items: [
       { title: "월 단위 결제", body: "포트원(토스페이먼츠) 카드 자동 결제. 언제든 해지." },
-      { title: "추가 요청 크레딧", body: "주간 한도를 넘으면 건당 구매. 만료 없음." },
+      { title: "추가 크레딧", body: "AI 토큰·전문가 횟수를 다 쓰면 추가 구매. 만료 없음. 오류 신고는 무료." },
       { title: "결제 시스템 옵션", body: `비즈니스 플랜에서 선택. 첫 달 ${formatKrw(BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW)}.` },
       { title: "플랜 변경", body: "규모가 커지면 상위 플랜으로 바로 전환." },
     ],
@@ -41,7 +41,7 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
 const FAQ = [
   {
     q: "주간 요청 횟수를 다 쓰면 어떻게 되나요?",
-    a: `추가 요청 크레딧을 구매해 이어갈 수 있습니다. ${REQUEST_KIND_LABEL.ai} ${formatKrw(CREDIT_PACKS[0].priceKrw)}(1회) · ${formatKrw(CREDIT_PACKS[1].priceKrw)}(10회), ${REQUEST_KIND_LABEL.expert} ${formatKrw(CREDIT_PACKS[2].priceKrw)}(1회) · ${formatKrw(CREDIT_PACKS[3].priceKrw)}(10회). 크레딧은 만료되지 않습니다.`,
+    a: `추가 크레딧을 구매해 이어갈 수 있습니다. ${REQUEST_KIND_LABEL.ai} ${formatKrw(CREDIT_PACKS[0].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[0])}) · ${formatKrw(CREDIT_PACKS[1].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[1])}), ${REQUEST_KIND_LABEL.expert} ${formatKrw(CREDIT_PACKS[2].priceKrw)}(1회) · ${formatKrw(CREDIT_PACKS[3].priceKrw)}(10회). 크레딧은 만료되지 않습니다. 우리 쪽 오류를 신고하는 '오류 신고'는 무료입니다.`,
   },
   {
     q: "비즈니스 플랜의 결제 시스템 옵션은 무엇인가요?",
@@ -102,9 +102,9 @@ export default function PricingPage() {
       <section className="border-y border-ink-200 bg-ink-50">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 sm:px-8 lg:grid-cols-2">
           <div>
-            <p className="eyebrow text-brand-600">추가 요청 크레딧</p>
+            <p className="eyebrow text-brand-600">추가 크레딧</p>
             <h2 className="display mt-3 text-3xl">한도를 넘으면 건당</h2>
-            <p className="mt-2 text-sm text-ink-500">주간 한도를 넘는 요청은 크레딧에서 차감됩니다. 만료 없음.</p>
+            <p className="mt-2 text-sm text-ink-500">플랜 한도를 넘는 사용은 크레딧에서 차감됩니다. 만료 없음. AI 는 토큰, 전문가는 횟수 단위입니다.</p>
             <div className="mt-6 overflow-hidden rounded-2xl border border-ink-200 bg-white">
               <table className="w-full text-sm">
                 <thead className="bg-ink-50 text-left text-xs text-ink-500">
@@ -118,7 +118,7 @@ export default function PricingPage() {
                   {CREDIT_PACKS.map((p) => (
                     <tr key={p.code} className="border-t border-ink-100">
                       <td className="px-5 py-3">{REQUEST_KIND_LABEL[p.kind]}</td>
-                      <td className="px-5 py-3">{p.count}회</td>
+                      <td className="px-5 py-3">{creditAmountLabel(p)}</td>
                       <td className="px-5 py-3 text-right font-semibold">{formatKrw(p.priceKrw)}</td>
                     </tr>
                   ))}

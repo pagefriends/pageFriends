@@ -5,12 +5,15 @@ import { ProjectStatusSelect } from "@/components/admin/quick-actions";
 import { RegionPreview } from "@/components/admin/region-preview";
 import { RequestForm } from "@/components/admin/request-form";
 import { Badge, Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
-import { DEVICE_LABEL, REQUEST_KIND_LABEL } from "@/config/plans";
+import { DEVICE_LABEL, REQUEST_KIND_LABEL, formatTokens, getPlan, type RequestKind } from "@/config/plans";
 import { getAdminRequest } from "@/lib/admin";
+import { getSubscription } from "@/lib/auth/session";
 import type { RequestStatus } from "@/lib/types/db";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+const KIND_TONE: Record<RequestKind, "gray" | "sky" | "red"> = { ai: "gray", expert: "sky", bug: "red" };
 
 const STATUS: Record<RequestStatus, { label: string; tone: "gray" | "blue" | "sky" | "dark" | "red" }> = {
   pending: { label: "접수", tone: "blue" },
@@ -26,6 +29,9 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
   const { request, project, page, ownerEmail, siblings } = data;
   const shot = page.screenshots[request.device];
   const brief = project.brief;
+  // 요청 소유자의 플랜 (AI 토큰 한도 안내). 만료된 플랜이어도 코드가 있으면 이름은 보여준다.
+  const owner = await getSubscription(project.user_id);
+  const ownerPlan = owner.plan ?? getPlan(owner.subscription?.plan_code);
 
   return (
     <div>
@@ -37,7 +43,9 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
           {project.name} · {page.name} · {request.seq}번 네모
         </h1>
         <Badge tone={STATUS[request.status].tone}>{STATUS[request.status].label}</Badge>
-        <Badge tone={request.kind === "expert" ? "sky" : "gray"}>{REQUEST_KIND_LABEL[request.kind]}</Badge>
+        <Badge tone={KIND_TONE[request.kind]}>{REQUEST_KIND_LABEL[request.kind]}</Badge>
+        {request.kind === "bug" ? <span className="text-xs text-ink-500">무료 · 사용자 한도에서 차감하지 않음</span> : null}
+        {request.kind === "ai" && request.tokens_used > 0 ? <span className="text-xs tabular-nums text-ink-500">사용 토큰 {formatTokens(request.tokens_used)}</span> : null}
       </div>
       <p className="mt-1 text-sm text-ink-500">
         {DEVICE_LABEL[request.device]} 화면 · {page.path} · {formatDateTime(request.created_at)} · 요청자 {ownerEmail ?? project.user_id}
@@ -84,6 +92,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
                       <div className="min-w-0 flex-1">
                         <div className="flex gap-2 text-xs text-ink-500">
                           <span>{DEVICE_LABEL[s.device]}</span>
+                          <Badge tone={KIND_TONE[s.kind]}>{REQUEST_KIND_LABEL[s.kind]}</Badge>
                           <Badge tone={STATUS[s.status].tone}>{STATUS[s.status].label}</Badge>
                         </div>
                         <p className="mt-0.5 line-clamp-2 text-sm">{s.message}</p>
@@ -102,7 +111,13 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
               <CardTitle>상태 변경 · 답변</CardTitle>
             </CardHeader>
             <CardBody>
-              <RequestForm requestId={request.id} status={request.status} note={request.resolution_note} />
+              <RequestForm requestId={request.id} status={request.status} note={request.resolution_note} kind={request.kind} tokensUsed={request.tokens_used} />
+              {request.kind === "ai" ? (
+                <p className="mt-3 text-xs text-ink-500">
+                  요청자 플랜 {ownerPlan?.name ?? "없음"} · 월 AI 토큰 {ownerPlan ? (ownerPlan.monthlyAiTokens === null ? "무제한" : formatTokens(ownerPlan.monthlyAiTokens)) : "-"}. 사용 토큰을 저장하면
+                  한도 초과분이 토큰 크레딧에서 차감됩니다.
+                </p>
+              ) : null}
             </CardBody>
           </Card>
 

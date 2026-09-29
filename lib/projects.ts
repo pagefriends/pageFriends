@@ -52,6 +52,13 @@ export async function listProjects(userId: string): Promise<ProjectRow[]> {
   return (data as ProjectRow[]) ?? [];
 }
 
+/** 보유 사이트(프로젝트) 수. 플랜별 사이트 수 제한 검사에 쓴다. */
+export async function countProjects(userId: string): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase.from("projects").select("id", { count: "exact", head: true }).eq("user_id", userId);
+  return count ?? 0;
+}
+
 export async function getProject(userId: string, projectId: string): Promise<{ project: ProjectRow; pages: ProjectPageRow[] } | null> {
   const supabase = await createClient();
   const [{ data: project }, { data: pages }] = await Promise.all([

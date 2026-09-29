@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { BatchStatusSelect } from "@/components/admin/quick-actions";
 import { Alert, Badge } from "@/components/ui/card";
-import { DEVICE_LABEL, REQUEST_KIND_LABEL } from "@/config/plans";
+import { DEVICE_LABEL, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
 import { countRequestsByStatus, listAdminRequests, type AdminRequestListItem } from "@/lib/admin";
 import type { RequestStatus } from "@/lib/types/db";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -18,6 +18,8 @@ const STATUS: Record<RequestStatus, { label: string; tone: "gray" | "blue" | "sk
   rejected: { label: "반영 불가", tone: "red" },
 };
 
+const KIND_TONE: Record<RequestKind, "gray" | "sky" | "red"> = { ai: "gray", expert: "sky", bug: "red" };
+
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: "open", label: "미처리" },
   { key: "pending", label: "접수" },
@@ -30,7 +32,7 @@ const STATUS_TABS: { key: string; label: string }[] = [
 export default async function AdminRequestsPage({ searchParams }: PageProps<"/admin">) {
   const sp = await searchParams;
   const statusKey = typeof sp.status === "string" ? sp.status : "open";
-  const kind = sp.kind === "ai" || sp.kind === "expert" ? sp.kind : undefined;
+  const kind = sp.kind === "ai" || sp.kind === "expert" || sp.kind === "bug" ? (sp.kind as RequestKind) : undefined;
   const projectId = typeof sp.project === "string" ? sp.project : undefined;
 
   let items: AdminRequestListItem[] = [];
@@ -70,9 +72,9 @@ export default async function AdminRequestsPage({ searchParams }: PageProps<"/ad
           </p>
         </div>
         <div className="flex gap-1 rounded border border-ink-200 bg-surface p-1 text-[13px]">
-          {(["", "ai", "expert"] as const).map((k) => (
+          {(["", "ai", "expert", "bug"] as const).map((k) => (
             <Link key={k || "all"} href={href({ kind: k || undefined })} className={cn("rounded-sm px-3 py-1.5", (kind ?? "") === k ? "bg-ink-900 text-ink-50" : "text-ink-700 hover:bg-ink-100")}>
-              {k ? REQUEST_KIND_LABEL[k] : "AI + 전문가"}
+              {k ? REQUEST_KIND_LABEL[k] : "전체 종류"}
             </Link>
           ))}
         </div>
@@ -134,8 +136,9 @@ export default async function AdminRequestsPage({ searchParams }: PageProps<"/ad
                               <span className="font-medium text-ink-900">{r.page?.name ?? "페이지"}</span>
                               <span>{r.page?.path}</span>
                               <span>{DEVICE_LABEL[r.device]}</span>
-                              <Badge tone={r.kind === "expert" ? "sky" : "gray"}>{REQUEST_KIND_LABEL[r.kind]}</Badge>
+                              <Badge tone={KIND_TONE[r.kind]}>{REQUEST_KIND_LABEL[r.kind]}</Badge>
                               <Badge tone={s.tone}>{s.label}</Badge>
+                              {r.kind === "ai" && r.tokens_used > 0 ? <span className="tabular-nums">{formatTokens(r.tokens_used)} 토큰</span> : null}
                             </div>
                             <p className="mt-1 line-clamp-2 text-sm">{r.message}</p>
                             {r.resolution_note ? <p className="mt-1 line-clamp-1 text-xs text-ink-500">답변: {r.resolution_note}</p> : null}
