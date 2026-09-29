@@ -26,6 +26,10 @@ export default async function DashboardPage() {
   const effective = plan ?? PLAN_BY_CODE.starter;
   const max = effective.maxSites;
   const full = max !== null && projects.length >= max;
+  // 목록은 최신순이지만 A·B·C 라벨은 만든 순서로 고정한다 (새 사이트가 생겨도 기존 라벨이 바뀌지 않게)
+  const letterOf = new Map(
+    [...projects].sort((a, b) => a.created_at.localeCompare(b.created_at)).map((p, i) => [p.id, String.fromCharCode(65 + (i % 26))]),
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -77,14 +81,14 @@ export default async function DashboardPage() {
         </div>
       ) : (
         <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p, i) => {
+          {projects.map((p) => {
             const s = STATUS[p.status];
             return (
               <li key={p.id} className="rounded-md border border-ink-200 bg-surface p-5 transition-colors hover:border-brand-400">
                 <Link href={`/projects/${p.id}`} className="block">
                   <div className="flex items-center justify-between gap-2">
                     <p className="flex min-w-0 items-center gap-2 font-semibold">
-                      <span className="grid size-6 shrink-0 place-items-center rounded-sm bg-ink-900 text-[11px] font-bold text-ink-50">{String.fromCharCode(65 + (i % 26))}</span>
+                      <span className="grid size-6 shrink-0 place-items-center rounded-sm bg-ink-900 text-[11px] font-bold text-ink-50">{letterOf.get(p.id)}</span>
                       <span className="truncate">{p.name}</span>
                     </p>
                     <Badge tone={s.tone}>{s.label}</Badge>
