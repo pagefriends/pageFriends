@@ -79,13 +79,13 @@ export function RequestPanel({
   const canSubmit = totalCount > 0 && !missingMessage && !aiBlocked && shortExpert === 0 && (hasPlan || demo);
 
   return (
-    <aside className="flex h-full flex-col border-l border-ink-200 bg-surface">
+    <aside className="flex flex-col border-t border-ink-200 bg-surface lg:h-full lg:border-t-0 lg:border-l">
       <div className="border-b border-ink-100 px-4 py-3">
         <h2 className="text-sm font-semibold">수정 요청</h2>
         <p className="mt-0.5 text-xs text-ink-500">네모 하나에 요청 하나. 번호가 캔버스의 빨간 네모와 같습니다.</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="max-h-[50vh] overflow-y-auto px-4 py-3 lg:max-h-none lg:flex-1">
         {drafts.length === 0 ? (
           <div className="rounded border border-dashed border-ink-300 p-4 text-center text-xs text-ink-500">
             이 화면에 그린 네모가 없습니다.

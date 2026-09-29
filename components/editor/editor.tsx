@@ -119,28 +119,28 @@ export function ProjectEditor({
   }
 
   return (
-    <div className="grid h-[calc(100vh-64px)] grid-cols-[72px_minmax(0,1fr)_340px] grid-rows-[auto_minmax(0,1fr)_auto]">
-      {/* 상단: 프로젝트명 + 상태 */}
-      <div className="col-span-3 flex h-11 items-center justify-between border-b border-ink-200 bg-surface px-4">
-        <div className="flex items-center gap-3">
-          <Link href={demo ? "/" : "/dashboard"} className="text-xs text-ink-500 hover:text-ink-900">
+    <div className="flex min-h-[calc(100vh-64px)] flex-col lg:grid lg:h-[calc(100vh-64px)] lg:grid-cols-[72px_minmax(0,1fr)_340px] lg:grid-rows-[auto_minmax(0,1fr)_auto]">
+      {/* 상단: 프로젝트명 + 상태. (lg 미만은 세로 스택: 상단 → 디바이스 → 캔버스 → 페이지 탭 → 요청 패널) */}
+      <div className="order-1 flex h-11 items-center justify-between gap-3 border-b border-ink-200 bg-surface px-4 lg:order-none lg:col-span-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href={demo ? "/" : "/dashboard"} className="shrink-0 text-xs whitespace-nowrap text-ink-500 hover:text-ink-900">
             ← {demo ? "홈" : "내 사이트"}
           </Link>
-          <span className="text-sm font-semibold">{projectName}</span>
-          {demo ? <Badge tone="sky">체험 모드</Badge> : null}
+          <span className="truncate text-sm font-semibold">{projectName}</span>
+          {demo ? <Badge tone="sky" className="shrink-0 whitespace-nowrap">체험 모드</Badge> : null}
         </div>
-        <div className="flex items-center gap-3 text-xs text-ink-500">
-          {notice ? <span className="text-brand-700">{notice}</span> : null}
+        <div className="flex min-w-0 items-center gap-3 text-xs text-ink-500">
+          {notice ? <span className="truncate text-brand-700">{notice}</span> : null}
           {!demo ? (
-            <Link href={`/projects/${projectId}/requests`} className="inline-flex items-center gap-1 hover:text-ink-900">
+            <Link href={`/projects/${projectId}/requests`} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink-900">
               <ClockIcon className="size-3.5" /> 요청 내역
             </Link>
           ) : null}
         </div>
       </div>
 
-      {/* 왼쪽: 디바이스 */}
-      <div className="flex flex-col items-center gap-1 border-r border-ink-200 bg-surface py-3">
+      {/* 왼쪽(lg) / 두 번째 줄(모바일): 디바이스 */}
+      <div className="order-2 flex flex-row items-center justify-center gap-1 border-b border-ink-200 bg-surface py-2 lg:order-none lg:flex-col lg:justify-start lg:border-r lg:border-b-0 lg:py-3">
         {DEVICE_ORDER.map((d) => {
           const Icon = DEVICE_ICON[d];
           const allowed = allowedDevices.includes(d);
@@ -171,8 +171,8 @@ export function ProjectEditor({
         })}
       </div>
 
-      {/* 가운데: 캔버스 */}
-      <div className="relative min-h-0">
+      {/* 가운데: 캔버스 (모바일은 화면 높이의 60%) */}
+      <div className="relative order-3 h-[60vh] lg:order-none lg:h-auto lg:min-h-0">
         <EditorCanvas
           key={`${page.id}:${device}`}
           screenshot={shot}
@@ -187,8 +187,8 @@ export function ProjectEditor({
         />
       </div>
 
-      {/* 오른쪽: 요청 패널 (아래 탭 행까지 차지) */}
-      <div className="row-span-2 min-h-0">
+      {/* 오른쪽(lg): 요청 패널 (아래 탭 행까지 차지) / 모바일: 맨 아래 */}
+      <div className="order-5 lg:order-none lg:row-span-2 lg:min-h-0">
         <RequestPanel
           drafts={current}
           selectedId={selectedId}
@@ -212,7 +212,7 @@ export function ProjectEditor({
       </div>
 
       {/* 아래: 페이지 경로 탭 */}
-      <div className="col-span-2 flex h-11 items-center gap-1 overflow-x-auto border-t border-ink-200 bg-surface px-3">
+      <div className="order-4 flex h-11 items-center gap-1 overflow-x-auto border-t border-ink-200 bg-surface px-3 lg:order-none lg:col-span-2">
         <span className="mr-2 shrink-0 text-[11px] text-ink-400">페이지</span>
         {pages.map((p) => {
           const n = draftCountFor(p.id);

@@ -142,8 +142,8 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
         {payments.length === 0 ? (
           <p className="mt-3 text-sm text-ink-500">결제 내역이 없습니다.</p>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-md border border-ink-200 bg-surface">
-            <table className="w-full text-sm">
+          <div className="mt-3 overflow-x-auto rounded-md border border-ink-200 bg-surface">
+            <table className="w-full min-w-[520px] text-sm">
               <thead className="bg-ink-50 text-left text-xs text-ink-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">일시</th>
@@ -155,10 +155,10 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
               <tbody>
                 {payments.map((p) => (
                   <tr key={p.id} className="border-t border-ink-100">
-                    <td className="px-4 py-2.5 text-ink-500">{formatDateTime(p.created_at)}</td>
+                    <td className="px-4 py-2.5 whitespace-nowrap text-ink-500">{formatDateTime(p.created_at)}</td>
                     <td className="px-4 py-2.5">{p.order_name}</td>
-                    <td className="px-4 py-2.5">{{ pending: "대기", paid: "완료", failed: "실패", cancelled: "취소" }[p.status]}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{formatKrw(p.amount_krw)}</td>
+                    <td className="px-4 py-2.5 whitespace-nowrap">{{ pending: "대기", paid: "완료", failed: "실패", cancelled: "취소" }[p.status]}</td>
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap tabular-nums">{formatKrw(p.amount_krw)}</td>
                   </tr>
                 ))}
               </tbody>

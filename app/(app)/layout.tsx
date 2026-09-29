@@ -21,27 +21,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="theme-dark flex min-h-full flex-1 flex-col bg-ink-50">
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-night-950">
-        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-2 px-4">
+          <div className="flex min-w-0 items-center gap-6">
             <Logo href="/dashboard" />
             <nav className="hidden items-center gap-1 sm:flex">
               {NAV.map((n) => (
-                <Link key={n.href} href={n.href} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-white/75 hover:bg-white/10 hover:text-white">
+                <Link key={n.href} href={n.href} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] whitespace-nowrap text-white/75 hover:bg-white/10 hover:text-white">
                   <n.icon className="size-3.5" />
                   {n.label}
                 </Link>
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {admin ? (
               <Link href="/admin" className={buttonClass("outlineLight", "sm")}>
                 관리자
               </Link>
             ) : null}
-            {plan ? <Badge tone="blue">{plan.name} 플랜</Badge> : <Badge tone="gray">플랜 없음</Badge>}
-            <Link href="/projects/new" className={buttonClass("primary", "sm")}>
-              <PlusIcon className="size-3.5" /> 새 사이트
+            {plan ? (
+              <Badge tone="blue" className="hidden whitespace-nowrap sm:inline-flex">
+                {plan.name} 플랜
+              </Badge>
+            ) : (
+              <Badge tone="gray" className="hidden whitespace-nowrap sm:inline-flex">
+                플랜 없음
+              </Badge>
+            )}
+            <Link href="/projects/new" className={buttonClass("primary", "sm")} title="새 사이트">
+              <PlusIcon className="size-3.5" /> <span className="hidden sm:inline">새 사이트</span>
+              <span className="sm:hidden">사이트</span>
             </Link>
             <span className="hidden text-xs text-white/50 md:inline">{user.email}</span>
             <form action={signOut}>
@@ -51,6 +60,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </form>
           </div>
         </div>
+        {/* 모바일: 링크를 두 번째 줄로 */}
+        <nav className="flex items-center gap-1 overflow-x-auto border-t border-white/10 px-2 py-1.5 sm:hidden">
+          {NAV.map((n) => (
+            <Link key={n.href} href={n.href} className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[13px] whitespace-nowrap text-white/75 hover:bg-white/10 hover:text-white">
+              <n.icon className="size-3.5" />
+              {n.label}
+            </Link>
+          ))}
+          {plan ? <span className="ml-auto shrink-0 pr-2 text-[11px] whitespace-nowrap text-white/50">{plan.name} 플랜</span> : null}
+        </nav>
       </header>
       <main className="flex flex-1 flex-col">{children}</main>
     </div>

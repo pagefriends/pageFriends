@@ -34,6 +34,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </form>
           </div>
         </div>
+        <nav className="flex items-center gap-1 border-t border-white/10 px-2 py-1.5 sm:hidden">
+          <Link href="/admin" className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[13px] whitespace-nowrap text-white/75 hover:bg-white/10 hover:text-white">
+            <InboxIcon className="size-3.5" /> 수정 요청
+          </Link>
+          <Link href="/dashboard" className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[13px] whitespace-nowrap text-white/75 hover:bg-white/10 hover:text-white">
+            <LayoutGridIcon className="size-3.5" /> 사용자 화면
+          </Link>
+        </nav>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
     </div>

@@ -40,7 +40,7 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
 
 const FAQ = [
   {
-    q: "주간 요청 횟수를 다 쓰면 어떻게 되나요?",
+    q: "AI 토큰이나 전문가 요청 횟수를 다 쓰면 어떻게 되나요?",
     a: `추가 크레딧을 구매해 이어갈 수 있습니다. ${REQUEST_KIND_LABEL.ai} ${formatKrw(CREDIT_PACKS[0].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[0])}) · ${formatKrw(CREDIT_PACKS[1].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[1])}), ${REQUEST_KIND_LABEL.expert} ${formatKrw(CREDIT_PACKS[2].priceKrw)}(1회) · ${formatKrw(CREDIT_PACKS[3].priceKrw)}(10회). 크레딧은 만료되지 않습니다. 우리 쪽 오류를 신고하는 '오류 신고'는 무료입니다.`,
   },
   {
@@ -63,13 +63,13 @@ export default function PricingPage() {
       <section className="bg-night-950 text-white">
         <div className="mx-auto max-w-7xl px-5 pb-16 pt-16 sm:px-8 lg:pt-24">
           <p className="eyebrow text-sky-400">투명한 요금</p>
-          <h1 className="display mt-4 max-w-4xl text-[44px] sm:text-6xl">
+          <h1 className="display mt-4 max-w-4xl text-4xl sm:text-6xl">
             플랜은 4개.
             <br />
             숨은 비용은 없습니다.
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-white/70">
-            모든 플랜은 월 단위이고 언제든 상위 플랜으로 바꿀 수 있습니다. 주간 요청 한도를 넘는 건은 건당 추가 결제로 이어갑니다.
+            모든 플랜은 월 단위이고 언제든 상위 플랜으로 바꿀 수 있습니다. AI 는 실제 사용한 토큰만큼만 차감되고, 한도를 넘으면 크레딧으로 이어갑니다.
           </p>
           <div className="mt-12">
             <PlanGrid tone="dark" ctaHref={(code) => `/signup?plan=${code}`} />
@@ -103,14 +103,14 @@ export default function PricingPage() {
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 sm:px-8 lg:grid-cols-2">
           <div>
             <p className="eyebrow text-brand-600">추가 크레딧</p>
-            <h2 className="display mt-3 text-3xl">한도를 넘으면 건당</h2>
+            <h2 className="display mt-3 text-3xl">한도를 넘으면 추가로</h2>
             <p className="mt-2 text-sm text-ink-500">플랜 한도를 넘는 사용은 크레딧에서 차감됩니다. 만료 없음. AI 는 토큰, 전문가는 횟수 단위입니다.</p>
             <div className="mt-6 overflow-hidden rounded-2xl border border-ink-200 bg-white">
               <table className="w-full text-sm">
                 <thead className="bg-ink-50 text-left text-xs text-ink-500">
                   <tr>
                     <th className="px-5 py-2.5 font-medium">종류</th>
-                    <th className="px-5 py-2.5 font-medium">횟수</th>
+                    <th className="px-5 py-2.5 font-medium">수량</th>
                     <th className="px-5 py-2.5 text-right font-medium">가격</th>
                   </tr>
                 </thead>

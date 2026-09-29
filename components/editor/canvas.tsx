@@ -356,7 +356,7 @@ function ToolButton({ active, className, ...props }: React.ButtonHTMLAttributes<
   return (
     <button
       type="button"
-      className={cn("inline-flex h-8 items-center gap-1.5 rounded-sm px-2 text-[13px] font-medium", active ? "bg-sky-400 text-night-950" : "text-ink-700 hover:bg-ink-100", className)}
+      className={cn("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-sm px-2 text-[13px] font-medium whitespace-nowrap", active ? "bg-sky-400 text-night-950" : "text-ink-700 hover:bg-ink-100", className)}
       {...props}
     />
   );

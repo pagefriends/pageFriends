@@ -33,7 +33,7 @@ export async function SiteHeader() {
             </Link>
           ) : (
             <>
-              <Link href="/login" className="hidden text-[14px] text-white/80 hover:text-white sm:inline">
+              <Link href="/login" className="text-[14px] whitespace-nowrap text-white/80 hover:text-white">
                 로그인
               </Link>
               <Link href="/signup" className={buttonClass("primary", "sm")}>
@@ -43,6 +43,14 @@ export async function SiteHeader() {
           )}
         </div>
       </div>
+      {/* 모바일: 링크를 두 번째 줄로 (햄버거 메뉴 대신 항상 보이게) */}
+      <nav className="flex items-center gap-5 overflow-x-auto border-t border-white/10 px-5 py-2 text-[13px] text-white/80 md:hidden">
+        {NAV.map((n) => (
+          <Link key={n.href} href={n.href} className="shrink-0 whitespace-nowrap hover:text-white">
+            {n.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
