@@ -91,12 +91,21 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
         <div>
           <h2 className="text-lg font-semibold">사용량 · 크레딧</h2>
           <div className="mt-3 overflow-hidden rounded-md border border-ink-200 bg-surface text-sm">
-            <TokenUsage q={quota.ai} />
+            {plan ? (
+              <TokenUsage q={quota.ai} />
+            ) : (
+              <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
+                <span>AI 토큰</span>
+                <span className="text-ink-500">
+                  플랜 선택 후 시작{quota.ai.credits > 0 ? <span className="ml-3 text-ink-400">크레딧 {formatTokens(quota.ai.credits)}</span> : null}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between px-4 py-3">
               <span>{REQUEST_KIND_LABEL.expert}</span>
               <span className="tabular-nums text-ink-700">
-                {quota.expert.weekly === null ? "이번 주 무제한" : `이번 주 ${quota.expert.used} / ${quota.expert.weekly}회`}
-                <span className="ml-3 text-ink-400">크레딧 {quota.expert.credits}회</span>
+                {!plan ? <span className="text-ink-500">플랜 선택 후 시작</span> : quota.expert.weekly === null ? "이번 주 무제한" : `이번 주 ${quota.expert.used} / ${quota.expert.weekly}회`}
+                {plan || quota.expert.credits > 0 ? <span className="ml-3 text-ink-400">크레딧 {quota.expert.credits}회</span> : null}
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-ink-100 px-4 py-3">

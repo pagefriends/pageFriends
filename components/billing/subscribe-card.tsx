@@ -76,15 +76,22 @@ export function SubscribeCard({
     }
   }
 
+  const isChange = Boolean(currentPlan && currentPlan !== planCode);
+
   return (
     <div className="rounded-md border border-brand-600 bg-surface p-5 ring-1 ring-brand-600">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{plan.name} 플랜 시작</h2>
+        <h2 className="text-lg font-semibold">{isChange ? `${PLAN_BY_CODE[currentPlan!].name} → ${plan.name} 플랜으로 변경` : `${plan.name} 플랜 시작`}</h2>
         {currentPlan === planCode ? <Badge tone="dark">현재 플랜</Badge> : null}
       </div>
       <p className="mt-1 text-sm text-ink-500">
         {plan.tagline} · {plan.devices.map((d) => DEVICE_LABEL[d]).join(" · ")} 대응
       </p>
+      {isChange ? (
+        <Alert tone="gray" className="mt-3 text-xs">
+          지금 결제하면 새 플랜 요금이 바로 청구되고 결제 기간이 오늘부터 다시 시작됩니다. 기존 {PLAN_BY_CODE[currentPlan!].name} 플랜의 남은 기간은 이월되지 않습니다.
+        </Alert>
+      ) : null}
 
       {planCode === "business" ? (
         <label className="mt-4 flex cursor-pointer items-start gap-3 rounded border border-ink-200 p-3">

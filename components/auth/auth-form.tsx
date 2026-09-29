@@ -59,7 +59,13 @@ export function AuthForm({ mode, next, plan }: { mode: "login" | "signup"; next?
           ? "이메일 또는 비밀번호가 올바르지 않습니다."
           : msg.includes("already registered")
             ? "이미 가입된 이메일입니다."
-            : msg,
+            : msg.includes("is invalid")
+              ? "이메일 주소를 확인하세요. 실제로 받을 수 있는 메일 주소여야 합니다."
+              : msg.includes("Password should")
+                ? "비밀번호는 8자 이상이어야 합니다."
+                : msg.includes("rate limit") || msg.includes("Too many")
+                  ? "잠시 후 다시 시도하세요."
+                  : msg,
       );
     } finally {
       setBusy(false);
