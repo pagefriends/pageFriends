@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient></defs>
+<rect width="320" height="120" fill="url(#g)"/>
+<circle cx="117" cy="55" r="58" fill="#ffffff" opacity="0.05"/>
+<circle cx="236" cy="63" r="26" fill="#ffffff" opacity="0.11"/>
+<circle cx="38" cy="18" r="34" fill="#ffffff" opacity="0.05"/>
+<circle cx="111" cy="68" r="20" fill="#ffffff" opacity="0.06"/>
+<circle cx="286" cy="26" r="25" fill="#ffffff" opacity="0.10"/>
+<circle cx="24" cy="72" r="44" fill="#ffffff" opacity="0.04"/>
+<text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="Pretendard, Arial, sans-serif" font-weight="800" font-size="50" fill="#ffffff" opacity="0.9">LOGO 5</text>
+</svg>

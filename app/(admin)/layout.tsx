@@ -1,4 +1,4 @@
-import { InboxIcon, LayoutGridIcon, LogOutIcon } from "lucide-react";
+import { InboxIcon, LayoutGridIcon, LogOutIcon, MailIcon } from "lucide-react";
 import Link from "next/link";
 
 import { Logo } from "@/components/site/logo";
@@ -20,6 +20,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link href="/admin" className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[13px] text-white/75 hover:bg-white/10 hover:text-white">
                 <InboxIcon className="size-3.5" /> 수정 요청
               </Link>
+              <Link href="/admin/inquiries" className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[13px] text-white/75 hover:bg-white/10 hover:text-white">
+                <MailIcon className="size-3.5" /> 문의
+              </Link>
               <Link href="/dashboard" className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[13px] text-white/75 hover:bg-white/10 hover:text-white">
                 <LayoutGridIcon className="size-3.5" /> 사용자 화면
               </Link>
@@ -37,6 +40,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <nav className="flex items-center gap-1 border-t border-white/10 px-2 py-1.5 sm:hidden">
           <Link href="/admin" className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[13px] whitespace-nowrap text-white/75 hover:bg-white/10 hover:text-white">
             <InboxIcon className="size-3.5" /> 수정 요청
+          </Link>
+          <Link href="/admin/inquiries" className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[13px] whitespace-nowrap text-white/75 hover:bg-white/10 hover:text-white">
+            <MailIcon className="size-3.5" /> 문의
           </Link>
           <Link href="/dashboard" className="flex items-center gap-1.5 rounded px-2.5 py-1 text-[13px] whitespace-nowrap text-white/75 hover:bg-white/10 hover:text-white">
             <LayoutGridIcon className="size-3.5" /> 사용자 화면

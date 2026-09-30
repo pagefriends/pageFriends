@@ -129,3 +129,21 @@ export type PaymentRow = {
   created_at: string;
   paid_at: string | null;
 };
+
+/** supabase/migrations/0005_inquiries.sql — 공개 사이트 폼 접수 (상담 · 뉴스레터 · 전문가 지원 · 문의) */
+export type InquiryKind = "consultation" | "newsletter" | "application" | "contact";
+export type InquiryStatus = "new" | "contacted" | "closed";
+
+export type InquiryRow = {
+  id: string;
+  kind: InquiryKind;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  company: string | null;
+  message: string | null;
+  /** 폼별 추가 항목: 상담(siteType · budget · urgency), 지원(role · portfolio · experience) */
+  payload: Record<string, unknown>;
+  status: InquiryStatus;
+  created_at: string;
+};

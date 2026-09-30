@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getPlan } from "@/config/plans";
@@ -90,4 +91,28 @@ export async function updateProjectStatusAction(projectId: string, status: strin
   if (error) return { error: error.message };
   revalidatePath("/admin");
   return { ok: true, message: "프로젝트 상태를 변경했습니다." };
+}
+
+/**
+ * 문의(inquiries) 상태 변경. 서버 컴포넌트의 <form action> 에서 직접 쓰므로 반환값 대신 리다이렉트로 결과를 알린다.
+ * 폼: hidden id + select status (+ 현재 목록 필터 유지용 hidden kind).
+ */
+export async function updateInquiryStatusAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const parsed = z
+    .object({ id: z.uuid(), status: z.enum(["new", "contacted", "closed"]), kind: z.string().max(20).default("") })
+    .safeParse({ id: formData.get("id"), status: formData.get("status"), kind: formData.get("kind") ?? "" });
+  const back = (patch: Record<string, string>) => {
+    const q = new URLSearchParams();
+    if (parsed.success && parsed.data.kind) q.set("kind", parsed.data.kind);
+    for (const [k, v] of Object.entries(patch)) q.set(k, v);
+    return `/admin/inquiries?${q.toString()}`;
+  };
+  if (!parsed.success) redirect(back({ error: "잘못된 요청입니다." }));
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_update_inquiry", { p_id: parsed.data.id, p_status: parsed.data.status });
+  if (error) redirect(back({ error: error.message.includes("FORBIDDEN") ? "관리자 권한이 없습니다." : error.message }));
+  revalidatePath("/admin/inquiries");
+  redirect(back({ ok: "1" }));
 }

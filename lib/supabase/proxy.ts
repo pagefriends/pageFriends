@@ -4,7 +4,39 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getClientEnv } from "@/lib/env";
 
 /** 비로그인으로 열 수 있는 경로. 접두어 매칭. 웹훅은 포트원 서버가 호출하므로 세션이 없다(서명 검증은 라우트가 한다). */
-export const PUBLIC_PATHS = ["/", "/templates", "/pricing", "/demo", "/login", "/signup", "/auth", "/api/webhooks", "/samples"] as const;
+export const PUBLIC_PATHS = [
+  "/",
+  "/templates",
+  "/pricing",
+  "/demo",
+  "/login",
+  "/signup",
+  "/auth",
+  "/api/webhooks",
+  "/samples",
+  "/placeholders",
+  // 공개 마케팅 페이지 (디자인 피클 구조)
+  "/solutions",
+  "/platform",
+  "/how-it-works",
+  "/comparison",
+  "/our-work",
+  "/customer-stories",
+  "/blog",
+  "/resources",
+  "/about",
+  "/our-people",
+  "/careers",
+  "/creative-application",
+  "/live-chat",
+  "/consultation",
+  "/help",
+  "/terms",
+  "/privacy",
+  "/status",
+  "/api-docs",
+  "/search",
+] as const;
 const AUTH_ONLY_PATHS = ["/login", "/signup"] as const;
 
 export function isPublicPath(pathname: string): boolean {

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="700" viewBox="0 0 1800 700">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#182440"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
+<rect width="1800" height="700" fill="url(#g)"/>
+<circle cx="1468" cy="631" r="155" fill="#ffffff" opacity="0.06"/>
+<circle cx="1690" cy="202" r="303" fill="#ffffff" opacity="0.10"/>
+<circle cx="1217" cy="531" r="332" fill="#ffffff" opacity="0.10"/>
+<circle cx="1024" cy="495" r="111" fill="#ffffff" opacity="0.09"/>
+<circle cx="1024" cy="576" r="211" fill="#ffffff" opacity="0.11"/>
+<circle cx="1062" cy="223" r="155" fill="#ffffff" opacity="0.10"/>
+<text x="72" y="665" font-family="Pretendard, Arial, sans-serif" font-weight="600" font-size="42" fill="#ffffff" opacity="0.55">banner 03</text>
+</svg>

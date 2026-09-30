@@ -20,7 +20,7 @@ Supabase 없이도 볼 수 있는 화면: `/` 메인, `/pricing` 요금제, `/de
 ## 2. Supabase 설정
 
 1. 프로젝트 생성 → Settings > API 에서 URL, anon key, service_role key 를 `.env.local` 에 넣는다.
-2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
+2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` → `0005_inquiries.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
 3. Authentication > Providers
    - Email: 켜기. 로컬 테스트는 "Confirm email" 을 꺼야 가입 즉시 로그인된다.
    - Google: Client ID/Secret 입력. Google Cloud 콘솔의 승인된 리디렉션 URI 에 `https://<ref>.supabase.co/auth/v1/callback` 추가.
@@ -105,3 +105,14 @@ scripts/gen-samples.mjs 샘플 캡처 SVG 생성 (public/samples, config/samples
 
 - 실제 AI 사이트 생성·캡처 파이프라인: 지금은 `project_pages.screenshots` 에 샘플 SVG 를 넣는다. 실제 캡처 URL 과 크기만 넣으면 편집기는 그대로 동작한다.
 - 결제 실패·해지 알림 메일: 지금은 결제 페이지 배너로만 알린다.
+
+## 공개 사이트 (디자인 피클 구조)
+
+공개 페이지는 designpickle.com 의 정보 구조를 페이지 단위로 그대로 옮겼다 (헤더 메가메뉴 · 푸터 · 홈 · 플랫폼 · 요금제 · 이용 방법 · 비교 · 솔루션 14종 · 작업 사례 · 고객 사례 · 블로그 · 리소스 · 회사 소개 · 팀 · 채용 · 전문가 지원 · 실시간 채팅 · 상담 신청 · 도움말 · 약관 · 검색).
+
+- 콘텐츠는 `content/site.ts` 한 곳에 있다. 내비 · 푸터 · 솔루션 · 후기 · 사례 · 글 · 팀 · 채용 · FAQ 전부.
+- 사진은 전부 임시다. `node scripts/gen-placeholders.mjs` 가 `public/placeholders/*.svg` 와 `config/placeholders.json` 을 만든다. 실제 사진이 오면 같은 파일명으로 바꿔 끼우거나 `content/site.ts` 의 `ph()` 자리를 실제 경로로 바꾼다.
+- 후기 · 고객 사례 · 블로그 글 · 팀 · 채용 공고는 `sample: true` 샘플이며 화면에 "샘플" 표시가 붙는다. 실제 콘텐츠로 교체해야 한다. 지어낸 실적 수치(고객 수 · 매출)는 넣지 않았다.
+- 상담 신청 · 뉴스레터 · 전문가 지원 · 문의 폼은 `app/actions/inquiries.ts` → `inquiries` 테이블(0005). 관리자 화면 `/admin/inquiries` 에서 본다.
+- 섹션 부품은 `components/marketing/primitives.tsx`(서버) · `interactive.tsx`(클라이언트). 헤더는 `components/site/nav.tsx`(메가메뉴 · 검색 · 모바일 드로어).
+

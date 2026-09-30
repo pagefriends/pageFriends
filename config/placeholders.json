@@ -1,0 +1,436 @@
+{
+  "wide": [
+    {
+      "src": "/placeholders/wide-01.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-02.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-03.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-04.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-05.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-06.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-07.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-08.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-09.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-10.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-11.svg",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/wide-12.svg",
+      "width": 1600,
+      "height": 900
+    }
+  ],
+  "photo": [
+    {
+      "src": "/placeholders/photo-01.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-02.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-03.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-04.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-05.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-06.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-07.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-08.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-09.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-10.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-11.svg",
+      "width": 1200,
+      "height": 900
+    },
+    {
+      "src": "/placeholders/photo-12.svg",
+      "width": 1200,
+      "height": 900
+    }
+  ],
+  "square": [
+    {
+      "src": "/placeholders/square-01.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-02.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-03.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-04.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-05.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-06.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-07.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-08.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-09.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-10.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-11.svg",
+      "width": 1000,
+      "height": 1000
+    },
+    {
+      "src": "/placeholders/square-12.svg",
+      "width": 1000,
+      "height": 1000
+    }
+  ],
+  "tall": [
+    {
+      "src": "/placeholders/tall-01.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-02.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-03.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-04.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-05.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-06.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-07.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-08.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-09.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-10.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-11.svg",
+      "width": 900,
+      "height": 1200
+    },
+    {
+      "src": "/placeholders/tall-12.svg",
+      "width": 900,
+      "height": 1200
+    }
+  ],
+  "banner": [
+    {
+      "src": "/placeholders/banner-01.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-02.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-03.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-04.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-05.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-06.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-07.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-08.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-09.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-10.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-11.svg",
+      "width": 1800,
+      "height": 700
+    },
+    {
+      "src": "/placeholders/banner-12.svg",
+      "width": 1800,
+      "height": 700
+    }
+  ],
+  "avatar": [
+    {
+      "src": "/placeholders/avatar-01.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-02.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-03.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-04.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-05.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-06.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-07.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-08.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-09.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-10.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-11.svg",
+      "width": 400,
+      "height": 400
+    },
+    {
+      "src": "/placeholders/avatar-12.svg",
+      "width": 400,
+      "height": 400
+    }
+  ],
+  "logo": [
+    {
+      "src": "/placeholders/logo-01.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-02.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-03.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-04.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-05.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-06.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-07.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-08.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-09.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-10.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-11.svg",
+      "width": 320,
+      "height": 120
+    },
+    {
+      "src": "/placeholders/logo-12.svg",
+      "width": 320,
+      "height": 120
+    }
+  ]
+}
