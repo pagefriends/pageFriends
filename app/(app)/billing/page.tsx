@@ -95,7 +95,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
               <TokenUsage q={quota.ai} />
             ) : (
               <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
-                <span>AI 토큰</span>
+                <span>토큰</span>
                 <span className="text-ink-500">
                   플랜 선택 후 시작{quota.ai.credits > 0 ? <span className="ml-3 text-ink-400">크레딧 {formatTokens(quota.ai.credits)}</span> : null}
                 </span>
@@ -114,7 +114,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
             </div>
           </div>
           <p className="mt-2 text-xs text-ink-500">
-            AI 토큰은 요청이 처리될 때 실제 사용량만큼 차감되며 결제 기간마다 초기화됩니다 (요청 1건 ≈ {formatTokens(APPROX_TOKENS_PER_AI_REQUEST)} 토큰). 전문가 한도는
+            토큰은 요청이 처리될 때 실제 사용량만큼 차감되며 결제 기간마다 초기화됩니다 (요청 1건 ≈ {formatTokens(APPROX_TOKENS_PER_AI_REQUEST)} 토큰). 전문가 한도는
             매주 월요일에 초기화됩니다. 크레딧은 한도를 넘는 사용에만 차감되며 만료되지 않습니다.
           </p>
         </div>
@@ -185,7 +185,7 @@ function TokenUsage({ q }: { q: { monthly: number | null; used: number; credits:
   return (
     <div className="border-b border-ink-100 px-4 py-3">
       <div className="flex items-center justify-between">
-        <span>AI 토큰</span>
+        <span>토큰</span>
         <span className="tabular-nums text-ink-700">
           {q.monthly === null ? "이번 달 무제한" : `${formatTokens(q.used)} / ${formatTokens(q.monthly)}`}
           <span className="ml-3 text-ink-400">크레딧 {formatTokens(q.credits)}</span>

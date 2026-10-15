@@ -1,17 +1,34 @@
 "use client";
 
-import { LoaderCircleIcon, SendIcon, Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, ImageIcon, LoaderCircleIcon, SendIcon, SparklesIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { DraftBox } from "@/components/editor/types";
+import type { DraftBox, EditorSlot, ExistingRequest } from "@/components/editor/types";
 import { Button } from "@/components/ui/button";
-import { Alert } from "@/components/ui/card";
+import { Alert, Badge } from "@/components/ui/card";
 import { Select, Textarea } from "@/components/ui/input";
-import { REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
+import { APPROX_TOKENS_PER_IMAGE, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
+import { REQUEST_STATUS } from "@/config/requests";
 import type { QuotaInfo } from "@/lib/quota";
+import { RATIO_SHAPE, RATIO_SIZE } from "@/lib/site-plan";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
+
+/** 오른쪽 "이미지 자리" 목록의 한 줄: 자리 설명 + 이 화면에 위치가 있는지 + 그 자리에 보낸 요청 + 이미 그린 초안 네모 */
+export type PanelSlot = { slot: EditorSlot; located: boolean; request: ExistingRequest | null; drafted: boolean };
+
+function slotStatus(item: PanelSlot): { label: string; tone: "blue" | "sky" | "gray" | "dark" } {
+  const r = item.request;
+  if (r) {
+    if (r.status === "done") return { label: "반영 완료", tone: "sky" };
+    if (r.status === "processing") return { label: r.kind === "ai" ? "AI 생성 중" : "처리 중", tone: "blue" };
+    return { label: r.kind === "ai" ? "AI 생성 접수" : "요청 접수", tone: "blue" };
+  }
+  // 위저드에서 AI 로 만들기로 골랐어도 요청이 없으면(접수 실패·반영 불가) 다시 요청할 수 있게 빈 자리로 본다
+  if (item.slot.source === "real") return { label: "실제 사진 필요", tone: "dark" };
+  return { label: "이미지 필요", tone: "gray" };
+}
 
 const PLACEHOLDER: Record<RequestKind, string> = {
   ai: "예: 폰트 크기가 조금 커요. 글자 색을 조금 더 밝게 해주세요.",
@@ -24,9 +41,14 @@ const PLACEHOLDER: Record<RequestKind, string> = {
  *
  * 네모와 요청은 1:1 이다: 캔버스의 N번 빨간 네모 = 이 목록의 N번 카드. 카드에 마우스를 올리면 캔버스의 네모가,
  * 네모에 올리면 카드가 같이 강조되어 어느 요청이 어느 영역인지 헷갈리지 않는다.
+ *
+ * 그 아래 "보낸 요청" 은 이 화면에서 이미 보내 아직 진행 중인 요청(캔버스의 파란 네모)이다. 상태와 담당자의 마지막 글이
+ * 보이고, 대화는 요청 내역 화면에서 이어 간다. 빨간 초안과 섞이지 않게 번호 칩도 파란색으로 그린다.
  */
 export function RequestPanel({
   drafts,
+  sent,
+  requestsHref,
   selectedId,
   hoveredId,
   onSelect,
@@ -41,8 +63,17 @@ export function RequestPanel({
   onSubmit,
   error,
   demo,
+  slots = [],
+  hoveredSlot = null,
+  onSlotHover,
+  onSlotFocus,
+  onSlotAi,
 }: {
   drafts: DraftBox[];
+  /** 이 페이지·디바이스에서 이미 보낸, 아직 진행 중인 요청 */
+  sent: ExistingRequest[];
+  /** 요청 내역 화면 주소. 체험 모드에서는 null (대화로 가는 링크를 숨긴다) */
+  requestsHref: string | null;
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string | null) => void;
@@ -58,8 +89,18 @@ export function RequestPanel({
   onSubmit: () => void;
   error: string | null;
   demo?: boolean;
+  /** 이 페이지의 이미지 자리 (구성 초안으로 만든 사이트만) */
+  slots?: PanelSlot[];
+  hoveredSlot?: string | null;
+  onSlotHover?: (id: string | null) => void;
+  /** 캔버스를 그 자리로 옮긴다 */
+  onSlotFocus?: (id: string) => void;
+  /** 그 자리에 AI 반영 네모를 만들고 요청 글을 채운다 */
+  onSlotAi?: (id: string) => void;
 }) {
   const refs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const [slotsOpen, setSlotsOpen] = useState(true);
+  const emptySlots = slots.filter((i) => !i.request).length;
   const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   // 네모를 새로 그리거나 캔버스에서 고르면 그 카드로 스크롤 + 입력칸 포커스
@@ -86,6 +127,69 @@ export function RequestPanel({
       </div>
 
       <div className="max-h-[50vh] overflow-y-auto px-4 py-3 lg:max-h-none lg:flex-1">
+        {slots.length > 0 ? (
+          <section className="mb-4 rounded border border-ink-200">
+            <button type="button" onClick={() => setSlotsOpen(!slotsOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold" aria-expanded={slotsOpen}>
+              <span className="inline-flex items-center gap-1.5">
+                <ImageIcon className="size-3.5 text-ink-500" /> 이 페이지의 이미지 자리 {slots.length}곳
+                {emptySlots > 0 ? <span className="font-normal text-ink-500">· 비어 있음 {emptySlots}</span> : null}
+              </span>
+              <ChevronDownIcon className={cn("size-3.5 shrink-0 text-ink-500 transition-transform", slotsOpen && "rotate-180")} />
+            </button>
+            {slotsOpen ? (
+              <ul className="divide-y divide-ink-100 border-t border-ink-100">
+                {slots.map((item) => {
+                  const st = slotStatus(item);
+                  const s = item.slot;
+                  return (
+                    <li
+                      key={s.id}
+                      onMouseEnter={() => onSlotHover?.(s.id)}
+                      onMouseLeave={() => onSlotHover?.(null)}
+                      onClick={() => item.located && onSlotFocus?.(s.id)}
+                      className={cn("px-3 py-2.5 text-xs transition-colors", item.located && "cursor-pointer", hoveredSlot === s.id && "bg-sky-50")}
+                      title={item.located ? "누르면 캔버스에서 이 자리로 이동해요" : undefined}
+                    >
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge tone={st.tone}>{st.label}</Badge>
+                        <span className="text-[13px] font-semibold text-ink-900">{s.label}</span>
+                        {s.count > 1 ? <span className="text-ink-500">{s.count}장</span> : null}
+                      </div>
+                      <p className="mt-1 leading-relaxed text-ink-700">{s.need}</p>
+                      <p className="mt-0.5 text-ink-400">
+                        권장 {RATIO_SIZE[s.ratio]} · {RATIO_SHAPE[s.ratio]}
+                      </p>
+                      {item.request ? (
+                        requestsHref ? (
+                          <Link href={`${requestsHref}#r-${item.request.id}`} onClick={(e) => e.stopPropagation()} className="mt-1.5 inline-block font-medium text-brand-600 hover:underline">
+                            요청 내역에서 보기 →
+                          </Link>
+                        ) : null
+                      ) : s.source === "real" ? (
+                        <p className="mt-1.5 text-ink-500">실제 사진이 필요해요. 사진이 준비되면 이 자리에 빨간 네모를 그려 알려 주세요.</p>
+                      ) : item.drafted ? (
+                        <p className="mt-1.5 font-medium text-mark">네모를 만들었어요 — 요청 목록에서 글을 확인하고 요청하기를 누르세요.</p>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={!item.located}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSlotAi?.(s.id);
+                          }}
+                          className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-brand-300 px-2.5 py-1 font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <SparklesIcon className="size-3" /> AI로 만들기 · 약 {formatTokens(APPROX_TOKENS_PER_IMAGE)} 토큰
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
+
         {drafts.length === 0 ? (
           <div className="rounded border border-dashed border-ink-300 p-4 text-center text-xs text-ink-500">
             이 화면에 그린 네모가 없습니다.
@@ -159,6 +263,51 @@ export function RequestPanel({
             })}
           </ol>
         )}
+
+        {sent.length > 0 ? (
+          <div className="mt-4">
+            <p className="mb-1.5 flex items-center justify-between text-[11px] font-semibold text-ink-400">
+              <span>보낸 요청 · 파란 네모 {sent.length}건</span>
+              {requestsHref ? (
+                <Link href={requestsHref} className="font-medium text-brand-600 hover:underline">
+                  전체 내역
+                </Link>
+              ) : null}
+            </p>
+            <ul className="flex flex-col gap-2">
+              {sent.map((r) => (
+                <li
+                  key={r.id}
+                  onMouseEnter={() => onHover(r.id)}
+                  onMouseLeave={() => onHover(null)}
+                  className={cn("rounded border p-2.5 text-xs transition-colors", hoveredId === r.id ? "border-brand-500" : "border-ink-200")}
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="grid h-5 min-w-5 place-items-center bg-brand-500 px-1 text-[11px] font-semibold text-white">#{r.seq}</span>
+                    <span className="text-ink-500">{REQUEST_KIND_LABEL[r.kind]}</span>
+                    <span className="font-medium text-ink-700">{REQUEST_STATUS[r.status].label}</span>
+                    {r.awaiting ? (
+                      <span className="rounded-sm bg-sky-400 px-1 text-[10px] leading-4 font-semibold text-night-950">확인 필요</span>
+                    ) : r.unread ? (
+                      <span className="rounded-sm bg-sky-400 px-1 text-[10px] leading-4 font-semibold text-night-950">새 답변</span>
+                    ) : null}
+                  </div>
+                  {r.message ? <p className="mt-1.5 line-clamp-2 text-[13px] text-ink-900">{r.message}</p> : null}
+                  {r.lastReply ? (
+                    <p className="mt-1 line-clamp-2 text-ink-500">
+                      <span className="font-medium text-ink-700">담당자</span> {r.lastReply}
+                    </p>
+                  ) : null}
+                  {requestsHref ? (
+                    <Link href={`${requestsHref}#r-${r.id}`} className="mt-1.5 inline-block font-medium text-brand-600 hover:underline">
+                      {r.awaiting ? "답글 쓰러 가기" : "대화 열기"} →
+                    </Link>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       <div className="border-t border-ink-100 px-4 py-3">
@@ -193,7 +342,7 @@ export function RequestPanel({
         ) : null}
         {aiBlocked ? (
           <Alert tone="red" className="mt-3 text-xs">
-            이번 달 AI 토큰을 모두 썼습니다. AI 반영 {counts.ai}건을 보내려면{" "}
+            이번 달 토큰을 모두 썼습니다. AI 반영 {counts.ai}건을 보내려면{" "}
             <Link href="/billing#credits" className="font-medium underline">
               토큰 크레딧
             </Link>
@@ -219,7 +368,7 @@ export function RequestPanel({
 
         <Button className="mt-3 w-full" size="lg" disabled={!canSubmit || submitting} onClick={onSubmit}>
           {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : <SendIcon className="size-4" />}
-          한번에 요청하기{totalCount > 0 ? ` (${totalCount}건)` : ""}
+          요청하기{totalCount > 0 ? ` (${totalCount}건)` : ""}
         </Button>
         {totalCount > drafts.length ? <p className="mt-1.5 text-center text-[11px] text-ink-500">다른 페이지·화면의 네모 {totalCount - drafts.length}건도 함께 보냅니다.</p> : null}
       </div>
@@ -234,7 +383,7 @@ function TokenLine({ q, pending }: { q: QuotaInfo["ai"]; pending: number }) {
     <div>
       <div className="flex items-center justify-between text-xs">
         <span className="text-ink-500">
-          AI 토큰{pending > 0 ? <span className="ml-1 text-ink-400">· 대기 {pending}건</span> : null}
+          토큰{pending > 0 ? <span className="ml-1 text-ink-400">· 대기 {pending}건</span> : null}
         </span>
         <span className="tabular-nums text-ink-700">
           {q.monthly === null ? "이번 달 무제한" : `이번 달 ${formatTokens(q.used)} / ${formatTokens(q.monthly)}`}

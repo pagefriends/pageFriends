@@ -38,7 +38,7 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
     group: "결제 · 운영",
     items: [
       { title: "월 단위 결제", body: "포트원(토스페이먼츠) 카드 자동 결제. 언제든 해지." },
-      { title: "추가 크레딧", body: "AI 토큰·전문가 횟수를 다 쓰면 추가 구매. 만료 없음. 오류 신고는 무료." },
+      { title: "추가 크레딧", body: "토큰·전문가 횟수를 다 쓰면 추가 구매. 만료 없음. 오류 신고는 무료." },
       { title: "결제 시스템 옵션", body: `비즈니스 플랜에서 선택. 첫 달 ${formatKrw(BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW)}.` },
       { title: "플랜 변경", body: "규모가 커지면 상위 플랜으로 바로 전환." },
     ],
@@ -56,7 +56,7 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
 
 const FAQ = [
   {
-    q: "AI 토큰이나 전문가 요청 횟수를 다 쓰면 어떻게 되나요?",
+    q: "토큰이나 전문가 요청 횟수를 다 쓰면 어떻게 되나요?",
     a: `추가 크레딧을 구매해 이어갈 수 있습니다. ${REQUEST_KIND_LABEL.ai} ${formatKrw(CREDIT_PACKS[0].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[0])}) · ${formatKrw(CREDIT_PACKS[1].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[1])}), ${REQUEST_KIND_LABEL.expert} ${formatKrw(CREDIT_PACKS[2].priceKrw)}(1회) · ${formatKrw(CREDIT_PACKS[3].priceKrw)}(10회). 크레딧은 만료되지 않습니다. 우리 쪽 오류를 신고하는 '오류 신고'는 무료입니다.`,
   },
   {

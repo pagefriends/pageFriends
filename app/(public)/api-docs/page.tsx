@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "API 문서" };
 const ENDPOINTS = [
   { method: "GET", path: "/api/v1/projects", desc: "내 사이트(프로젝트) 목록과 제작 상태" },
   { method: "POST", path: "/api/v1/projects/{id}/requests", desc: "수정 요청 보내기 (페이지 · 디바이스 · 영역 · 종류 · 내용)" },
-  { method: "GET", path: "/api/v1/usage", desc: "이번 결제 기간의 AI 토큰 · 전문가 요청 사용량과 크레딧 잔액" },
+  { method: "GET", path: "/api/v1/usage", desc: "이번 결제 기간의 토큰 · 전문가 요청 사용량과 크레딧 잔액" },
 ];
 
 export default function ApiDocsPage() {

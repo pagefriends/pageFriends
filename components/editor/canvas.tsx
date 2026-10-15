@@ -1,7 +1,7 @@
 "use client";
 
 import { HandIcon, MaximizeIcon, MinusIcon, PlusIcon, SquareIcon } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 
 import type { DraftBox, ExistingRequest } from "@/components/editor/types";
 import { REQUEST_KIND_SHORT } from "@/config/plans";
@@ -27,6 +27,11 @@ const MAX_ZOOM = 5;
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
 type Handle = (typeof HANDLES)[number];
 
+/** 편집기가 캔버스에 시키는 일: 이미지 자리 목록에서 고른 자리로 화면을 옮긴다 */
+export type CanvasHandle = { focus: (rect: { x: number; y: number; w: number; h: number }) => void };
+/** 캔버스 위에 잠깐 강조할 영역 (이미지 자리 목록에 마우스를 올렸을 때). 캡처 픽셀 기준 */
+export type Highlight = { x: number; y: number; w: number; h: number };
+
 type Drag =
   | { type: "pan"; startX: number; startY: number; originX: number; originY: number }
   | { type: "draw"; id: string; startX: number; startY: number }
@@ -43,17 +48,21 @@ export function EditorCanvas({
   onSelect,
   onHover,
   defaultKind,
+  highlights = [],
+  ref,
 }: {
   screenshot: Screenshot;
   drafts: DraftBox[];
   existing: ExistingRequest[];
   selectedId: string | null;
-  /** 오른쪽 패널 카드에 마우스를 올린 네모 (같이 강조) */
+  /** 오른쪽 패널 카드에 마우스를 올린 네모 (같이 강조). 초안 네모와 보낸 요청 모두 */
   hoveredId: string | null;
   onDraftsChange: (next: DraftBox[]) => void;
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
   defaultKind: DraftBox["kind"];
+  highlights?: Highlight[];
+  ref?: React.Ref<CanvasHandle>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<Mode>("box");
@@ -99,6 +108,21 @@ export function EditorCanvas({
     const ratio = zoom / v.zoom;
     setView({ zoom, x: px - (px - v.x) * ratio, y: py - (py - v.y) * ratio });
   }, []);
+
+  // 이미지 자리로 이동: 자리가 화면 가운데 오게, 지금 배율로 넘치면 다 보이게 줄인다
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: (r) => {
+        const el = containerRef.current;
+        if (!el) return;
+        const v = viewRef.current;
+        const zoom = Math.max(MIN_ZOOM, Math.min(v.zoom, (el.clientWidth - 64) / r.w, (el.clientHeight - 64) / r.h));
+        setView({ zoom, x: el.clientWidth / 2 - (r.x + r.w / 2) * zoom, y: el.clientHeight / 2 - (r.y + r.h / 2) * zoom });
+      },
+    }),
+    [],
+  );
 
   // 휠 = 커서 기준 줌. React 의 onWheel 은 passive 라 preventDefault 가 안 먹으므로 네이티브로 등록한다.
   useEffect(() => {
@@ -250,28 +274,40 @@ export function EditorCanvas({
         {/* eslint-disable-next-line @next/next/no-img-element -- 캡처는 원본 픽셀 크기로 배치해야 좌표 계산이 맞는다 */}
         <img src={screenshot.url} width={screenshot.width} height={screenshot.height} alt="" draggable={false} className="block select-none" />
 
-        {/* 이미 접수된 요청: 파란 테두리, 조작 불가 */}
-        {existing.map((r) => (
+        {/* 이미지 자리 강조: 오른쪽 "이미지 자리" 목록에 마우스를 올린 자리 */}
+        {highlights.map((h, i) => (
           <div
-            key={r.id}
-            className="pointer-events-none absolute border-brand-500"
-            style={{
-              left: r.region.x * screenshot.width,
-              top: r.region.y * screenshot.height,
-              width: r.region.w * screenshot.width,
-              height: r.region.h * screenshot.height,
-              borderWidth: 2 * inv,
-              borderStyle: r.status === "processing" ? "dashed" : "solid",
-            }}
-          >
-            <span
-              className="absolute left-0 bg-brand-500 px-1 font-semibold whitespace-nowrap text-white"
-              style={{ top: -18 * inv, fontSize: 11 * inv, lineHeight: `${18 * inv}px`, paddingInline: 5 * inv, marginLeft: -2 * inv }}
-            >
-              {r.status === "processing" ? "처리중" : "접수"} #{r.seq}
-            </span>
-          </div>
+            key={`hl-${i}`}
+            className="pointer-events-none absolute border-sky-400 bg-sky-400/15"
+            style={{ left: h.x, top: h.y, width: h.w, height: h.h, borderWidth: 3 * inv, borderStyle: "solid" }}
+          />
         ))}
+
+        {/* 이미 접수된 요청: 파란 테두리, 조작 불가. 오른쪽 "보낸 요청" 카드에 마우스를 올리면 같이 강조된다 */}
+        {existing.map((r) => {
+          const hovered = r.id === hoveredId;
+          return (
+            <div
+              key={r.id}
+              className={cn("pointer-events-none absolute border-brand-500", hovered && "bg-brand-500/15")}
+              style={{
+                left: r.region.x * screenshot.width,
+                top: r.region.y * screenshot.height,
+                width: r.region.w * screenshot.width,
+                height: r.region.h * screenshot.height,
+                borderWidth: (hovered ? 3 : 2) * inv,
+                borderStyle: r.status === "processing" ? "dashed" : "solid",
+              }}
+            >
+              <span
+                className="absolute left-0 bg-brand-500 px-1 font-semibold whitespace-nowrap text-white"
+                style={{ top: -18 * inv, fontSize: 11 * inv, lineHeight: `${18 * inv}px`, paddingInline: 5 * inv, marginLeft: -2 * inv }}
+              >
+                {r.awaiting ? "확인 필요" : r.status === "processing" ? "처리중" : "접수"} #{r.seq}
+              </span>
+            </div>
+          );
+        })}
 
         {/* 초안 네모: 빨간 테두리, 선택 시 핸들. 라벨 번호 = 오른쪽 패널 카드 번호 */}
         {drafts.map((d, i) => {

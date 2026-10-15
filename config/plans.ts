@@ -46,6 +46,12 @@ export const BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW = 289_000;
 /** AI 요청 1건이 대략 쓰는 토큰. 안내 문구와 기존 "1회" 크레딧의 토큰 환산에만 쓴다 (강제 아님). */
 export const APPROX_TOKENS_PER_AI_REQUEST = 10_000;
 
+/**
+ * AI 이미지 1장을 만드는 데 대략 쓰는 토큰. 새 사이트 위저드의 "AI로 이미지 만들기" 예상치와 남은 토큰 검사에 쓴다.
+ * 글 수정 요청(약 1만)보다 훨씬 많이 든다는 걸 보여주는 값이다. 실제 차감은 다른 AI 요청처럼 처리 후 기록된 사용량 기준.
+ */
+export const APPROX_TOKENS_PER_IMAGE = 20_000;
+
 export const PLANS: Plan[] = [
   {
     code: "starter",
@@ -59,7 +65,7 @@ export const PLANS: Plan[] = [
     devices: ["mobile", "desktop"],
     paymentSystem: "none",
     cms: false,
-    features: ["사이트 1개", "3~5 페이지", "모바일 · 웹 대응", "AI 토큰 월 30만", "전문가 수정 요청 주 1회", "결제 시스템 · CMS 미포함"],
+    features: ["사이트 1개", "3~5 페이지", "모바일 · 웹 대응", "토큰 월 30만", "전문가 수정 요청 주 1회", "결제 시스템 · CMS 미포함"],
   },
   {
     code: "business",
@@ -77,7 +83,7 @@ export const PLANS: Plan[] = [
       "사이트 2개",
       "쇼핑몰 · 예약 등 기능형 사이트",
       "모바일 · 태블릿 · 웹 반응형",
-      "AI 토큰 월 100만",
+      "토큰 월 100만",
       "전문가 수정 요청 주 3회",
       "결제 시스템 선택 시 첫 달 289,000원 (이후 89,000원)",
     ],
@@ -95,7 +101,7 @@ export const PLANS: Plan[] = [
     devices: ["mobile", "tablet", "desktop"],
     paymentSystem: "included",
     cms: true,
-    features: ["사이트 5개", "대부분의 기능 구현 가능", "모바일 · 태블릿 · 웹 반응형", "AI 토큰 월 300만", "전문가 수정 요청 주 10회", "결제 시스템 · CMS 포함"],
+    features: ["사이트 5개", "대부분의 기능 구현 가능", "모바일 · 태블릿 · 웹 반응형", "토큰 월 300만", "전문가 수정 요청 주 10회", "결제 시스템 · CMS 포함"],
   },
   {
     code: "enterprise",
@@ -109,7 +115,7 @@ export const PLANS: Plan[] = [
     devices: ["mobile", "tablet", "desktop"],
     paymentSystem: "included",
     cms: true,
-    features: ["사이트 10개", "모든 기능 제작", "개인 앱(모바일 앱) 제작 가능", "AI 토큰 · 전문가 요청 무제한", "전담 매니저", "결제 시스템 · CMS 포함"],
+    features: ["사이트 10개", "모든 기능 제작", "개인 앱(모바일 앱) 제작 가능", "토큰 · 전문가 요청 무제한", "전담 매니저", "결제 시스템 · CMS 포함"],
   },
 ];
 

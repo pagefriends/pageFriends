@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "실시간 채팅" };
 /**
  * 실시간 지원. 디자인 피클 /24-live-chat 구성을 따르되, 우리는 24시간이 아니라 평일 10~18시 사람이 답한다.
  *   히어로 → 3카드 + 운영시간(흰) → 채팅 시작 + FAQ(어두움) → 추천
+ * 채팅 창구는 로그인 후 내 사이트의 "메시지" 다 (사이트별 대화). 별도 채팅 위젯은 없다.
  */
 const CARDS = [
   { icon: MessageCircleIcon, title: "평균 응답 10분 이내 목표", body: "운영 시간 안에는 담당자가 채팅으로 바로 답합니다. 사이트 이름을 함께 적으면 더 빨리 찾을 수 있습니다." },
@@ -19,6 +20,7 @@ const CARDS = [
 ];
 
 const FAQ = [
+  { q: "채팅은 어디에서 하나요?", a: "로그인한 뒤 내 사이트의 '메시지' 에서 담당자와 대화합니다. 답이 오면 위쪽 종 아이콘에 표시됩니다. 아직 회원이 아니라면 이메일 · 전화나 상담 신청을 이용해 주세요." },
   { q: "채팅은 언제 이용할 수 있나요?", a: `${SUPPORT.hours}에 사람이 답합니다. 그 외 시간에 남긴 메시지는 다음 영업일 시작과 함께 순서대로 답변합니다.` },
   { q: "채팅으로 수정 요청을 보내도 되나요?", a: "수정 요청은 편집기에서 네모를 그려 보내야 처리 · 기록됩니다. 채팅은 사용법 · 결제 · 계정 문의에 이용해 주세요." },
   { q: "긴급한 오류가 났어요.", a: "사이트가 열리지 않거나 결제가 안 되는 문제는 채팅에 '긴급' 이라고 적어 주세요. 우리 쪽 오류는 오류 신고로 접수해도 차감이 없습니다." },
@@ -38,7 +40,7 @@ export default function LiveChatPage() {
           </>
         }
         lead="봇이 아니라 페이지프렌즈 담당자가 채팅으로 답합니다. 사용법, 결제, 계정, 진행 상황. 무엇이든 물어보세요."
-        primary={{ href: "#chat", label: "채팅 시작" }}
+        primary={{ href: "/dashboard", label: "채팅 시작" }}
         secondary={{ href: "/help", label: "도움말 센터" }}
         image={ph("photo", 2)}
         size="lg"
@@ -105,11 +107,11 @@ export default function LiveChatPage() {
           <div>
             <Eyebrow>지금 바로</Eyebrow>
             <Display className="mt-3">채팅 시작</Display>
-            <Lead className="mt-5">로그인하면 계정과 사이트 정보를 함께 보내 더 빨리 답할 수 있습니다.</Lead>
+            <Lead className="mt-5">로그인한 뒤 내 사이트의 &lsquo;메시지&rsquo; 에서 담당자와 바로 대화합니다. 사이트 정보가 함께 보여 더 빨리 답할 수 있습니다.</Lead>
             <div className="mt-8">
-              <Pill href="#chat">채팅 시작</Pill>
+              <Pill href="/dashboard">내 사이트에서 채팅 시작</Pill>
             </div>
-            <p className="mt-4 text-xs text-white/50">채팅 위젯은 곧 연결됩니다. 그때까지는 이메일 · 전화로 문의해 주세요.</p>
+            <p className="mt-4 text-xs text-white/50">아직 회원이 아니라면 이메일 · 전화로 문의하거나 상담을 신청해 주세요.</p>
           </div>
           <div className="mt-12 lg:mt-0">
             <Eyebrow>자주 묻는 질문</Eyebrow>

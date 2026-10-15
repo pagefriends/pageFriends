@@ -7,7 +7,7 @@ import { POSTS, POST_CATEGORIES } from "@/content/site";
 
 /** 블로그 목록 (디자인 피클의 blog). 대표 글 + 뉴스레터 블록 + 카테고리 필터 + 최신 글 그리드 */
 
-export const metadata: Metadata = { title: "블로그", description: "사이트 제작 · 운영에 도움이 되는 글. 브리프 쓰는 법, 수정 요청 요령, AI 토큰 안내." };
+export const metadata: Metadata = { title: "블로그", description: "사이트 제작 · 운영에 도움이 되는 글. 브리프 쓰는 법, 수정 요청 요령, 토큰 안내." };
 
 const FEATURED = POSTS[0];
 

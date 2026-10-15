@@ -1,87 +1,85 @@
+import { MessageSquareIcon } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Badge } from "@/components/ui/card";
-import { DEVICE_LABEL, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
+import { markMessagesReadAction, postMessageAction } from "@/app/(app)/projects/[id]/actions";
+import { AutoRefresh } from "@/components/messages/auto-refresh";
+import { HashFocus } from "@/components/messages/hash-focus";
+import { MarkRead } from "@/components/messages/mark-read";
+import { RequestThreads } from "@/components/messages/request-threads";
+import { Alert } from "@/components/ui/card";
+import { DEVICE_LABEL } from "@/config/plans";
+import { isOpenStatus } from "@/config/requests";
 import { requireUser } from "@/lib/auth/session";
+import { listRequestThreads } from "@/lib/messages";
 import { getProject, listProjectRequests } from "@/lib/projects";
-import type { RequestStatus } from "@/lib/types/db";
-import { formatDateTime } from "@/lib/utils";
 
+export const metadata: Metadata = { title: "요청 내역" };
 export const dynamic = "force-dynamic";
 
-const KIND_TONE: Record<RequestKind, "gray" | "sky" | "red"> = { ai: "gray", expert: "sky", bug: "red" };
-
-const STATUS: Record<RequestStatus, { label: string; tone: "gray" | "blue" | "sky" | "dark" | "red" }> = {
-  pending: { label: "접수", tone: "blue" },
-  processing: { label: "처리중", tone: "sky" },
-  done: { label: "반영 완료", tone: "dark" },
-  rejected: { label: "반영 불가", tone: "red" },
-};
-
-/** 요청 내역. 한 번에 보낸 묶음(batch) 단위로 묶어 보여준다. */
+/**
+ * 요청 내역 + 요청별 대화. 담당자의 답변·상태 변경이 요청마다 이어지고, 여기서 바로 답글을 보낸다.
+ * 화면에 뜬 담당자 글은 읽음으로 표시된다 (이번 방문 동안은 "새 답변" 표시가 남는다).
+ */
 export default async function RequestsPage({ params }: PageProps<"/projects/[id]/requests">) {
   const { id } = await params;
   const user = await requireUser(`/projects/${id}/requests`);
   const data = await getProject(user.id, id);
   if (!data) notFound();
-  const requests = await listProjectRequests(id);
+  const [requests, threads] = await Promise.all([listProjectRequests(id), listRequestThreads(id)]);
   const pageName = new Map(data.pages.map((p) => [p.id, p.name]));
 
-  const batches = new Map<string, typeof requests>();
-  for (const r of requests) {
-    const list = batches.get(r.batch_id) ?? [];
-    list.push(r);
-    batches.set(r.batch_id, list);
-  }
+  const open = requests.filter((r) => isOpenStatus(r.status)).length;
+  const awaiting = requests.filter((r) => r.awaiting_user && isOpenStatus(r.status));
+  const unreadIds = [...threads.byRequest.values()].flat().filter((m) => m.author_role === "admin" && !m.read_at).map((m) => m.id);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <Link href={`/projects/${id}`} className="text-sm text-ink-500 hover:text-ink-900">
-        ← 편집 화면
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href={`/projects/${id}`} className="text-sm text-ink-500 hover:text-ink-900">
+          ← 편집 화면
+        </Link>
+        {threads.available ? (
+          <Link href={`/projects/${id}/messages`} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
+            <MessageSquareIcon className="size-3.5" /> 담당자에게 메시지
+          </Link>
+        ) : null}
+      </div>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">{data.project.name} · 요청 내역</h1>
-      <p className="mt-1 text-sm text-ink-500">총 {requests.length}건. AI 반영은 보통 몇 시간, 전문가 요청은 1~2 영업일 안에 처리됩니다. 오류 신고는 무료입니다.</p>
+      <p className="mt-1 text-sm text-ink-500">
+        총 {requests.length}건 · 진행 중 {open}건. AI 반영은 보통 몇 시간, 전문가 요청은 1~2 영업일 안에 처리됩니다. 오류 신고는 무료입니다.
+        {threads.available ? " 담당자의 답변에는 요청마다 바로 답글을 달 수 있고, 답글은 토큰이나 횟수를 쓰지 않습니다." : null}
+      </p>
 
-      {batches.size === 0 ? (
-        <p className="mt-8 rounded-md border border-dashed border-ink-300 bg-surface p-8 text-center text-sm text-ink-500">아직 보낸 요청이 없습니다.</p>
+      {awaiting.length > 0 ? (
+        <Alert tone="blue" className="mt-5">
+          <p className="font-medium">담당자가 답을 기다리는 요청이 {awaiting.length}건 있습니다.</p>
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+            {awaiting.map((r) => (
+              <li key={r.id}>
+                <a href={`#r-${r.id}`} className="underline">
+                  {pageName.get(r.page_id) ?? "페이지"} · {DEVICE_LABEL[r.device]} · {r.seq}번
+                </a>
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
+
+      {requests.length === 0 ? (
+        <p className="mt-8 rounded-md border border-dashed border-ink-300 bg-surface p-8 text-center text-sm text-ink-500">
+          아직 보낸 요청이 없습니다. 편집 화면에서 고칠 곳에 네모를 그려 요청해 보세요.
+        </p>
       ) : (
-        <div className="mt-6 flex flex-col gap-4">
-          {[...batches.entries()].map(([batchId, items]) => (
-            <section key={batchId} className="rounded-md border border-ink-200 bg-surface">
-              <header className="flex items-center justify-between border-b border-ink-100 px-4 py-2.5 text-xs text-ink-500">
-                <span>{formatDateTime(items[0].created_at)} · {items.length}건</span>
-                <span className="font-mono">{batchId.slice(0, 8)}</span>
-              </header>
-              <ul className="divide-y divide-ink-100">
-                {items
-                  .slice()
-                  .sort((a, b) => a.seq - b.seq)
-                  .map((r) => {
-                    const s = STATUS[r.status];
-                    return (
-                      <li key={r.id} className="flex gap-3 px-4 py-3">
-                        <span className="grid size-6 shrink-0 place-items-center bg-mark text-[11px] font-semibold text-white">{r.seq}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-ink-500">
-                            <span className="font-medium text-ink-900">{pageName.get(r.page_id) ?? "페이지"}</span>
-                            <span>{DEVICE_LABEL[r.device]}</span>
-                            <Badge tone={KIND_TONE[r.kind]}>{REQUEST_KIND_LABEL[r.kind]}</Badge>
-                            <Badge tone={s.tone}>{s.label}</Badge>
-                            {r.kind === "ai" && r.tokens_used > 0 ? <span className="tabular-nums">{formatTokens(r.tokens_used)} 토큰</span> : null}
-                            {r.kind === "bug" ? <span>무료</span> : null}
-                          </div>
-                          <p className="mt-1 whitespace-pre-wrap text-sm">{r.message}</p>
-                          {r.resolution_note ? <p className="mt-1 text-xs text-ink-500">답변: {r.resolution_note}</p> : null}
-                        </div>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </section>
-          ))}
+        <div className="mt-6">
+          <RequestThreads requests={requests} pages={data.pages} threads={threads.available ? threads.byRequest : null} replyAction={(requestId) => postMessageAction.bind(null, id, requestId)} />
         </div>
       )}
+
+      <MarkRead ids={unreadIds} mark={markMessagesReadAction} />
+      <HashFocus />
+      <AutoRefresh />
     </div>
   );
 }

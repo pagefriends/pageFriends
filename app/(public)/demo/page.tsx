@@ -36,7 +36,20 @@ export default function DemoPage() {
         pages={DEMO_PAGES}
         allowedDevices={plan.devices}
         existing={[
-          { id: "e1", seq: 1, region: { x: 0.066, y: 0.05, w: 0.36, h: 0.06 }, status: "processing", kind: "ai", message: "", page_id: "demo-home", device: "desktop" },
+          // 이미 보낸 요청 예시: 담당자의 답과 "확인 필요" 가 오른쪽 "보낸 요청" 에 어떻게 보이는지
+          { id: "e1", seq: 1, region: { x: 0.066, y: 0.05, w: 0.36, h: 0.06 }, status: "processing", kind: "ai", message: "제목 문구를 더 짧게 줄여 주세요.", page_id: "demo-home", device: "desktop", lastReply: "작업을 시작했습니다." },
+          {
+            id: "e2",
+            seq: 2,
+            region: { x: 0.58, y: 0.066, w: 0.345, h: 0.09 },
+            status: "pending",
+            kind: "expert",
+            message: "이 이미지를 실제 매장 사진으로 바꿔 주세요.",
+            page_id: "demo-home",
+            device: "desktop",
+            awaiting: true,
+            lastReply: "매장 외관 사진과 내부 사진 중 어느 쪽으로 바꿀까요?",
+          },
         ]}
         quota={{
           ai: { monthly, used: usedTokens, remaining: monthly - usedTokens, credits: 0, periodEnd: DEMO_PERIOD_END },

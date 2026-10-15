@@ -1,11 +1,13 @@
 import { CreditCardIcon, LayoutGridIcon, LayoutTemplateIcon, LogOutIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 
+import { NotificationBell } from "@/components/messages/notification-bell";
 import { Logo } from "@/components/site/logo";
 import { buttonClass } from "@/components/ui/button";
 import { Badge } from "@/components/ui/card";
 import { getSubscription, isAdmin, requireUser } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
+import { getMessageSummary } from "@/lib/messages";
 
 const NAV = [
   { href: "/dashboard", label: "내 사이트", icon: LayoutGridIcon },
@@ -16,7 +18,7 @@ const NAV = [
 /** 로그인 후 영역 공통 셸. 좁은 상단 바 + 콘텐츠. 편집기는 화면을 넓게 써야 해서 사이드바 대신 상단 바만 둔다. */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [{ plan }, admin] = await Promise.all([getSubscription(user.id), isAdmin(user.id)]);
+  const [{ plan }, admin, news] = await Promise.all([getSubscription(user.id), isAdmin(user.id), getMessageSummary()]);
 
   return (
     <div className="theme-dark flex min-h-full flex-1 flex-col bg-ink-50">
@@ -52,6 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <PlusIcon className="size-3.5" /> <span className="hidden sm:inline">새 사이트</span>
               <span className="sm:hidden">사이트</span>
             </Link>
+            {news.available ? <NotificationBell initial={{ unread: news.total.unreadRequests + news.total.unreadGeneral, awaiting: news.total.awaiting }} /> : null}
             <span className="hidden text-xs text-white/50 md:inline">{user.email}</span>
             <form action={signOut}>
               <button type="submit" className="grid size-8 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-white" title="로그아웃">
