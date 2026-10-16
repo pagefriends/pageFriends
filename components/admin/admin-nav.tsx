@@ -1,6 +1,6 @@
 "use client";
 
-import { InboxIcon, LayoutGridIcon, MailIcon, MessageSquareIcon } from "lucide-react";
+import { InboxIcon, LayoutGridIcon, MailIcon, MessageSquareIcon, RocketIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,7 +9,8 @@ import { useLiveCounts } from "@/lib/use-live-counts";
 import { cn } from "@/lib/utils";
 
 /**
- * 관리자 상단 메뉴. 숫자는 지금 손댈 것의 수다 — 수정 요청: 할 일(사용자의 새 답글이 있으면 액센트 색), 메시지: 새 메시지가 온 사이트.
+ * 관리자 상단 메뉴. 숫자는 지금 손댈 것의 수다 — 수정 요청: 할 일(사용자의 새 답글이 있으면 액센트 색),
+ * 웹사이트 적용: 개발 서버 배포 · 확인 · 운영 배포를 기다리는 적용, 메시지: 새 메시지가 온 사이트.
  * 레이아웃은 페이지를 옮겨도 다시 그려지지 않으므로 숫자는 따로 받아 온다.
  */
 export function AdminNav({ initial, className, linkClassName }: { initial: AdminCounts; className?: string; linkClassName?: string }) {
@@ -17,6 +18,7 @@ export function AdminNav({ initial, className, linkClassName }: { initial: Admin
   const pathname = usePathname();
   const links = [
     { href: "/admin", label: "수정 요청", icon: InboxIcon, count: counts.todo, strong: counts.replies > 0, title: counts.replies > 0 ? `할 일 ${counts.todo}건 · 새 답글 ${counts.replies}건` : `할 일 ${counts.todo}건`, active: pathname === "/admin" || pathname.startsWith("/admin/requests") },
+    { href: "/admin/releases", label: "웹사이트 적용", icon: RocketIcon, count: counts.releases, strong: true, title: `손댈 웹사이트 적용 ${counts.releases}건`, active: pathname.startsWith("/admin/releases") },
     { href: "/admin/messages", label: "메시지", icon: MessageSquareIcon, count: counts.messages, strong: true, title: `새 메시지가 온 사이트 ${counts.messages}곳`, active: pathname.startsWith("/admin/messages") },
     { href: "/admin/inquiries", label: "문의", icon: MailIcon, count: 0, strong: false, title: "공개 사이트 폼 접수", active: pathname.startsWith("/admin/inquiries") },
     { href: "/dashboard", label: "사용자 화면", icon: LayoutGridIcon, count: 0, strong: false, title: "사용자 화면으로", active: false },

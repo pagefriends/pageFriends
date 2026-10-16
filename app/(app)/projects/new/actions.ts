@@ -40,6 +40,7 @@ const briefSchema = z
   .object({
     templateId: z.uuid().nullable(),
     mode: z.enum(["guided", "expert"]),
+    builder: z.enum(["ai", "expert"]).default("ai"),
     siteName: z.string().trim().min(1, "회사·브랜드 이름을 입력하세요").max(60),
     industry: z.string().trim().min(1, "업종을 입력하세요").max(60),
     category: z.enum(CATEGORIES),
@@ -133,7 +134,16 @@ export async function createProjectAction(_prev: CreateProjectState, formData: F
     contact: d.contact,
     purposes: d.purposes,
   };
-  const site = buildSitePlan({ mode: d.mode, siteName: d.siteName, business, menu: d.menu, homeNote: d.homeNote, generate: d.images.generate, overrides: d.images.overrides });
+  const site = buildSitePlan({
+    mode: d.mode,
+    builder: d.builder,
+    siteName: d.siteName,
+    business,
+    menu: d.menu,
+    homeNote: d.homeNote,
+    generate: d.images.generate,
+    overrides: d.images.overrides,
+  });
 
   // AI 이미지 생성: 플랜 필요 + 예상 토큰이 남은 토큰(한도 + 크레딧) 안이어야 한다
   const imageCount = generatedImageCount(site.images);

@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardListIcon, ClockIcon, LockIcon, MessageSquareIcon, MonitorIcon, SmartphoneIcon, TabletIcon, XIcon } from "lucide-react";
+import { ClipboardListIcon, ClockIcon, LockIcon, MessageSquareIcon, MonitorIcon, RocketIcon, SmartphoneIcon, TabletIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,7 +11,7 @@ import { RequestPanel } from "@/components/editor/request-panel";
 import { draftKey, requestsBySlot, toRegion, type DraftBox, type EditorPage, type ExistingRequest, type SubmitItem } from "@/components/editor/types";
 import { CountChip } from "@/components/messages/count-chip";
 import { Badge } from "@/components/ui/card";
-import { DELIVERY_DAYS, DEVICE_LABEL, type DeviceKind, type RequestKind } from "@/config/plans";
+import { DEVICE_LABEL, EXPERT_HOURS, type DeviceKind, type RequestKind } from "@/config/plans";
 import type { ProjectNews } from "@/lib/messages";
 import type { QuotaInfo } from "@/lib/quota";
 import { imageRequestMessage } from "@/lib/site-plan";
@@ -28,6 +28,7 @@ const DEVICE_ICON = { mobile: SmartphoneIcon, tablet: TabletIcon, desktop: Monit
  * lg 미만에서는 상단 → 디바이스 → 페이지(가로 스크롤) → 캔버스 → 요청 패널 순으로 세로 스택.
  * 초안 네모는 페이지×디바이스 별로 따로 보관하고, "요청하기"는 전부 모아서 한 묶음(batch)으로 보낸다.
  * 상단의 "요청 내역" · "메시지" 는 담당자와의 대화로 가는 길이고, 옆의 숫자는 아직 확인하지 않은 것의 수다.
+ * 상단의 "웹사이트에 적용" 은 끝난 수정을 실제 웹사이트에 올려 달라고 요청하는 곳이다 (숫자 = 아직 올라가지 않은 수정).
  */
 export function ProjectEditor({
   projectId,
@@ -40,6 +41,8 @@ export function ProjectEditor({
   news = null,
   demo = false,
   welcome = null,
+  buildNote = null,
+  website = null,
 }: {
   projectId: string;
   projectName: string;
@@ -53,6 +56,13 @@ export function ProjectEditor({
   demo?: boolean;
   /** 방금 만든 사이트의 첫 안내 */
   welcome?: { text: string; tone: "blue" | "red" } | null;
+  /** 누가 만드는지 · 전문가 제작이면 첫 완성본 기한 (구성 초안 배지에 붙는다) */
+  buildNote?: string | null;
+  /**
+   * 웹사이트 적용 상태. waiting = 끝났지만 아직 실제 웹사이트에 올라가지 않은 수정 수, active = 진행 중인 적용의 단계 이름("적용 점검 중" 등),
+   * ready = 제작이 끝나 적용을 요청할 수 있는 사이트. 기능을 쓸 수 없으면(체험 모드 · 0007 적용 전) null
+   */
+  website?: { waiting: number; active: string | null; published: boolean; ready: boolean } | null;
 }) {
   const router = useRouter();
   const [pageId, setPageId] = useState(pages[0]?.id ?? "");
@@ -113,6 +123,10 @@ export function ProjectEditor({
     });
   }, [page, shot, existing, drafts]);
   const highlights = hoveredSlot ? (slotItems.find((i) => i.slot.id === hoveredSlot)?.rects ?? []) : [];
+  // 올린 사진은 그 자리 위에 겹쳐 보여 준다. 여러 장짜리 자리는 n번째 사진을 n번째 칸에
+  const photoOverlays = slotItems.flatMap((i) =>
+    (i.slot.photos ?? []).slice(0, i.rects.length).map((ph, n) => ({ ...i.rects[n], url: ph.url, label: `${i.slot.label} ${n + 1}` })),
+  );
 
   /** "AI로 만들기": 그 자리에 AI 반영 네모를 만들고 요청 글을 채워 둔다. 보내기 전에 고칠 수 있다 */
   const draftForSlot = (slotId: string) => {
@@ -154,6 +168,7 @@ export function ProjectEditor({
       return;
     }
     setSubmitting(true);
+    const sentCounts = all.counts;
     const res = await submitRequestsAction(projectId, all.items);
     setSubmitting(false);
     if (!res.ok) {
@@ -162,7 +177,13 @@ export function ProjectEditor({
     }
     setDrafts({});
     setSelectedId(null);
-    setNotice(`${res.count}건을 접수했습니다. 담당자가 답하면 위쪽 종 아이콘과 요청 내역에 표시됩니다.`);
+    // AI 반영은 바로 진행, 사람이 보는 요청(전문가 · 오류 신고)은 답변 기한을 알려 준다
+    const person = sentCounts.expert + sentCounts.bug;
+    const parts = [
+      sentCounts.ai > 0 ? `AI 반영 ${sentCounts.ai}건은 바로 진행돼요` : null,
+      person > 0 ? `전문가 요청 ${person}건은 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 답변드려요` : null,
+    ].filter(Boolean);
+    setNotice(`${res.count}건을 접수했어요. ${parts.join(" · ")}.`);
     router.refresh();
   }
 
@@ -191,13 +212,31 @@ export function ProjectEditor({
           <span className="truncate text-sm font-semibold">{projectName}</span>
           {demo ? <Badge tone="sky" className="shrink-0 whitespace-nowrap">체험 모드</Badge> : null}
           {shot.draft ? (
-            <Badge tone="gray" className="shrink-0 whitespace-nowrap" title={`위저드에서 정한 메뉴·내용으로 그린 구성 초안입니다. 첫 완성본은 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 올라와요.`}>
+            <Badge tone="gray" className="shrink-0 whitespace-nowrap" title={buildNote ?? "위저드에서 정한 메뉴·내용으로 그린 구성 초안입니다."}>
               구성 초안
             </Badge>
           ) : null}
+          {buildNote ? <span className="hidden truncate text-xs text-ink-500 xl:inline">{buildNote}</span> : null}
         </div>
         <div className="flex min-w-0 items-center gap-3 text-xs text-ink-500">
           {notice ? <span className="truncate text-brand-700">{notice}</span> : null}
+          {!demo && website ? (
+            <Link
+              href={`/projects/${projectId}/apply`}
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1 whitespace-nowrap",
+                // 올릴 것이 있으면 눈에 띄게 (끝난 수정이 있거나, 아직 한 번도 공개하지 않은 완성 사이트)
+                !website.active && website.ready && (website.waiting > 0 || !website.published)
+                  ? "rounded-full bg-sky-400 px-2.5 py-1 font-semibold text-night-950 hover:bg-sky-300"
+                  : "hover:text-ink-900",
+              )}
+              title="끝난 수정을 실제 웹사이트에 올려 달라고 요청해요. 담당자가 확인용 서버에서 먼저 점검한 뒤 적용해요."
+            >
+              <RocketIcon className="size-3.5" />
+              {website.active ?? (website.ready && website.waiting > 0 ? "웹사이트에 적용" : website.ready && !website.published ? "웹사이트 공개 요청" : "웹사이트 적용")}
+              {!website.active && website.waiting > 0 ? <CountChip strong>{website.waiting}</CountChip> : null}
+            </Link>
+          ) : null}
           {!demo ? (
             <Link href={`/projects/${projectId}/brief`} className="hidden shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink-900 sm:inline-flex" title="새 사이트를 만들 때 적은 내용 · 준비할 사진 목록">
               <ClipboardListIcon className="size-3.5" /> 제작 정보
@@ -335,6 +374,7 @@ export function ProjectEditor({
           onHover={setHoveredId}
           defaultKind="ai"
           highlights={highlights}
+          photos={photoOverlays}
           ref={canvasRef}
         />
       </div>
@@ -362,6 +402,7 @@ export function ProjectEditor({
           onSubmit={submit}
           error={error}
           demo={demo}
+          projectId={demo ? null : projectId}
           slots={slotItems.map((i) => ({ slot: i.slot, located: i.rects.length > 0, request: i.request, drafted: i.drafted }))}
           hoveredSlot={hoveredSlot}
           onSlotHover={setHoveredSlot}

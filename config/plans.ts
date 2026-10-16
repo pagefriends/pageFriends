@@ -149,8 +149,14 @@ export function creditAmountLabel(pack: Pick<CreditPack, "kind" | "amount">): st
 /** 템플릿 가격. demo = 완성 디자인 임시 사이트, live = 실제 운영 중인 사이트(소유자 동의). */
 export const TEMPLATE_PRICE_KRW: Record<"demo" | "live", number> = { demo: 1_000, live: 8_900 };
 
-/** 제작 소요 안내 */
-export const DELIVERY_DAYS = { min: 3, max: 7 };
+/**
+ * 사람(전문가)이 맡는 일의 약속 시간. 전문가 수정 요청의 답변과 "전문가에게 맡기기" 로 만든 사이트의 첫 완성본에 같이 쓴다.
+ * AI 가 맡는 일(AI 반영 · AI 로 바로 만들기)은 바로 진행한다.
+ */
+export const EXPERT_HOURS = { min: 24, max: 72 };
+
+/** 제작 소요 안내 (전문가 제작 기준, 일 단위). AI 로 만들면 구성 초안이 바로 나온다 */
+export const DELIVERY_DAYS = { min: EXPERT_HOURS.min / 24, max: EXPERT_HOURS.max / 24 };
 
 export const DEVICE_LABEL: Record<DeviceKind, string> = { mobile: "모바일", tablet: "태블릿", desktop: "웹" };
 export const REQUEST_KIND_LABEL: Record<RequestKind, string> = { ai: "AI 반영", expert: "전문가 요청", bug: "오류 신고" };

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, GraduationCapIcon, LoaderCircleIcon, PlusIcon, RotateCcwIcon, Trash2Icon, WrenchIcon } from "lucide-react";
+import { CheckIcon, GraduationCapIcon, LoaderCircleIcon, PlusIcon, RotateCcwIcon, SparklesIcon, Trash2Icon, UserRoundCheckIcon, WrenchIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { startTransition, useActionState, useEffect, useState, useSyncExternalStore } from "react";
@@ -12,7 +12,7 @@ import { Chip, Field, StepTitle, SummaryRow, Tip } from "@/components/wizard/par
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { DELIVERY_DAYS, formatTokens } from "@/config/plans";
+import { EXPERT_HOURS, formatTokens } from "@/config/plans";
 import {
   FEATURE_OPTIONS,
   INDUSTRIES,
@@ -29,6 +29,7 @@ import {
   menuFromPageNames,
   pageFullName,
   recommendMenu,
+  type Builder,
   type ContactInfo,
   type MenuNode,
   type Offering,
@@ -49,6 +50,8 @@ type Mode = "guided" | "expert";
 type Draft = {
   step: number;
   mode: Mode | null;
+  /** 누가 만드나: AI(바로) · 전문가(24~72시간) */
+  builder: Builder;
   start: "prompt" | "template";
   templateId: string | null;
   siteName: string;
@@ -77,6 +80,7 @@ type Draft = {
 const EMPTY: Draft = {
   step: 0,
   mode: null,
+  builder: "ai",
   start: "prompt",
   templateId: null,
   siteName: "",
@@ -146,6 +150,7 @@ function restore(saved: Partial<Draft>, templateIds: Set<string>): Draft {
   const d: Draft = {
     step: pick("step", (v) => typeof v === "number" && v >= 0 && v < STEPS.length),
     mode: pick("mode", (v) => v === "guided" || v === "expert"),
+    builder: pick("builder", (v) => v === "ai" || v === "expert"),
     start: pick("start", (v) => v === "prompt" || v === "template"),
     templateId: pick("templateId", (v) => str(v) && templateIds.has(v as string)),
     siteName: pick("siteName", str),
@@ -238,6 +243,7 @@ export function ProjectWizard({
   // 페이지·이미지 자리 계획. 서버가 프로젝트를 만들 때와 같은 함수라 여기서 보여 준 자리가 그대로 만들어진다 (계산이 가벼워 매번 다시 만든다)
   const plan = buildSitePlan({
     mode,
+    builder: s.builder,
     siteName: s.siteName.trim(),
     business: { category, tagline: s.tagline, offerings, strengths: s.strengths, about: s.about, contact: s.contact, purposes: s.purposes },
     menu: s.menu,
@@ -296,6 +302,7 @@ export function ProjectWizard({
     const payload = {
       templateId: template?.id ?? null,
       mode,
+      builder: s.builder,
       siteName: s.siteName.trim(),
       industry: s.industry.trim(),
       category,
@@ -452,6 +459,26 @@ export function ProjectWizard({
                 title="잘 알아요"
                 desc="메뉴·하위 페이지·페이지 종류·페이지별 내용·이미지 설명까지 직접 정해요."
               />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold">누가 만들까요?</p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <ModeCard
+                  active={s.builder === "ai"}
+                  onClick={() => patch({ builder: "ai" })}
+                  icon={<SparklesIcon className="size-5" />}
+                  title="AI로 바로 만들기"
+                  desc="제작 시작을 누르면 AI가 바로 구성 초안을 만들어요. 고칠 곳도 빨간 네모로 요청하면 AI가 바로 진행해요."
+                />
+                <ModeCard
+                  active={s.builder === "expert"}
+                  onClick={() => patch({ builder: "expert" })}
+                  icon={<UserRoundCheckIcon className="size-5" />}
+                  title="전문가에게 맡기기"
+                  desc={`전문 디자이너가 직접 만들어 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일) 안에 첫 완성본을 올려 드려요. 그동안 구성 초안으로 미리 의견을 줄 수 있어요.`}
+                />
+              </div>
             </div>
 
             <div>
@@ -759,6 +786,9 @@ export function ProjectWizard({
           <form onSubmit={submit} className="flex flex-col gap-5">
             <StepTitle title="이대로 만들까요?" desc="제작을 시작하면 바로 구성 초안이 만들어지고 편집 화면으로 이동해요. 시작한 뒤에도 수정 요청으로 바꿀 수 있어요." />
             <dl className="divide-y divide-ink-100 rounded-md border border-ink-200 px-4">
+              <SummaryRow k="만드는 방식">
+                {s.builder === "ai" ? "AI로 바로 만들기" : `전문가에게 맡기기 · ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 첫 완성본`}
+              </SummaryRow>
               <SummaryRow k="시작 방식">{template ? `템플릿: ${template.name}` : "설명만으로"} · {guided ? "쉬운 모드" : "직접 구성"}</SummaryRow>
               <SummaryRow k="회사 · 브랜드">
                 <span className="font-medium">{s.siteName}</span> <span className="text-ink-500">· {s.industry}</span>
@@ -811,9 +841,13 @@ export function ProjectWizard({
               <ol className="list-decimal pl-4">
                 <li>지금 바로 메뉴 · 페이지 구성 초안이 만들어져요. 이미지 자리에는 어떤 이미지가 필요한지 적혀 있어요.</li>
                 {imageCount > 0 ? <li>AI 이미지 {imageCount}장 생성 요청이 접수돼요. 진행 상황은 요청 내역에서 볼 수 있어요.</li> : null}
-                <li>
-                  첫 완성본은 {DELIVERY_DAYS.min}~{DELIVERY_DAYS.max}일 안에 올라와요. 고칠 곳은 화면에 빨간 네모를 그려 요청하면 돼요.
-                </li>
+                {s.builder === "ai" ? (
+                  <li>고칠 곳은 화면에 빨간 네모를 그려 요청하면 AI가 바로 진행해요. 담당자가 마무리하면 &lsquo;제작 완료&rsquo; 로 바뀌어요.</li>
+                ) : (
+                  <li>
+                    전문가가 {EXPERT_HOURS.min}~{EXPERT_HOURS.max}시간 안에 첫 완성본을 올려 드려요. 그동안 구성 초안에 빨간 네모로 의견을 미리 남겨도 돼요.
+                  </li>
+                )}
               </ol>
             </Tip>
 

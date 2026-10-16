@@ -8,6 +8,7 @@ import { getPlan } from "@/config/plans";
 import { PROJECT_STATUS } from "@/config/requests";
 import { getSubscription, requireAdmin } from "@/lib/auth/session";
 import { isMissingSchema } from "@/lib/messages";
+import { josa } from "@/lib/site-plan";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/lib/types/db";
 
@@ -87,9 +88,41 @@ export async function updateRequestAction(_prev: AdminActionState, formData: For
     }
   }
 
+  const { data: owner } = await supabase.from("change_requests").select("project_id").eq("id", parsed.data.requestId).maybeSingle();
+  if (owner?.project_id) await syncProjectAfterRequests(supabase, owner.project_id as string);
+
   revalidatePath("/admin");
   revalidatePath(`/admin/requests/${parsed.data.requestId}`);
   return { ok: true, message: `저장했습니다.${note ? " 사용자에게 글을 보냈습니다." : ""}${tokenMessage}` };
+}
+
+/**
+ * 담당자가 요청을 열어 보면 자동으로 "확인 완료" (접수 → 확인 완료). 사람이 답하는 요청(전문가 · 오류 신고)만 —
+ * AI 반영은 요청하는 순간부터 "AI 진행 중" 이라 확인 단계가 없다. 상태 기록이 대화에 남아 사용자도 확인된 것을 안다.
+ */
+export async function markRequestCheckedAction(requestId: string): Promise<void> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(requestId).success) return;
+  const supabase = await createClient();
+  const { data } = await supabase.from("change_requests").select("status, kind, awaiting_user").eq("id", requestId).maybeSingle();
+  if (!data || data.status !== "pending" || data.kind === "ai") return;
+  await supabase.rpc("admin_reply_request", {
+    p_request_id: requestId,
+    p_status: "processing",
+    p_body: "",
+    p_awaiting_user: Boolean(data.awaiting_user),
+  });
+  revalidatePath("/admin");
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** 제작 완료 뒤 들어온 수정 요청(수정 반영 중)을 모두 처리하면 프로젝트를 다시 "제작 완료" 로 돌린다 */
+async function syncProjectAfterRequests(supabase: Supabase, projectId: string): Promise<void> {
+  const { data: p } = await supabase.from("projects").select("status").eq("id", projectId).maybeSingle();
+  if (p?.status !== "review") return;
+  const { count } = await supabase.from("change_requests").select("id", { count: "exact", head: true }).eq("project_id", projectId).in("status", ["pending", "processing"]);
+  if ((count ?? 0) === 0) await supabase.rpc("admin_update_project_status", { p_project_id: projectId, p_status: "live" });
 }
 
 /** 묶음 전체 상태 일괄 변경 (목록에서 "이 묶음 처리중으로" 등). 상태가 바뀐 요청마다 사용자에게 알림이 간다. */
@@ -100,6 +133,8 @@ export async function updateBatchAction(batchId: string, status: string): Promis
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_update_batch", { p_batch_id: batchId, p_status: s.data });
   if (error) return { error: error.message };
+  const { data: one } = await supabase.from("change_requests").select("project_id").eq("batch_id", batchId).limit(1).maybeSingle();
+  if (one?.project_id) await syncProjectAfterRequests(supabase, one.project_id as string);
   revalidatePath("/admin");
   return { ok: true, message: `${data as number}건을 변경했습니다.` };
 }
@@ -116,9 +151,15 @@ export async function updateProjectStatusAction(projectId: string, status: strin
   const { data: before } = await supabase.from("projects").select("status").eq("id", projectId).maybeSingle();
   const { error } = await supabase.rpc("admin_update_project_status", { p_project_id: projectId, p_status: s.data });
   if (error) return { error: error.message };
-  if (before && (before.status as ProjectStatus) !== s.data) {
-    // 알림 실패(0006 적용 전 등)는 상태 변경을 되돌릴 이유가 아니다. 상태 이름은 모두 "…중" 으로 끝나 조사는 "으로" 로 고정.
-    await supabase.rpc("admin_post_message", { p_project_id: projectId, p_body: `사이트 상태가 '${PROJECT_STATUS[s.data].label}'으로 바뀌었습니다.` });
+  const old = before?.status as ProjectStatus | undefined;
+  if (old && old !== s.data) {
+    // 알림 실패(0006 적용 전 등)는 상태 변경을 되돌릴 이유가 아니다
+    const label = PROJECT_STATUS[s.data].label;
+    const body =
+      s.data === "live" && (old === "building" || old === "brief")
+        ? "사이트 제작을 마쳤어요. 편집 화면에서 확인해 주세요. 고칠 곳은 빨간 네모로 요청하시면 돼요. 확인이 끝나면 편집 화면 위의 '웹사이트 공개 요청' 을 눌러 주세요 — 확인용 서버에서 먼저 점검한 뒤 실제 웹사이트로 공개해 드려요."
+        : `사이트 상태가 '${label}'${josa(label, "으로/로").slice(label.length)} 바뀌었습니다.`;
+    await supabase.rpc("admin_post_message", { p_project_id: projectId, p_body: body });
   }
   revalidatePath("/admin");
   return { ok: true, message: "프로젝트 상태를 변경했습니다." };

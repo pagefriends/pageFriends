@@ -2,7 +2,9 @@ import { ExternalLinkIcon } from "lucide-react";
 
 import { Badge, Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatTokens } from "@/config/plans";
-import { REQUEST_STATUS } from "@/config/requests";
+import { requestStatus } from "@/config/requests";
+import type { SlotRequestState } from "@/components/editor/types";
+import { SlotPhotos, type PhotoItem } from "@/components/photos/slot-photos";
 import {
   FEATURE_LABEL,
   PAGE_KIND_LABEL,
@@ -16,7 +18,7 @@ import {
   pageFullName,
   type ImageSlot,
 } from "@/lib/site-plan";
-import type { ProjectBrief, ProjectPageRow, RequestStatus } from "@/lib/types/db";
+import type { ProjectBrief, ProjectPageRow } from "@/lib/types/db";
 
 /**
  * 위저드 입력(제작 정보) 전체. 제작 담당자가 사이트를 만들 때 기준으로 보는 화면이다 (관리자 → 제작 정보).
@@ -28,13 +30,19 @@ export function BriefDetails({
   pages,
   viewer = "admin",
   slotStatus,
+  projectId,
+  photos = {},
 }: {
   brief: ProjectBrief;
   pages: Pick<ProjectPageRow, "path" | "screenshots">[];
   /** admin: 제작 담당자용 문구 · owner: 사이트 주인용 문구 */
   viewer?: "admin" | "owner";
   /** 이미지 자리마다 그 자리에 보낸 요청의 상태 (components/editor/types.ts slotStatuses). 주면 위저드 선택 대신 지금 상태를 보여 준다 */
-  slotStatus?: Map<string, RequestStatus>;
+  slotStatus?: Map<string, SlotRequestState>;
+  /** 주면 자리마다 사진 올리기 · 지우기를 보여 준다 */
+  projectId?: string;
+  /** 자리마다 올린 사진 */
+  photos?: Record<string, PhotoItem[]>;
 }) {
   const b = brief.business;
   const site = brief.site;
@@ -147,8 +155,14 @@ export function BriefDetails({
             <span className="text-xs text-ink-500">
               {slotStatus
                 ? (() => {
-                    const empty = site.images.filter((s) => !slotStatus.has(s.id));
-                    return `요청한 자리 ${site.images.length - empty.length}곳 · 비어 있는 자리 ${empty.length}곳 (사진 ${empty.reduce((n, s) => n + s.count, 0)}장)`;
+                    const have = (id: string) => photos[id]?.length ?? 0;
+                    const requested = site.images.filter((s) => slotStatus.has(s.id)).length;
+                    const filled = site.images.filter((s) => !slotStatus.has(s.id) && have(s.id) >= s.count).length;
+                    const empty = site.images.filter((s) => !slotStatus.has(s.id) && have(s.id) < s.count);
+                    const left = empty.reduce((n, s) => n + s.count - have(s.id), 0);
+                    return [`요청 ${requested}곳`, filled ? `사진 올림 ${filled}곳` : null, `비어 있음 ${empty.length}곳${empty.length ? ` (사진 ${left}장)` : ""}`]
+                      .filter(Boolean)
+                      .join(" · ");
                   })()
                 : site.imageGeneration.enabled
                   ? `AI 생성 ${generatedImageCount(site.images)}장 (예상 약 ${formatTokens(site.imageGeneration.estimatedTokens)} 토큰) · 비워 둠 ${emptyImageCount(site.images)}장`
@@ -161,12 +175,15 @@ export function BriefDetails({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{s.label}</span>
                   {s.count > 1 ? <span className="text-xs text-ink-500">{s.count}장</span> : null}
-                  <SlotBadge slot={s} status={slotStatus ? (slotStatus.get(s.id) ?? null) : undefined} />
+                  <SlotBadge slot={s} status={slotStatus ? (slotStatus.get(s.id) ?? null) : undefined} photos={photos[s.id]?.length ?? 0} />
                   <span className="text-xs text-ink-500">
                     {RATIO_SIZE[s.ratio]} · {RATIO_SHAPE[s.ratio]} · {s.pages.map((p) => nameOf.get(p) ?? p).join(", ")}
                   </span>
                 </div>
                 <p className="mt-1 text-ink-700">{s.need}</p>
+                {projectId && !slotStatus?.has(s.id) ? (
+                  <SlotPhotos projectId={projectId} slotId={s.id} label={s.label} count={s.count} photos={photos[s.id] ?? []} size="md" className="mt-2" />
+                ) : null}
               </li>
             ))}
           </ul>
@@ -214,8 +231,13 @@ export function BriefDetails({
  * 자리 상태 표시. status 가 undefined 면 위저드에서 고른 그대로(AI로 만들기 · 실제 사진 필요 · 비워 둠),
  * null 이면 요청이 없는 빈 자리, 값이 있으면 그 자리에 보낸 요청의 상태.
  */
-function SlotBadge({ slot, status }: { slot: ImageSlot; status: RequestStatus | null | undefined }) {
-  if (status) return <Badge tone={REQUEST_STATUS[status].tone}>요청 {REQUEST_STATUS[status].label}</Badge>;
+function SlotBadge({ slot, status, photos }: { slot: ImageSlot; status: SlotRequestState | null | undefined; photos: number }) {
+  if (status) {
+    const st = requestStatus(status.kind, status.status);
+    return <Badge tone={st.tone}>{st.label}</Badge>;
+  }
+  if (photos >= slot.count) return <Badge tone="sky">사진 올림</Badge>;
+  if (photos > 0) return <Badge tone="blue">{`사진 ${photos}/${slot.count}장`}</Badge>;
   if (status === undefined && slot.generate) return <Badge tone="blue">AI로 만들기</Badge>;
   if (slot.source === "real") return <Badge tone="dark">실제 사진 필요</Badge>;
   return <Badge tone="gray">{status === null ? "비어 있음 · AI 가능" : "비워 둠 · AI 가능"}</Badge>;

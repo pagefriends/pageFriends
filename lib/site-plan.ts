@@ -951,10 +951,15 @@ export type PlannedPage = {
   slotIds: string[];
 };
 
+/** 누가 만드나: AI 는 바로(구성 초안 즉시), 전문가는 24~72시간 안에 첫 완성본 */
+export type Builder = "ai" | "expert";
+
 /** brief.site 에 저장되는 사이트 구성 계획 */
 export type SitePlan = {
   version: 1;
   mode: "guided" | "expert";
+  /** 2026-10-15 이후 사이트에만 있다. 없으면 AI 로 본다 */
+  builder?: Builder;
   pages: PlannedPage[];
   images: ImageSlot[];
   imageGeneration: { enabled: boolean; tokensPerImage: number; estimatedTokens: number };
@@ -1038,6 +1043,7 @@ function pageSlots(page: PlannedPage, ctx: SlotContext): ImageSlot[] {
 
 export type PlanInput = {
   mode: "guided" | "expert";
+  builder: Builder;
   siteName: string;
   business: BusinessInfo;
   menu: MenuNode[];
@@ -1101,6 +1107,7 @@ export function buildSitePlan(input: PlanInput): SitePlan {
   return {
     version: 1,
     mode: input.mode,
+    builder: input.builder,
     pages,
     images: list,
     imageGeneration: { enabled: input.generate, tokensPerImage: APPROX_TOKENS_PER_IMAGE, estimatedTokens: imageTokenEstimate(list) },
@@ -1172,10 +1179,13 @@ export function contrastText(hex: string): "#0f172a" | "#ffffff" {
 }
 
 /** 받침에 맞는 조사. 한글이 아니면 "을(를)" 처럼 둘 다 적는다 */
-export function josa(word: string, pair: "을/를" | "이/가" | "은/는" | "와/과"): string {
+export function josa(word: string, pair: "을/를" | "이/가" | "은/는" | "와/과" | "으로/로"): string {
   const w = word.trim();
   const [a, b] = pair.split("/");
   const code = w.charCodeAt(w.length - 1);
   if (!(code >= 0xac00 && code <= 0xd7a3)) return `${w}${a}(${b})`;
-  return `${w}${(code - 0xac00) % 28 ? a : b}`;
+  const jong = (code - 0xac00) % 28;
+  // "으로/로" 는 받침이 없거나 ㄹ 받침이면 "로" (서울로 · 완료로)
+  if (pair === "으로/로") return `${w}${jong === 0 || jong === 8 ? b : a}`;
+  return `${w}${jong ? a : b}`;
 }

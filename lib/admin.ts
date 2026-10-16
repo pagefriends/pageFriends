@@ -38,7 +38,7 @@ export type AdminRequestListItem = RequestWithRefs & {
  */
 export type RequestFilter = { status?: RequestStatus | "todo" | "awaiting"; kind?: RequestKind; projectId?: string };
 
-async function ownerEmails(supabase: Supabase, userIds: string[]): Promise<Map<string, string>> {
+export async function ownerEmails(supabase: Supabase, userIds: string[]): Promise<Map<string, string>> {
   const emails = new Map<string, string>();
   for (const ids of chunk([...new Set(userIds)])) {
     const { data } = await supabase.from("profiles").select("id, email").in("id", ids);
@@ -149,17 +149,23 @@ export type AdminCounts = {
   replies: number;
   /** 새 메시지가 온 사이트 */
   messages: number;
+  /** 손댈 웹사이트 적용 (개발 서버 배포 전 · 다시 고치는 중 · 개발 서버 확인 중). 0007 적용 전이면 0 */
+  releases: number;
 };
 
 /** 레이아웃과 목록 페이지가 한 요청 안에서 같이 부르므로 cache 로 한 번만 조회한다. */
 export const getAdminCounts = cache(async (): Promise<AdminCounts> => {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_message_summary");
+  const [{ data, error }, rel] = await Promise.all([
+    supabase.rpc("admin_message_summary"),
+    supabase.from("releases").select("id", { count: "exact", head: true }).in("status", ["requested", "staging"]),
+  ]);
+  const releases = rel.error ? 0 : (rel.count ?? 0);
   const row = (data as { todo: number; unread_requests: number; unread_general: number }[] | null)?.[0];
-  if (!error && row) return { todo: Number(row.todo), replies: Number(row.unread_requests), messages: Number(row.unread_general) };
+  if (!error && row) return { todo: Number(row.todo), replies: Number(row.unread_requests), messages: Number(row.unread_general), releases };
   // 0006 적용 전: 접수·처리중 요청 수만 센다
   const { count } = await supabase.from("change_requests").select("id", { count: "exact", head: true }).in("status", OPEN);
-  return { todo: count ?? 0, replies: 0, messages: 0 };
+  return { todo: count ?? 0, replies: 0, messages: 0, releases };
 });
 
 export type AdminRequestDetail = {
@@ -262,7 +268,7 @@ export type AdminProjectDetail = {
   pages: Pick<ProjectPageRow, "id" | "name" | "path" | "sort_order" | "screenshots">[];
   openRequests: number;
   /** 이미지 자리 상태를 맞춰 보려고 쓰는 요청 (최신순) */
-  requests: Pick<ChangeRequestRow, "id" | "page_id" | "device" | "region" | "status">[];
+  requests: Pick<ChangeRequestRow, "id" | "page_id" | "device" | "region" | "status" | "kind">[];
 };
 
 /** 제작 정보 화면: 위저드 입력(브리프) 전체 + 페이지 목록. 제작 담당자가 사이트를 만들 때 보는 기준이다 */
@@ -275,7 +281,7 @@ export async function getAdminProject(projectId: string): Promise<AdminProjectDe
     supabase.from("profiles").select("email").eq("id", p.user_id).maybeSingle(),
     supabase.from("project_pages").select("id, name, path, sort_order, screenshots").eq("project_id", projectId).order("sort_order", { ascending: true }),
     supabase.from("change_requests").select("id", { count: "exact", head: true }).eq("project_id", projectId).in("status", OPEN),
-    supabase.from("change_requests").select("id, page_id, device, region, status").eq("project_id", projectId).order("created_at", { ascending: false }).limit(500),
+    supabase.from("change_requests").select("id, page_id, device, region, status, kind").eq("project_id", projectId).order("created_at", { ascending: false }).limit(500),
   ]);
   return {
     project: p,

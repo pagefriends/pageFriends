@@ -1,3 +1,4 @@
+import { Linkified } from "@/components/messages/linkified";
 import { NewTag } from "@/components/messages/new-tag";
 import { Badge } from "@/components/ui/card";
 import { REQUEST_STATUS, STATUS_EVENT_TEXT } from "@/config/requests";
@@ -34,7 +35,11 @@ export function Thread({ entries, viewer, className }: { entries: MessageRow[]; 
                   {STATUS_EVENT_TEXT[m.status]}
                 </p>
               ) : null}
-              {m.body ? <p className={cn("break-words whitespace-pre-wrap", m.status && "mt-1.5")}>{m.body}</p> : null}
+              {m.body ? (
+                <p className={cn("break-words whitespace-pre-wrap", m.status && "mt-1.5")}>
+                  <Linkified text={m.body} />
+                </p>
+              ) : null}
             </div>
             {mine && m.read_at ? <span className="mt-0.5 text-[10px] text-ink-400">읽음</span> : null}
           </li>

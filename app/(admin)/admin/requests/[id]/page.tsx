@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { markUserMessagesReadAction } from "@/app/(admin)/admin/actions";
-import { ProjectStatusSelect } from "@/components/admin/quick-actions";
+import { markRequestCheckedAction, markUserMessagesReadAction } from "@/app/(admin)/admin/actions";
+import { AutoCheck } from "@/components/admin/auto-check";
+import { ProjectStatusControl } from "@/components/admin/quick-actions";
 import { RegionPreview } from "@/components/admin/region-preview";
 import { RequestForm } from "@/components/admin/request-form";
 import { AutoRefresh } from "@/components/messages/auto-refresh";
@@ -10,9 +11,11 @@ import { MarkRead } from "@/components/messages/mark-read";
 import { Thread } from "@/components/messages/thread";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEVICE_LABEL, REQUEST_KIND_LABEL, formatTokens, getPlan } from "@/config/plans";
-import { REQUEST_KIND_TONE, REQUEST_STATUS, isOpenStatus } from "@/config/requests";
+import { REQUEST_KIND_TONE, dueLabel, isOpenStatus, needsPerson, remainingLabel, requestStatus } from "@/config/requests";
+import { APPLY_STATE, RELEASE_STAGE_ADMIN, applyState, releaseStage } from "@/config/releases";
 import { getAdminRequest } from "@/lib/admin";
 import { getSubscription } from "@/lib/auth/session";
+import { listProjectReleases } from "@/lib/releases";
 import { FEATURE_LABEL } from "@/lib/site-plan";
 import { formatDateTime } from "@/lib/utils";
 
@@ -29,7 +32,15 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
   const owner = await getSubscription(project.user_id);
   const ownerPlan = owner.plan ?? getPlan(owner.subscription?.plan_code);
   const awaiting = Boolean(request.awaiting_user) && isOpenStatus(request.status);
+  const st = requestStatus(request.kind, request.status);
+  // 사람이 답하는 요청은 접수 뒤 72시간 안에 답한다
+  const due = needsPerson(request.kind) && isOpenStatus(request.status) ? remainingLabel(request.created_at) : null;
+  const builder = brief.site?.builder ?? null;
   const unreadIds = thread.messages.filter((m) => m.author_role === "user" && !m.read_at).map((m) => m.id);
+  // 끝난 수정이면 실제 웹사이트에 올라갔는지 (적용 대기 · n번째 적용의 어느 단계)
+  const rel = request.status === "done" ? await listProjectReleases(project.id) : null;
+  const apply = rel?.available ? applyState(request, rel.byId) : null;
+  const release = request.release_id ? rel?.byId.get(request.release_id) : undefined;
 
   return (
     <div>
@@ -40,8 +51,9 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
         <h1 className="text-2xl font-bold tracking-tight">
           {project.name} · {page.name} · {request.seq}번 네모
         </h1>
-        <Badge tone={REQUEST_STATUS[request.status].tone}>{REQUEST_STATUS[request.status].label}</Badge>
+        <Badge tone={st.tone}>{st.label}</Badge>
         <Badge tone={REQUEST_KIND_TONE[request.kind]}>{REQUEST_KIND_LABEL[request.kind]}</Badge>
+        {due ? <span className={due.late ? "text-xs font-semibold text-mark" : "text-xs text-ink-500"}>{due.text}</span> : null}
         {awaiting ? <Badge tone="sky">사용자 답 대기</Badge> : null}
         {request.kind === "bug" ? <span className="text-xs text-ink-500">무료 · 사용자 한도에서 차감하지 않음</span> : null}
         {request.kind === "ai" && request.tokens_used > 0 ? <span className="text-xs tabular-nums text-ink-500">사용 토큰 {formatTokens(request.tokens_used)}</span> : null}
@@ -49,6 +61,19 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
       <p className="mt-1 text-sm text-ink-500">
         {DEVICE_LABEL[request.device]} 화면 · {page.path} · {formatDateTime(request.created_at)} · 요청자 {ownerEmail ?? project.user_id}
       </p>
+      {apply ? (
+        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-ink-500">웹사이트</span>
+          <Badge tone={APPLY_STATE[apply].tone}>{APPLY_STATE[apply].label}</Badge>
+          {release ? (
+            <Link href={`/admin/releases/${release.id}`} className="text-xs font-medium text-brand-600 hover:underline">
+              {release.seq}번째 적용 · {RELEASE_STAGE_ADMIN[releaseStage(release)].label} →
+            </Link>
+          ) : (
+            <span className="text-xs text-ink-500">사용자가 &lsquo;웹사이트에 적용 요청&rsquo; 을 누르면 실제 웹사이트에 올라갑니다</span>
+          )}
+        </p>
+      ) : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
         <div className="flex flex-col gap-6">
@@ -114,7 +139,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
                         <div className="flex gap-2 text-xs text-ink-500">
                           <span>{DEVICE_LABEL[s.device]}</span>
                           <Badge tone={REQUEST_KIND_TONE[s.kind]}>{REQUEST_KIND_LABEL[s.kind]}</Badge>
-                          <Badge tone={REQUEST_STATUS[s.status].tone}>{REQUEST_STATUS[s.status].label}</Badge>
+                          <Badge tone={requestStatus(s.kind, s.status).tone}>{requestStatus(s.kind, s.status).label}</Badge>
                         </div>
                         <p className="mt-0.5 line-clamp-2 text-sm">{s.message}</p>
                       </div>
@@ -149,8 +174,9 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
             <CardBody className="flex flex-col gap-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-ink-500">프로젝트 상태</span>
-                <ProjectStatusSelect projectId={project.id} status={project.status} />
+                <ProjectStatusControl projectId={project.id} status={project.status} />
               </div>
+              {builder ? <Row k="만드는 방식" v={builder === "expert" ? `전문가에게 맡김 · 첫 완성본 ${dueLabel(project.created_at)}` : "AI로 바로 만들기"} /> : null}
               <Row k="업종" v={brief.industry} />
               {brief.business ? <Row k="한 줄 소개" v={brief.business.tagline} /> : null}
               {brief.business ? <Row k="서비스 · 상품" v={brief.business.offerings.map((o) => o.name).join(" · ")} /> : null}
@@ -179,6 +205,8 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
       </div>
 
       <MarkRead ids={unreadIds} mark={markUserMessagesReadAction} />
+      {/* 사람이 답하는 요청을 처음 열면 "확인 완료" 로 */}
+      {request.status === "pending" && needsPerson(request.kind) ? <AutoCheck requestId={request.id} mark={markRequestCheckedAction} /> : null}
       <AutoRefresh />
     </div>
   );

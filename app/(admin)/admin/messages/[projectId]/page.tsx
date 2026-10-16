@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { markUserMessagesReadAction, postProjectMessageAction } from "@/app/(admin)/admin/actions";
-import { ProjectStatusSelect } from "@/components/admin/quick-actions";
+import { ProjectStatusControl } from "@/components/admin/quick-actions";
 import { AutoRefresh } from "@/components/messages/auto-refresh";
 import { ChatScroll } from "@/components/messages/chat-scroll";
 import { MarkRead } from "@/components/messages/mark-read";
@@ -33,7 +33,7 @@ export default async function AdminConversationPage({ params }: PageProps<"/admi
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-500">
         <span>요청자 {ownerEmail ?? project.user_id}</span>
         <span className="inline-flex items-center gap-2">
-          프로젝트 상태 <ProjectStatusSelect projectId={project.id} status={project.status} />
+          프로젝트 상태 <ProjectStatusControl projectId={project.id} status={project.status} />
         </span>
         <Link href={`/admin?project=${project.id}&status=all`} className="font-medium text-brand-600 hover:underline">
           수정 요청 보기 (진행 중 {openRequests}건)

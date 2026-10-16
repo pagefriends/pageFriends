@@ -18,7 +18,7 @@ const DETAIL_COLUMNS = ["비용", "적합한 경우", "소요 시간", "산출�
 const DETAIL_ROWS: { label: string; cells: string[] }[] = [
   {
     label: "페이지프렌즈",
-    cells: [`월 ${formatKrw(PLANS[0].priceKrw)}부터, 4개 플랜. 템플릿은 1회 1,000원 · 8,900원`, "빨리 시작하고, 만든 뒤에도 계속 고쳐야 하는 소상공인 · 스타트업 · 에이전시", `${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본, AI 수정은 통상 24시간`, "반응형 사이트 + 페이지 · 디바이스별 캡처 + 관리자 페이지(플랜에 따라)", "위저드 입력 → 대시보드 확인 → 네모로 수정 요청 → 반영 확인"],
+    cells: [`월 ${formatKrw(PLANS[0].priceKrw)}부터, 4개 플랜. 템플릿은 1회 1,000원 · 8,900원`, "빨리 시작하고, 만든 뒤에도 계속 고쳐야 하는 소상공인 · 스타트업 · 에이전시", `AI는 바로 · 전문가는 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본, AI 수정은 요청 즉시 진행`, "반응형 사이트 + 페이지 · 디바이스별 캡처 + 관리자 페이지(플랜에 따라)", "위저드 입력 → 대시보드 확인 → 네모로 수정 요청 → 반영 확인"],
   },
   { label: "프리랜서 마켓", cells: ["건당 수십만 원부터. 수정은 별도 견적", "요구사항이 명확하고 한 번 만들면 끝나는 작은 사이트", "매칭 1~2주 + 제작 2~4주. 사람마다 편차 큼", "정적 사이트 또는 노코드 결과물. 소스 · 계정 인수 여부 확인 필요", "채팅 · 문서로 요구사항 전달, 시안 확인, 수정 협의"] },
   { label: "개인 외주", cells: ["100만~500만 원 안팎. 유지보수는 별도 계약", "믿을 만한 개발자를 이미 알고 있고 관계로 관리할 수 있는 경우", "4~8주. 상대의 일정에 좌우", "커스텀 사이트. 이후 수정은 같은 사람에게만 의존", "미팅 · 이메일. 요청 내역이 흩어지기 쉬움"] },
@@ -29,7 +29,7 @@ const DETAIL_ROWS: { label: string; cells: string[] }[] = [
 ];
 
 const FIREPOWER: { icon: LucideIcon; title: string; body: string }[] = [
-  { icon: ClockIcon, title: "속도", body: `견적 · 미팅 없이 5분 안에 시작하고 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본. AI 수정은 통상 24시간 안에 반영됩니다.` },
+  { icon: ClockIcon, title: "속도", body: `견적 · 미팅 없이 5분 안에 시작합니다. AI로 만들면 바로, 전문가에게 맡기면 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본. AI 수정은 요청하면 바로 진행되고 전문가 수정은 24~72시간 안에 답변합니다.` },
   { icon: ShieldCheckIcon, title: "품질", body: "AI 초안을 사람 전문가가 구조 · 문구 · 반응형까지 검수합니다. 우리 쪽 오류는 무료로 고칩니다." },
   { icon: SquareDashedMousePointerIcon, title: "수정 방식", body: "완성 화면 위에 네모를 그리고 번호별로 적으면 끝. 전화 · 이메일로 설명할 필요가 없습니다." },
 ];

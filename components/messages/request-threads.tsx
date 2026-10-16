@@ -5,7 +5,8 @@ import { ReplyToggle } from "@/components/messages/reply-toggle";
 import { Thread } from "@/components/messages/thread";
 import { Badge } from "@/components/ui/card";
 import { DEVICE_LABEL, REQUEST_KIND_LABEL, formatTokens } from "@/config/plans";
-import { REQUEST_KIND_TONE, REQUEST_STATUS, isOpenStatus } from "@/config/requests";
+import { REQUEST_KIND_TONE, dueLabel, isOpenStatus, needsPerson, requestStatus } from "@/config/requests";
+import { APPLY_STATE, type ApplyState } from "@/config/releases";
 import type { ChangeRequestRow, MessageRow, ProjectPageRow } from "@/lib/types/db";
 import { formatDateTime } from "@/lib/utils";
 
@@ -14,18 +15,21 @@ import { formatDateTime } from "@/lib/utils";
  * 한 줄기로 이어진다. 네모 미리보기와 번호를 같이 보여 어느 네모의 대화인지 섞이지 않게 한다.
  *
  * threads 가 null 이면 대화 기능을 쓸 수 없는 DB(0006 적용 전)다. 그때는 예전처럼 답변 한 줄만 보여준다.
+ * applyStates 를 주면 끝난 요청마다 실제 웹사이트에 올라갔는지(적용 대기 · 점검 중 · 적용 완료)도 보여준다.
  */
 export function RequestThreads({
   requests,
   pages,
   threads,
   replyAction,
+  applyStates,
 }: {
   requests: ChangeRequestRow[];
   pages: Pick<ProjectPageRow, "id" | "name" | "screenshots">[];
   threads: Map<string, MessageRow[]> | null;
   /** 요청 id → 그 요청에 답글을 보내는 서버 액션 */
   replyAction: (requestId: string) => (body: string) => Promise<SendResult>;
+  applyStates?: Map<string, ApplyState>;
 }) {
   const pageOf = new Map(pages.map((p) => [p.id, p]));
   const batches = new Map<string, ChangeRequestRow[]>();
@@ -50,12 +54,13 @@ export function RequestThreads({
               .slice()
               .sort((a, b) => a.seq - b.seq)
               .map((r) => {
-                const s = REQUEST_STATUS[r.status];
+                const s = requestStatus(r.kind, r.status);
                 const page = pageOf.get(r.page_id);
                 const shot = page?.screenshots[r.device];
                 const entries = threads?.get(r.id) ?? [];
                 const awaiting = Boolean(r.awaiting_user) && isOpenStatus(r.status);
                 const unread = entries.some((m) => m.author_role === "admin" && !m.read_at);
+                const apply = applyStates?.get(r.id);
                 return (
                   <li key={r.id} id={`r-${r.id}`} className="scroll-mt-28 px-4 py-4 data-[focus]:bg-brand-50">
                     <div className="flex gap-3">
@@ -66,10 +71,12 @@ export function RequestThreads({
                           <span>{DEVICE_LABEL[r.device]}</span>
                           <Badge tone={REQUEST_KIND_TONE[r.kind]}>{REQUEST_KIND_LABEL[r.kind]}</Badge>
                           <Badge tone={s.tone}>{s.label}</Badge>
+                          {apply ? <Badge tone={APPLY_STATE[apply].tone}>{APPLY_STATE[apply].label}</Badge> : null}
                           {awaiting ? <span className="rounded-sm bg-sky-400 px-1.5 py-0.5 text-[11px] leading-none font-semibold text-night-950">확인 필요</span> : null}
                           {!awaiting ? <NewTag unread={unread} label="새 답변" /> : null}
                           {r.kind === "ai" && r.tokens_used > 0 ? <span className="tabular-nums">{formatTokens(r.tokens_used)} 토큰</span> : null}
                           {r.kind === "bug" ? <span>무료</span> : null}
+                          {needsPerson(r.kind) && isOpenStatus(r.status) ? <span>답변 기한 {dueLabel(r.created_at)}</span> : null}
                         </div>
                         <div className="mt-2 flex gap-3">
                           {shot ? (

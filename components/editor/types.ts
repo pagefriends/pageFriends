@@ -2,8 +2,10 @@ import type { DeviceKind, RequestKind } from "@/config/plans";
 import type { ImageSlot } from "@/lib/site-plan";
 import type { ChangeRequestRow, Region, RequestStatus, Screenshot } from "@/lib/types/db";
 
-/** 페이지의 이미지 자리 (위저드에서 정한 설명). 위치는 캡처의 screenshots[device].slots 에 있다 */
-export type EditorSlot = Pick<ImageSlot, "id" | "label" | "need" | "ratio" | "count" | "source" | "generate">;
+/** 페이지의 이미지 자리 (위저드에서 정한 설명) + 고객이 올린 사진. 위치는 캡처의 screenshots[device].slots 에 있다 */
+export type EditorSlot = Pick<ImageSlot, "id" | "label" | "need" | "ratio" | "count" | "source" | "generate"> & {
+  photos?: { name: string; url: string }[];
+};
 
 /** 아직 제출하지 않은 네모. 좌표는 캡처 이미지 픽셀 기준 (줌과 무관). */
 export type DraftBox = {
@@ -37,6 +39,8 @@ export type ExistingRequest = Pick<ChangeRequestRow, "id" | "seq" | "region" | "
   lastReply?: string | null;
   /** 아직 안 읽은 담당자 글이 있다 */
   unread?: boolean;
+  /** 사람이 답하는 요청(전문가 요청 · 오류 신고)이 아직 열려 있으면 답변 기한 ("10월 18일 오후 03:10까지") */
+  due?: string | null;
 };
 
 /** 제출 payload 항목 (submit_change_requests RPC 의 p_items 와 동일) */
@@ -78,13 +82,15 @@ export function toRegion(d: DraftBox, shot: Screenshot): Region {
 }
 
 /** 사이트 전체에서 이미지 자리마다 그 자리에 보낸 가장 최근 요청의 상태 (제작 정보 화면 · 준비할 사진 수). requests 는 최신순 */
-export function slotStatuses<R extends Pick<ExistingRequest, "page_id" | "device" | "region" | "status">>(
+export type SlotRequestState = { status: RequestStatus; kind: RequestKind };
+
+export function slotStatuses<R extends Pick<ExistingRequest, "page_id" | "device" | "region" | "status" | "kind">>(
   pages: Pick<EditorPage, "id" | "screenshots">[],
   requests: R[],
-): Map<string, RequestStatus> {
-  const out = new Map<string, RequestStatus>();
+): Map<string, SlotRequestState> {
+  const out = new Map<string, SlotRequestState>();
   for (const page of pages) {
-    for (const [slotId, r] of requestsBySlot(page, requests)) if (!out.has(slotId)) out.set(slotId, r.status);
+    for (const [slotId, r] of requestsBySlot(page, requests)) if (!out.has(slotId)) out.set(slotId, { status: r.status, kind: r.kind });
   }
   return out;
 }

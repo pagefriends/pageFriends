@@ -31,6 +31,8 @@ type Handle = (typeof HANDLES)[number];
 export type CanvasHandle = { focus: (rect: { x: number; y: number; w: number; h: number }) => void };
 /** 캔버스 위에 잠깐 강조할 영역 (이미지 자리 목록에 마우스를 올렸을 때). 캡처 픽셀 기준 */
 export type Highlight = { x: number; y: number; w: number; h: number };
+/** 고객이 올린 사진을 그 이미지 자리 위에 겹쳐 그린다 (구성 초안 그림에는 사진이 없으므로). 캡처 픽셀 기준 */
+export type PhotoOverlay = Highlight & { url: string; label: string };
 
 type Drag =
   | { type: "pan"; startX: number; startY: number; originX: number; originY: number }
@@ -49,6 +51,7 @@ export function EditorCanvas({
   onHover,
   defaultKind,
   highlights = [],
+  photos = [],
   ref,
 }: {
   screenshot: Screenshot;
@@ -62,6 +65,7 @@ export function EditorCanvas({
   onHover: (id: string | null) => void;
   defaultKind: DraftBox["kind"];
   highlights?: Highlight[];
+  photos?: PhotoOverlay[];
   ref?: React.Ref<CanvasHandle>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -273,6 +277,19 @@ export function EditorCanvas({
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- 캡처는 원본 픽셀 크기로 배치해야 좌표 계산이 맞는다 */}
         <img src={screenshot.url} width={screenshot.width} height={screenshot.height} alt="" draggable={false} className="block select-none" />
+
+        {/* 고객이 올린 사진: 이미지 자리 위에 꽉 채워 보여 준다 (네모를 그리는 데 방해되지 않게 클릭은 통과) */}
+        {photos.map((p, i) => (
+          // eslint-disable-next-line @next/next/no-img-element -- 캡처 좌표에 맞춰 그대로 겹친다
+          <img
+            key={`ph-${i}`}
+            src={p.url}
+            alt={p.label}
+            draggable={false}
+            className="pointer-events-none absolute object-cover select-none"
+            style={{ left: p.x, top: p.y, width: p.w, height: p.h, borderRadius: 10 }}
+          />
+        ))}
 
         {/* 이미지 자리 강조: 오른쪽 "이미지 자리" 목록에 마우스를 올린 자리 */}
         {highlights.map((h, i) => (

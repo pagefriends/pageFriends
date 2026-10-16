@@ -8,7 +8,7 @@ import { DELIVERY_DAYS } from "@/config/plans";
 import { KEY_NUMBERS, PHOTO_STATS, WHY_CARDS, ph } from "@/content/site";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "페이지프렌즈 — AI 웹사이트 제작, 3~7일 완성" };
+export const metadata: Metadata = { title: "페이지프렌즈 — AI 웹사이트 제작, AI는 바로 · 전문가는 1~3일" };
 
 /**
  * 홈. 디자인 피클 홈의 섹션 순서를 그대로 따른다:

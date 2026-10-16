@@ -5,7 +5,7 @@ import { BatchStatusSelect } from "@/components/admin/quick-actions";
 import { AutoRefresh } from "@/components/messages/auto-refresh";
 import { Alert, Badge } from "@/components/ui/card";
 import { DEVICE_LABEL, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
-import { REQUEST_KIND_TONE, REQUEST_STATUS, STATUS_EVENT_TEXT, isOpenStatus } from "@/config/requests";
+import { REQUEST_KIND_TONE, STATUS_EVENT_TEXT, isOpenStatus, needsPerson, remainingLabel, requestStatus } from "@/config/requests";
 import { countRequestsByStatus, getAdminCounts, listAdminRequests, type AdminRequestListItem, type RequestFilter } from "@/lib/admin";
 import { cn, formatDateTime } from "@/lib/utils";
 
@@ -130,8 +130,10 @@ export default async function AdminRequestsPage({ searchParams }: PageProps<"/ad
                   .slice()
                   .sort((a, b) => a.seq - b.seq)
                   .map((r) => {
-                    const s = REQUEST_STATUS[r.status];
+                    const s = requestStatus(r.kind, r.status);
                     const last = r.lastEntry;
+                    // 사람이 답하는 요청은 접수 뒤 72시간 안에 답한다 — 남은 시간을 보여 늦지 않게
+                    const due = needsPerson(r.kind) && isOpenStatus(r.status) ? remainingLabel(r.created_at) : null;
                     return (
                       <li key={r.id}>
                         <Link href={`/admin/requests/${r.id}`} className="flex gap-3 px-4 py-3 hover:bg-ink-50">
@@ -146,6 +148,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps<"/ad
                               {r.unreadReplies > 0 ? <span className="rounded-sm bg-sky-400 px-1.5 py-0.5 text-[11px] leading-none font-semibold text-night-950">새 답글 {r.unreadReplies}</span> : null}
                               {r.awaiting_user && isOpenStatus(r.status) ? <Badge tone="sky">사용자 답 대기</Badge> : null}
                               {r.kind === "ai" && r.tokens_used > 0 ? <span className="tabular-nums">{formatTokens(r.tokens_used)} 토큰</span> : null}
+                              {due ? <span className={due.late ? "font-semibold text-mark" : "text-ink-500"}>{due.text}</span> : null}
                             </div>
                             <p className="mt-1 line-clamp-2 text-sm">{r.message}</p>
                             {last ? (

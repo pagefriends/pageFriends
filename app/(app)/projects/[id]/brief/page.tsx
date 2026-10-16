@@ -6,9 +6,10 @@ import { notFound } from "next/navigation";
 import { BriefDetails } from "@/components/brief/brief-details";
 import { Alert } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/session";
-import { slotStatuses } from "@/components/editor/types";
+import { slotStatuses, type SlotRequestState } from "@/components/editor/types";
+import { listProjectPhotos, type SitePhoto } from "@/lib/photos";
 import { getProject, listProjectRequests } from "@/lib/projects";
-import type { RequestStatus } from "@/lib/types/db";
+import type { ChangeRequestRow } from "@/lib/types/db";
 
 export const metadata: Metadata = { title: "제작 정보" };
 
@@ -24,9 +25,12 @@ export default async function ProjectBriefPage({ params }: PageProps<"/projects/
   const { project, pages } = data;
   const site = project.brief.site;
   // 자리마다 지금 상태: 그 자리에 보낸 요청(위저드의 AI 생성 · 편집기의 "AI로 만들기")이 있으면 요청 상태, 없으면 빈 자리
-  const status = site ? slotStatuses(pages, await listProjectRequests(id)) : new Map<string, RequestStatus>();
-  const empty = site ? site.images.filter((s) => !status.has(s.id)) : [];
-  const photos = (list: typeof empty) => list.reduce((n, s) => n + s.count, 0);
+  const [requests, uploaded]: [ChangeRequestRow[], Record<string, SitePhoto[]>] = site ? await Promise.all([listProjectRequests(id), listProjectPhotos(id)]) : [[], {}];
+  const status = site ? slotStatuses(pages, requests) : new Map<string, SlotRequestState>();
+  const have = (slotId: string) => uploaded[slotId]?.length ?? 0;
+  // 아직 비어 있는 자리: 요청도 없고 사진도 다 올리지 않은 자리. 사진 수는 남은 장 수
+  const empty = site ? site.images.filter((s) => !status.has(s.id) && have(s.id) < s.count) : [];
+  const photos = (list: typeof empty) => list.reduce((n, s) => n + s.count - have(s.id), 0);
   const emptyReal = empty.filter((s) => s.source === "real");
   const emptyAi = empty.filter((s) => s.source === "ai");
 
@@ -47,14 +51,21 @@ export default async function ProjectBriefPage({ params }: PageProps<"/projects/
         <Alert tone="blue" className="mt-5">
           비어 있는 이미지 자리가 {empty.length}곳(사진 {photos(empty)}장) 있어요.
           {emptyReal.length > 0
-            ? ` 그중 실제 사진이 필요한 자리 ${emptyReal.length}곳(사진 ${photos(emptyReal)}장)은 직접 준비해 주셔야 해요 — 아래 '이미지 자리' 목록이 준비할 사진 목록이에요.`
+            ? ` 그중 실제 사진이 필요한 자리 ${emptyReal.length}곳(사진 ${photos(emptyReal)}장)은 아래 '이미지 자리' 목록에서 바로 올려 주세요.`
             : ""}
           {emptyAi.length > 0 ? ` AI로 만들 수 있는 자리 ${emptyAi.length}곳은 편집 화면의 이미지 자리에서 'AI로 만들기' 로 요청할 수 있어요.` : ""}
         </Alert>
       ) : null}
 
       <div className="mt-6">
-        <BriefDetails brief={project.brief} pages={pages} viewer="owner" slotStatus={site ? status : undefined} />
+        <BriefDetails
+          brief={project.brief}
+          pages={pages}
+          viewer="owner"
+          slotStatus={site ? status : undefined}
+          projectId={id}
+          photos={Object.fromEntries(Object.entries(uploaded).map(([k, v]) => [k, v.map((p) => ({ name: p.name, url: p.url }))]))}
+        />
       </div>
     </div>
   );

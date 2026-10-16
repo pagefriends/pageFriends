@@ -124,8 +124,45 @@ export type ChangeRequestRow = {
   tokens_used: number;
   /** 관리자가 질문했고 사용자의 답을 기다리는 중 ("확인 필요"). 0006 적용 전 DB 에는 컬럼이 없다 */
   awaiting_user?: boolean;
+  /** 이 수정이 실린 웹사이트 적용. done 인데 null 이면 "적용 대기". 0007 적용 전 DB 에는 컬럼이 없다 */
+  release_id?: string | null;
   created_at: string;
   resolved_at: string | null;
+};
+
+/**
+ * supabase/migrations/0007_releases.sql — 웹사이트 적용 (개발 서버 → 운영).
+ * requested 적용 요청(개발 서버 배포 전, 또는 문제가 있어 다시 고치는 중) → staging 개발 서버 확인 중 → live 운영 반영 완료.
+ */
+export type ReleaseStatus = "requested" | "staging" | "live" | "cancelled";
+
+export type ReleaseRow = {
+  id: string;
+  project_id: string;
+  /** 사이트별 n번째 적용 */
+  seq: number;
+  status: ReleaseStatus;
+  /** 처음 적용 = 사이트 전체를 처음 공개 */
+  first_publish: boolean;
+  /** 사용자가 남긴 말 */
+  note: string | null;
+  requested_by: string | null;
+  requested_at: string;
+  staging_url: string | null;
+  staging_at: string | null;
+  /** 개발 서버에 올린 횟수. 문제로 다시 올리면 늘어난다 */
+  staging_rounds: number;
+  /** 개발 서버 확인 목록 (config/releases.ts 의 키) */
+  checks: Record<string, boolean>;
+  /** 폼·DB 구조 변경 포함 — 켜면 개발 DB · 운영 DB 확인이 더해진다 */
+  db_change: boolean;
+  /** 개발 서버에서 찾은 문제 (마지막 것) */
+  issue_note: string | null;
+  production_url: string | null;
+  live_at: string | null;
+  cancelled_at: string | null;
+  cancel_note: string | null;
+  updated_at: string;
 };
 
 /** supabase/migrations/0006_messages.sql — 사용자 ↔ 관리자 대화. 한 행 = 글 하나 또는 상태 변경 기록 하나 */

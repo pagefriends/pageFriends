@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
 import { Select, Textarea } from "@/components/ui/input";
 import { APPROX_TOKENS_PER_IMAGE, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
-import { REQUEST_STATUS } from "@/config/requests";
+import { REQUEST_KIND_PROMISE, requestStatus } from "@/config/requests";
 import type { QuotaInfo } from "@/lib/quota";
+import { SlotPhotos } from "@/components/photos/slot-photos";
 import { RATIO_SHAPE, RATIO_SIZE } from "@/lib/site-plan";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
@@ -21,10 +22,12 @@ export type PanelSlot = { slot: EditorSlot; located: boolean; request: ExistingR
 function slotStatus(item: PanelSlot): { label: string; tone: "blue" | "sky" | "gray" | "dark" } {
   const r = item.request;
   if (r) {
-    if (r.status === "done") return { label: "반영 완료", tone: "sky" };
-    if (r.status === "processing") return { label: r.kind === "ai" ? "AI 생성 중" : "처리 중", tone: "blue" };
-    return { label: r.kind === "ai" ? "AI 생성 접수" : "요청 접수", tone: "blue" };
+    const st = requestStatus(r.kind, r.status);
+    return { label: st.label, tone: st.tone === "red" ? "gray" : st.tone };
   }
+  const photos = item.slot.photos?.length ?? 0;
+  if (photos >= item.slot.count) return { label: "사진 올림", tone: "sky" };
+  if (photos > 0) return { label: `사진 ${photos}/${item.slot.count}장`, tone: "blue" };
   // 위저드에서 AI 로 만들기로 골랐어도 요청이 없으면(접수 실패·반영 불가) 다시 요청할 수 있게 빈 자리로 본다
   if (item.slot.source === "real") return { label: "실제 사진 필요", tone: "dark" };
   return { label: "이미지 필요", tone: "gray" };
@@ -63,6 +66,7 @@ export function RequestPanel({
   onSubmit,
   error,
   demo,
+  projectId = null,
   slots = [],
   hoveredSlot = null,
   onSlotHover,
@@ -89,6 +93,8 @@ export function RequestPanel({
   onSubmit: () => void;
   error: string | null;
   demo?: boolean;
+  /** 사진 올리기에 쓰는 프로젝트 id. 체험 모드에서는 null (올리기 숨김) */
+  projectId?: string | null;
   /** 이 페이지의 이미지 자리 (구성 초안으로 만든 사이트만) */
   slots?: PanelSlot[];
   hoveredSlot?: string | null;
@@ -100,7 +106,7 @@ export function RequestPanel({
 }) {
   const refs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const [slotsOpen, setSlotsOpen] = useState(true);
-  const emptySlots = slots.filter((i) => !i.request).length;
+  const emptySlots = slots.filter((i) => !i.request && (i.slot.photos?.length ?? 0) < i.slot.count).length;
   const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   // 네모를 새로 그리거나 캔버스에서 고르면 그 카드로 스크롤 + 입력칸 포커스
@@ -165,8 +171,8 @@ export function RequestPanel({
                             요청 내역에서 보기 →
                           </Link>
                         ) : null
-                      ) : s.source === "real" ? (
-                        <p className="mt-1.5 text-ink-500">실제 사진이 필요해요. 사진이 준비되면 이 자리에 빨간 네모를 그려 알려 주세요.</p>
+                      ) : (s.photos?.length ?? 0) >= s.count ? null : s.source === "real" ? (
+                        <p className="mt-1.5 text-ink-500">실제 사진이 필요해요. 아래 &lsquo;사진 올리기&rsquo; 로 올려 주시면 담당자가 이 자리에 넣어 드려요.</p>
                       ) : item.drafted ? (
                         <p className="mt-1.5 font-medium text-mark">네모를 만들었어요 — 요청 목록에서 글을 확인하고 요청하기를 누르세요.</p>
                       ) : (
@@ -182,6 +188,10 @@ export function RequestPanel({
                           <SparklesIcon className="size-3" /> AI로 만들기 · 약 {formatTokens(APPROX_TOKENS_PER_IMAGE)} 토큰
                         </button>
                       )}
+                      {/* 갖고 있는 사진으로 채우기 — AI 로 만들 수 있는 자리도 직접 찍은 사진을 쓸 수 있다 */}
+                      {projectId && !item.request ? (
+                        <SlotPhotos projectId={projectId} slotId={s.id} label={s.label} count={s.count} photos={s.photos ?? []} className="mt-2" />
+                      ) : null}
                     </li>
                   );
                 })}
@@ -246,6 +256,7 @@ export function RequestPanel({
                       </button>
                     </div>
                   </div>
+                  <p className="mt-1.5 text-[11px] text-ink-500">{REQUEST_KIND_PROMISE[d.kind]}</p>
                   <Textarea
                     ref={(el) => {
                       refs.current[d.id] = el;
@@ -285,13 +296,14 @@ export function RequestPanel({
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="grid h-5 min-w-5 place-items-center bg-brand-500 px-1 text-[11px] font-semibold text-white">#{r.seq}</span>
                     <span className="text-ink-500">{REQUEST_KIND_LABEL[r.kind]}</span>
-                    <span className="font-medium text-ink-700">{REQUEST_STATUS[r.status].label}</span>
+                    <span className="font-medium text-ink-700">{requestStatus(r.kind, r.status).label}</span>
                     {r.awaiting ? (
                       <span className="rounded-sm bg-sky-400 px-1 text-[10px] leading-4 font-semibold text-night-950">확인 필요</span>
                     ) : r.unread ? (
                       <span className="rounded-sm bg-sky-400 px-1 text-[10px] leading-4 font-semibold text-night-950">새 답변</span>
                     ) : null}
                   </div>
+                  {r.due ? <p className="mt-1 text-[11px] text-ink-500">답변 기한 · {r.due}</p> : null}
                   {r.message ? <p className="mt-1.5 line-clamp-2 text-[13px] text-ink-900">{r.message}</p> : null}
                   {r.lastReply ? (
                     <p className="mt-1 line-clamp-2 text-ink-500">
