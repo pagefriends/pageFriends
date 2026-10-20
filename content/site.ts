@@ -5,10 +5,10 @@
  * 규칙
  * - 사진은 전부 임시(/placeholders). 실제 이미지가 오면 파일만 교체한다.
  * - 고객 후기·사례·글은 `sample: true` 인 샘플 콘텐츠다. 화면에 "샘플" 표시가 붙고, 실제 콘텐츠로 교체해야 한다.
- * - 숫자는 서비스 사실(3~7일, 4개 플랜, 29,000원부터 등)만 쓴다. 고객 수·매출 같은 지어낸 실적 수치는 넣지 않는다.
+ * - 숫자는 서비스 사실(3~7일, 3개 플랜, 19,800원부터 등)만 쓴다. 고객 수·매출 같은 지어낸 실적 수치는 넣지 않는다. 가격은 config/plans.ts 에서 읽는다.
  */
 import placeholders from "@/config/placeholders.json";
-import { DELIVERY_DAYS, PLANS, formatKrw } from "@/config/plans";
+import { DELIVERY_DAYS, PAYMENT_SETUP_FEE_KRW, PLANS, formatKrw } from "@/config/plans";
 
 export type Img = { src: string; width: number; height: number };
 const P = placeholders as Record<"wide" | "photo" | "square" | "tall" | "banner" | "avatar" | "logo", Img[]>;
@@ -89,7 +89,7 @@ export const SOLUTIONS: Solution[] = [
     deliverables: ["상품·카테고리 페이지", "장바구니 · 결제(토스페이먼츠)", "주문 · 배송 관리자 페이지", "회원가입 · 로그인"],
     features: COMMON_FEATURES,
     faq: [
-      { q: "결제는 어떻게 붙나요?", a: `비즈니스 플랜에서 결제 시스템 옵션을 켜면 됩니다. 초기 구축 비용이 포함되어 첫 달 289,000원, 이후 월 ${formatKrw(PLANS[1].priceKrw)}입니다.` },
+      { q: "결제는 어떻게 붙나요?", a: `비즈니스 · 프로 플랜에서 결제 시스템 연동을 켜면 됩니다. 연동비 ${formatKrw(PAYMENT_SETUP_FEE_KRW)}은 처음 한 번만 받고, 플랜 요금은 그대로입니다 (비즈니스 월 ${formatKrw(PLANS[1].priceKrw)}).` },
       { q: "상품은 제가 직접 올릴 수 있나요?", a: "네. 관리자 페이지에서 상품·재고·주문을 직접 관리합니다." },
     ],
     recommendedPlan: "business",
@@ -248,10 +248,10 @@ export const SOLUTIONS: Solution[] = [
   {
     slug: "app",
     name: "개인 앱",
-    short: "모바일 앱까지 (엔터프라이즈)",
+    short: "모바일 앱까지 (별도 상담)",
     eyebrow: "개인 앱",
     headline: "웹사이트에서 모바일 앱까지",
-    intro: "엔터프라이즈 플랜에서는 웹사이트와 함께 iOS · Android 앱까지 제작합니다. 전담 매니저가 처음부터 끝까지 함께합니다.",
+    intro: "상담으로 범위를 정해 웹사이트와 함께 iOS · Android 앱까지 제작합니다. 전담 매니저가 처음부터 끝까지 함께합니다.",
     tags: ["iOS · Android", "푸시 알림", "회원", "결제", "전담 매니저"],
     hashtags: ["#모바일앱", "#푸시", "#전담매니저"],
     deliverables: ["웹사이트 + 모바일 앱", "스토어 등록 지원", "전담 매니저"],
@@ -369,9 +369,9 @@ export const TRUST_LOGOS: Img[] = Array.from({ length: 8 }, (_, i) => ph("logo",
 /** 서비스 사실 기반 수치 (지어낸 실적 아님) */
 export const KEY_NUMBERS = [
   { value: `${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일`, body: "필수 정보 입력 후 첫 완성본까지. 견적·미팅 없이 바로 시작합니다." },
-  { value: formatKrw(PLANS[0].priceKrw), body: "가장 작은 플랜의 월 요금. 사이트 1개, 3~5페이지에 토큰이 포함됩니다." },
+  { value: formatKrw(PLANS[0].priceKrw), body: "가장 작은 플랜의 월 요금. 사이트 1개, 3~5페이지에 토큰이 포함됩니다. 연간 결제는 두 달 치를 아낍니다." },
   { value: "1,000원", body: "완성 디자인 템플릿 1개 가격. 실제 운영 중인 사이트 템플릿은 8,900원." },
-  { value: "4개 플랜", body: "소개 사이트부터 쇼핑몰, 개인 앱까지. 규모가 커지면 플랜만 올리면 됩니다." },
+  { value: `${PLANS.length}개 플랜`, body: "소개 사이트부터 쇼핑몰까지. 규모가 커지면 플랜만 올리면 되고, 앱 제작은 별도 상담으로." },
 ];
 
 export const PHOTO_STATS = [
@@ -383,7 +383,7 @@ export const PHOTO_STATS = [
 export const WHY_CARDS = [
   { icon: "shield", title: "품질은 사람과 프로세스가 보장", body: "AI 초안을 전문가가 검수합니다. 구조 · 문구 · 반응형까지 사람이 봅니다." },
   { icon: "zap", title: "빠르게 시작", body: "템플릿 또는 프롬프트로 5분 안에 시작. 견적 · 미팅 없이 바로 제작에 들어갑니다." },
-  { icon: "coins", title: "투명한 요금", body: "월 단위 4개 플랜. AI 는 실제 쓴 토큰만큼만 차감되고 한도를 넘으면 크레딧으로." },
+  { icon: "coins", title: "투명한 요금", body: `월간 · 연간 ${PLANS.length}개 플랜. AI 는 실제 쓴 토큰만큼만 차감되고 한도를 넘으면 크레딧으로.` },
   { icon: "clock", title: "믿을 수 있는 속도", body: `첫 완성본 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일, AI 수정은 보통 몇 시간 안에 반영됩니다.` },
   { icon: "headset", title: "사람이 답합니다", body: "요청이 막히면 실시간 채팅과 전문가 요청으로 사람이 직접 풀어드립니다." },
 ];
@@ -436,7 +436,7 @@ export const STORIES: Story[] = [
   { slug: "handmade-shop", company: "핸드메이드 샵", industry: "small-business", solution: "shop", headline: "결제까지 붙인 쇼핑몰을 한 번에", summary: "비즈니스 플랜 + 결제 시스템 옵션으로 상품 등록부터 결제까지.", metrics: [{ value: "1주", label: "오픈 후 첫 주문" }, { value: "12", label: "페이지" }, { value: "비즈니스", label: "플랜" }], quote: "결제 시스템까지 한 번에 붙여서 오픈 첫 주에 주문을 받았습니다.", quoteBy: "이OO, 핸드메이드 샵 운영", body: ["수제 소품을 SNS 로 팔던 운영자는 주문 · 입금 확인을 손으로 하고 있었습니다.", "비즈니스 플랜에서 결제 시스템 옵션을 켜고 상품 · 장바구니 · 결제 · 주문 관리자 페이지까지 한 번에 만들었습니다.", "오픈 첫 주에 사이트에서 첫 주문이 들어왔습니다."], image: ph("photo", 2), logo: ph("logo", 2), sample: true },
   { slug: "clinic-care", company: "케어 피부과", industry: "small-business", solution: "clinic", headline: "진료 안내와 예약을 세 가지 화면에서", summary: "모바일 · 태블릿 · 웹 화면을 각각 확인하고 수정 요청.", metrics: [{ value: "3종", label: "디바이스 화면" }, { value: "8", label: "페이지" }, { value: "비즈니스", label: "플랜" }], quote: "문구 수정은 AI 로 바로, 사진 교체는 전문가에게.", quoteBy: "박OO, 케어 피부과 실장", body: ["진료 과목 · 의료진 · 예약 페이지를 만들고, 태블릿 화면에서 표가 깨지는 것을 네모로 표시해 전문가에게 요청했습니다.", "문구 수정은 AI 반영으로 몇 시간 안에 처리됐습니다."], image: ph("photo", 3), logo: ph("logo", 3), sample: true },
   { slug: "startup-landing", company: "런치 스타트업", industry: "startup", solution: "landing", headline: "사전예약 랜딩페이지를 이틀 만에", summary: "광고 집행 전 랜딩페이지와 신청 폼을 빠르게.", metrics: [{ value: "2일", label: "랜딩 완성" }, { value: "1", label: "페이지" }, { value: "스타터", label: "플랜" }], quote: "에이전시 견적의 1/10 로 시작했습니다.", quoteBy: "최OO, 마케팅 리드", body: ["광고 집행 일정이 정해진 상태에서 랜딩페이지가 필요했습니다.", "프롬프트만으로 시작해 이틀 만에 신청 폼이 붙은 랜딩페이지가 나왔습니다."], image: ph("photo", 4), logo: ph("logo", 4), sample: true },
-  { slug: "agency-multi", company: "브릿지 에이전시", industry: "agency", solution: "company", headline: "고객사 사이트 5개를 대시보드 하나로", summary: "프로 플랜으로 여러 고객사 사이트를 동시에 제작 · 운영.", metrics: [{ value: "5개", label: "사이트" }, { value: "주 10회", label: "전문가 요청" }, { value: "프로", label: "플랜" }], quote: "대시보드 하나로 끝납니다.", quoteBy: "정OO, 에이전시 대표", body: ["소규모 에이전시가 고객사별로 외주를 돌리던 구조를 페이지프렌즈로 바꿨습니다.", "프로 플랜의 사이트 5개 슬롯에 고객사 사이트를 넣고, 수정 요청은 고객사가 직접 네모로 보냅니다."], image: ph("photo", 5), logo: ph("logo", 5), sample: true },
+  { slug: "agency-multi", company: "브릿지 에이전시", industry: "agency", solution: "company", headline: "고객사 사이트 5개를 대시보드 하나로", summary: "프로 플랜으로 여러 고객사 사이트를 동시에 제작 · 운영.", metrics: [{ value: "5개", label: "사이트" }, { value: "월 4회", label: "전문가 요청" }, { value: "프로", label: "플랜" }], quote: "대시보드 하나로 끝납니다.", quoteBy: "정OO, 에이전시 대표", body: ["소규모 에이전시가 고객사별로 외주를 돌리던 구조를 페이지프렌즈로 바꿨습니다.", "프로 플랜의 사이트 5개 슬롯에 고객사 사이트를 넣고, 수정 요청은 고객사가 직접 네모로 보냅니다."], image: ph("photo", 5), logo: ph("logo", 5), sample: true },
   { slug: "academy-plus", company: "플러스 학원", industry: "small-business", solution: "academy", headline: "공지와 수강 신청이 되는 학원 사이트", summary: "게시판(CMS)과 수강 신청 폼을 비즈니스 플랜으로.", metrics: [{ value: "6", label: "페이지" }, { value: "무료", label: "오류 신고" }, { value: "비즈니스", label: "플랜" }], quote: "오류 신고는 차감이 없어서 마음 놓고 알려줄 수 있어요.", quoteBy: "한OO, 학원 원장", body: ["공지사항을 카카오톡으로만 보내던 학원이 게시판과 시간표 페이지를 만들었습니다.", "수강 신청 폼의 오류를 오류 신고로 알렸고, 토큰 차감 없이 고쳐졌습니다."], image: ph("photo", 6), logo: ph("logo", 6), sample: true },
 ];
 export const STORY_BY_SLUG: Record<string, Story> = Object.fromEntries(STORIES.map((s) => [s.slug, s]));
@@ -527,7 +527,7 @@ export const HELP_FAQ: { group: string; items: { q: string; a: string }[] }[] = 
   {
     group: "수정 요청",
     items: [
-      { q: "AI 반영과 전문가 요청의 차이는?", a: "문구 · 색 · 간격처럼 바로 고칠 수 있는 것은 AI 반영(토큰 차감), 사진 교체 · 구조 변경처럼 사람이 필요한 것은 전문가 요청(주간 횟수)입니다." },
+      { q: "AI 반영과 전문가 요청의 차이는?", a: "문구 · 색 · 간격처럼 바로 고칠 수 있는 것은 AI 반영(토큰 차감), 사진 교체 · 구조 변경처럼 사람이 필요한 것은 전문가 요청(월 횟수)입니다." },
       { q: "오류 신고는 무엇인가요?", a: "우리 쪽 실수로 생긴 오류를 알리는 요청입니다. 토큰 · 횟수 어디에서도 차감하지 않습니다." },
       { q: "네모 여러 개를 한 번에 보낼 수 있나요?", a: "네. 페이지 · 디바이스에 상관없이 그린 네모를 '요청하기' 로 한 묶음으로 보냅니다." },
       { q: "담당자의 답변에 다시 답할 수 있나요?", a: "네. 요청 내역에서 요청마다 답글을 달 수 있습니다. 답글은 토큰이나 횟수를 쓰지 않습니다. 담당자가 질문을 남기면 '확인 필요' 로 표시되고, 답글을 보내면 작업이 이어집니다." },
@@ -538,8 +538,9 @@ export const HELP_FAQ: { group: string; items: { q: string; a: string }[] }[] = 
   {
     group: "요금 · 결제",
     items: [
-      { q: "토큰은 어떻게 차감되나요?", a: "요청이 처리될 때 실제 사용량만큼 차감되고, 결제 기간마다 초기화됩니다. 한도를 넘으면 토큰 크레딧에서 차감됩니다." },
-      { q: "해지하면 어떻게 되나요?", a: "현재 결제 기간이 끝날 때까지 이용하고 그 뒤로 결제되지 않습니다. 기간 안에는 해지를 취소할 수 있습니다." },
+      { q: "토큰은 어떻게 차감되나요?", a: "요청이 처리될 때 실제 사용량만큼 차감되고, 결제일부터 한 달마다 다시 채워집니다 (연간 결제도 매달). 한도를 넘으면 토큰 크레딧에서 차감됩니다." },
+      { q: "월간과 연간 결제는 무엇이 다른가요?", a: "연간 결제는 월 요금의 10배라 두 달 치를 아낍니다. 한도는 똑같이 매달 채워지고, 사람이 처음부터 만드는 '전문가에게 맡기기' 첫 제작이 들어 있습니다." },
+      { q: "해지하면 어떻게 되나요?", a: "현재 결제 기간이 끝날 때까지 이용하고 그 뒤로 결제되지 않습니다. 기간 안에는 해지를 취소할 수 있습니다. 연간 결제를 중간에 해지하고 환불을 원하면, 쓴 달 수만큼 월간 요금으로 계산해 뺀 나머지를 돌려드립니다." },
       { q: "결제 수단은?", a: "포트원(토스페이먼츠) 카드 자동 결제입니다. 카드 정보는 저장되지 않습니다." },
     ],
   },

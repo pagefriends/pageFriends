@@ -6,7 +6,9 @@ import { notFound } from "next/navigation";
 import { PayButton } from "@/components/billing/pay-button";
 import { buttonClass } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
+import { STYLE_BY_ID } from "@/config/design-styles";
 import { formatKrw } from "@/config/plans";
+import { templateDesign } from "@/config/template-designs";
 import { getSessionUser } from "@/lib/auth/session";
 import { getClientEnv } from "@/lib/env";
 import { getTemplateBySlug, listPurchasedTemplateIds } from "@/lib/templates";
@@ -21,6 +23,7 @@ export default async function TemplateDetailPage({ params }: PageProps<"/templat
   const user = await getSessionUser();
   const purchased = user ? (await listPurchasedTemplateIds(user.id)).has(template.id) : false;
   const env = getClientEnv();
+  const design = templateDesign(template.slug);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -45,6 +48,18 @@ export default async function TemplateDetailPage({ params }: PageProps<"/templat
           </div>
           <h1 className="mt-2 text-2xl font-bold tracking-tight">{template.name}</h1>
           <p className="mt-2 text-sm leading-relaxed text-ink-600">{template.description}</p>
+          {design ? (
+            <div className="mt-3">
+              <div className="flex flex-wrap gap-1">
+                {design.tags.map((id) => (
+                  <span key={id} className="rounded-sm bg-ink-900 px-1.5 py-0.5 text-[11px] font-semibold text-white" title={STYLE_BY_ID[id].desc}>
+                    {STYLE_BY_ID[id].label}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs leading-relaxed text-ink-500">{design.summary}</p>
+            </div>
+          ) : null}
 
           <ul className="mt-4 flex flex-col gap-1.5 text-[13px] text-ink-700">
             <li className="flex gap-2">
@@ -54,6 +69,10 @@ export default async function TemplateDetailPage({ params }: PageProps<"/templat
             <li className="flex gap-2">
               <CheckIcon className="mt-0.5 size-3.5 text-brand-600" />
               구매 후 여러 프로젝트에 사용 가능
+            </li>
+            <li className="flex gap-2">
+              <CheckIcon className="mt-0.5 size-3.5 text-brand-600" />
+              새 사이트의 시작 디자인 · 수정 요청의 참고 템플릿으로 AI 가 반영
             </li>
             {template.kind === "live" ? (
               <li className="flex gap-2">

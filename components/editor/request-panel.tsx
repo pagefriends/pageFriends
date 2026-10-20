@@ -4,12 +4,14 @@ import { ChevronDownIcon, ImageIcon, LoaderCircleIcon, SendIcon, SparklesIcon, T
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import type { DraftBox, EditorSlot, ExistingRequest } from "@/components/editor/types";
+import { AiOptions } from "@/components/editor/ai-options";
+import type { DraftBox, EditorSlot, EditorTemplate, ExistingRequest } from "@/components/editor/types";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
 import { Select, Textarea } from "@/components/ui/input";
+import type { StyleId } from "@/config/design-styles";
 import { APPROX_TOKENS_PER_IMAGE, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
-import { REQUEST_KIND_PROMISE, requestStatus } from "@/config/requests";
+import { REQUEST_KIND_PROMISE, isImageRequest, requestStatus } from "@/config/requests";
 import type { QuotaInfo } from "@/lib/quota";
 import { SlotPhotos } from "@/components/photos/slot-photos";
 import { RATIO_SHAPE, RATIO_SIZE } from "@/lib/site-plan";
@@ -72,6 +74,9 @@ export function RequestPanel({
   onSlotHover,
   onSlotFocus,
   onSlotAi,
+  siteStyles = [],
+  templates = [],
+  aiEnabled = false,
 }: {
   drafts: DraftBox[];
   /** 이 페이지·디바이스에서 이미 보낸, 아직 진행 중인 요청 */
@@ -103,6 +108,12 @@ export function RequestPanel({
   onSlotFocus?: (id: string) => void;
   /** 그 자리에 AI 반영 네모를 만들고 요청 글을 채운다 */
   onSlotAi?: (id: string) => void;
+  /** 사이트의 디자인 유형 (AI 반영 네모의 기본값) */
+  siteStyles?: StyleId[];
+  /** 참고 템플릿 목록 */
+  templates?: EditorTemplate[];
+  /** AI 가 바로 처리하는지 (키가 있음) */
+  aiEnabled?: boolean;
 }) {
   const refs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const [slotsOpen, setSlotsOpen] = useState(true);
@@ -119,7 +130,7 @@ export function RequestPanel({
   // AI: 남은 토큰(한도 + 크레딧)이 0 이면 AI 요청 불가. 실제 차감은 처리 후 사용량 기준.
   const aiLeft = quota.ai.remaining === null ? null : quota.ai.remaining + quota.ai.credits;
   const aiBlocked = counts.ai > 0 && aiLeft !== null && aiLeft <= 0;
-  // 전문가: 주간 한도 초과분은 횟수 크레딧에서 차감
+  // 전문가: 이번 달 한도 초과분은 횟수 크레딧에서 차감
   const overExpert = quota.expert.remaining === null ? 0 : Math.max(0, counts.expert - quota.expert.remaining);
   const shortExpert = Math.max(0, overExpert - quota.expert.credits);
   const missingMessage = drafts.some((d) => !d.message.trim());
@@ -269,6 +280,12 @@ export function RequestPanel({
                     className="mt-2 min-h-16 text-[13px]"
                     maxLength={2000}
                   />
+                  {d.kind === "ai" && !isImageRequest(d.message) && !demo ? (
+                    <AiOptions box={d} onChange={(patch) => onChange(d.id, patch)} siteStyles={siteStyles} templates={templates} />
+                  ) : null}
+                  {d.kind === "ai" && aiEnabled ? (
+                    <p className="mt-1.5 text-[11px] text-ink-500">요청하면 AI가 바로 고치고, 끝나면 &lsquo;새 화면 보기&rsquo; 가 떠요. 애매하면 AI가 먼저 물어봐요.</p>
+                  ) : null}
                 </li>
               );
             })}
@@ -307,7 +324,7 @@ export function RequestPanel({
                   {r.message ? <p className="mt-1.5 line-clamp-2 text-[13px] text-ink-900">{r.message}</p> : null}
                   {r.lastReply ? (
                     <p className="mt-1 line-clamp-2 text-ink-500">
-                      <span className="font-medium text-ink-700">담당자</span> {r.lastReply}
+                      <span className="font-medium text-ink-700">{r.lastReplyByAi ? "AI" : "담당자"}</span> {r.lastReply}
                     </p>
                   ) : null}
                   {requestsHref ? (
@@ -327,11 +344,11 @@ export function RequestPanel({
         <div className="mt-1.5 flex items-center justify-between text-xs">
           <span className="text-ink-500">{REQUEST_KIND_LABEL.expert}</span>
           <span className="tabular-nums">
-            {quota.expert.weekly === null ? (
-              <span className="text-ink-700">이번 주 무제한</span>
+            {quota.expert.monthly === null ? (
+              <span className="text-ink-700">이번 달 무제한</span>
             ) : (
               <span className={cn(quota.expert.remaining !== null && counts.expert > quota.expert.remaining ? "text-mark" : "text-ink-700")}>
-                이번 주 {quota.expert.used + counts.expert}/{quota.expert.weekly}회
+                이번 달 {quota.expert.used + counts.expert}/{quota.expert.monthly}회
               </span>
             )}
             {quota.expert.credits > 0 ? <span className="ml-2 text-ink-400">크레딧 {quota.expert.credits}회</span> : null}
@@ -363,7 +380,7 @@ export function RequestPanel({
         ) : null}
         {overExpert > 0 ? (
           <Alert tone={shortExpert > 0 ? "red" : "gray"} className="mt-3 text-xs">
-            주간 한도를 넘는 전문가 요청 {overExpert}건은 크레딧에서 차감됩니다.
+            이번 달 한도를 넘는 전문가 요청 {overExpert}건은 크레딧에서 차감됩니다.
             {shortExpert > 0 ? (
               <>
                 {" "}

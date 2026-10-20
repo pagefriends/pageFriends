@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import samples from "@/config/samples.json";
 import type { DeviceKind } from "@/config/plans";
+import { designOf } from "@/lib/design-doc";
 import { renderDraft } from "@/lib/draft-render";
 import { imageRequestMessage, pageFullName, type SitePlan } from "@/lib/site-plan";
 import { createClient } from "@/lib/supabase/server";
@@ -73,15 +74,25 @@ export async function getProject(userId: string, projectId: string): Promise<{ p
   return { project: project as ProjectRow, pages: (pages as ProjectPageRow[]) ?? [] };
 }
 
-/** 구성 초안 주소. 페이지 id 와 화면으로 그림을 다시 그린다 (app/api/drafts/[pageId]/[device]/route.ts) */
-export function draftUrl(pageId: string, device: DeviceKind): string {
-  return `/api/drafts/${pageId}/${device}`;
+/**
+ * 구성 초안 주소. 페이지 id 와 화면으로 그림을 다시 그린다 (app/api/drafts/[pageId]/[device]/route.ts).
+ * v = 디자인 문서 버전 — 디자인이 바뀌면 주소가 바뀌어 브라우저가 옛 그림을 쓰지 않는다. 디자인 문서가 없는 예전 사이트는 v 없음(0).
+ */
+export function draftUrl(pageId: string, device: DeviceKind, version = 0): string {
+  return `/api/drafts/${pageId}/${device}${version ? `?v=${version}` : ""}`;
 }
 
-/** 위저드 입력으로 페이지 하나의 화면별 구성 초안 캡처(크기 · 이미지 자리 위치)를 만든다 */
-function draftScreenshots(brief: ProjectBrief, site: SitePlan, pageIndex: number, pageId: string, devices: DeviceKind[]): Partial<Record<DeviceKind, Screenshot>> {
+/** 캡처 주소에 적힌 디자인 버전 (없으면 0) */
+export function draftVersion(url: string): number {
+  const m = /[?&]v=(\d+)/.exec(url);
+  return m ? Number(m[1]) : 0;
+}
+
+/** 위저드 입력 + 디자인 문서로 페이지 하나의 화면별 구성 초안 캡처(크기 · 이미지 자리 위치)를 만든다 */
+export function draftScreenshots(brief: ProjectBrief, site: SitePlan, pageIndex: number, pageId: string, devices: DeviceKind[]): Partial<Record<DeviceKind, Screenshot>> {
   const out: Partial<Record<DeviceKind, Screenshot>> = {};
   if (!brief.business) return out;
+  const design = brief.design ? designOf(brief) : undefined;
   for (const device of devices) {
     const res = renderDraft({
       siteName: brief.siteName,
@@ -92,8 +103,9 @@ function draftScreenshots(brief: ProjectBrief, site: SitePlan, pageIndex: number
       page: site.pages[pageIndex],
       device,
       year: new Date().getFullYear(),
+      design,
     });
-    out[device] = { url: draftUrl(pageId, device), width: res.width, height: res.height, draft: true, slots: res.slots };
+    out[device] = { url: draftUrl(pageId, device, design?.version ?? 0), width: res.width, height: res.height, draft: true, slots: res.slots };
   }
   return out;
 }

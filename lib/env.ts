@@ -24,6 +24,13 @@ export const serverEnvSchema = z.object({
   PAYMENTS_MOCK: optionalString,
 
   APP_URL: z.preprocess(emptyToUndefined, z.url().default("http://localhost:3000")),
+
+  // AI (Claude API). 키가 없으면 AI 를 부르지 않고 담당자가 처리한다 (lib/ai/claude.ts aiConfigured). SDK 가 직접 읽는다
+  ANTHROPIC_API_KEY: optionalString,
+  /** 하루 전체 AI 비용 상한 (USD). 비우면 config/ai.ts 의 기본값 */
+  AI_DAILY_BUDGET_USD: optionalString,
+  /** "off" 면 키가 있어도 AI 를 부르지 않는다 */
+  AI_ENGINE: optionalString,
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

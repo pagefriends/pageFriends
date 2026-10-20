@@ -1,3 +1,4 @@
+import type { StyleId } from "@/config/design-styles";
 import type { DeviceKind, RequestKind } from "@/config/plans";
 import type { ImageSlot } from "@/lib/site-plan";
 import type { ChangeRequestRow, Region, RequestStatus, Screenshot } from "@/lib/types/db";
@@ -16,7 +17,20 @@ export type DraftBox = {
   h: number;
   message: string;
   kind: RequestKind;
+  /** AI 반영 네모의 디자인 유형. 비어 있으면(undefined) 사이트의 디자인 유형을 쓴다 */
+  styles?: StyleId[];
+  /** AI 반영 네모의 참고 템플릿 (구매한 템플릿 id) */
+  templateId?: string | null;
 };
+
+/** 편집기의 참고 템플릿 목록 (구매한 것만 고를 수 있다) */
+export type EditorTemplate = { id: string; name: string; tags: StyleId[]; purchased: boolean; slug: string };
+
+/** 캡처 주소에 적힌 디자인 버전 (/api/drafts/…?v=3 → 3, 없으면 0) */
+export function shotVersion(url: string): number {
+  const m = /[?&]v=(\d+)/.exec(url);
+  return m ? Number(m[1]) : 0;
+}
 
 export type EditorPage = {
   id: string;
@@ -37,6 +51,8 @@ export type ExistingRequest = Pick<ChangeRequestRow, "id" | "seq" | "region" | "
   awaiting?: boolean;
   /** 담당자의 마지막 글. 글 없이 상태만 바꿨으면 그 안내 문장 */
   lastReply?: string | null;
+  /** 그 마지막 글을 AI 가 썼다 (messages.via = 'ai') */
+  lastReplyByAi?: boolean;
   /** 아직 안 읽은 담당자 글이 있다 */
   unread?: boolean;
   /** 사람이 답하는 요청(전문가 요청 · 오류 신고)이 아직 열려 있으면 답변 기한 ("10월 18일 오후 03:10까지") */
@@ -51,6 +67,10 @@ export type SubmitItem = {
   seq: number;
   region: Region;
   message: string;
+  /** 네모를 그린 화면의 디자인 버전 (서버가 그사이 바뀌었는지 본다) */
+  version: number;
+  /** AI 반영 네모의 디자인 유형 · 참고 템플릿 */
+  options?: { styles: StyleId[]; templateId: string | null };
 };
 
 export const draftKey = (pageId: string, device: DeviceKind) => `${pageId}:${device}`;

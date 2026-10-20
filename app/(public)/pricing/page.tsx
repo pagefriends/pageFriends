@@ -6,14 +6,24 @@ import { FaqAccordion } from "@/components/marketing/interactive";
 import { Arc, Container, Display, Eyebrow, Lead, Pill, SampleBadge, Section } from "@/components/marketing/primitives";
 import { Closing } from "@/components/marketing/sections";
 import { PlanGrid } from "@/components/pricing/plan-grid";
-import { BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW, CREDIT_PACKS, DELIVERY_DAYS, REQUEST_KIND_LABEL, TEMPLATE_PRICE_KRW, creditAmountLabel, formatKrw } from "@/config/plans";
+import {
+  ANNUAL_MONTHS,
+  CREDIT_PACKS,
+  DELIVERY_DAYS,
+  PAYMENT_SETUP_FEE_KRW,
+  PLANS,
+  REQUEST_KIND_LABEL,
+  TEMPLATE_PRICE_KRW,
+  creditAmountLabel,
+  formatKrw,
+} from "@/config/plans";
 import { TESTIMONIALS } from "@/content/site";
 
 export const metadata: Metadata = { title: "요금제" };
 
 /**
  * 디자인 피클 pricing 페이지 구성:
- * 어두운 히어로 + 플랜 4장 → 인용 → HOW IT WORKS 01/02/03 → "다 들어 있습니다" 4열 → 추가 크레딧 · 템플릿 → FAQ → 질문 카드 → 추천
+ * 어두운 히어로 + 플랜 3장(월간 · 연간 전환) → 인용 → HOW IT WORKS 01/02/03 → "다 들어 있습니다" 4열 → 추가 크레딧 · 템플릿 → FAQ → 질문 카드 → 추천
  */
 const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
   {
@@ -37,10 +47,10 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
   {
     group: "결제 · 운영",
     items: [
-      { title: "월 단위 결제", body: "포트원(토스페이먼츠) 카드 자동 결제. 언제든 해지." },
+      { title: "월간 · 연간 결제", body: `포트원(토스페이먼츠) 카드 자동 결제. 연간은 월 요금 × ${ANNUAL_MONTHS}(2개월 무료).` },
       { title: "추가 크레딧", body: "토큰·전문가 횟수를 다 쓰면 추가 구매. 만료 없음. 오류 신고는 무료." },
-      { title: "결제 시스템 옵션", body: `비즈니스 플랜에서 선택. 첫 달 ${formatKrw(BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW)}.` },
-      { title: "플랜 변경", body: "규모가 커지면 상위 플랜으로 바로 전환." },
+      { title: "결제 시스템 연동", body: `비즈니스 · 프로에서 선택. 처음 한 번 ${formatKrw(PAYMENT_SETUP_FEE_KRW)}.` },
+      { title: "플랜 변경", body: "올리면 남은 기간만큼 빼고 바로, 내리면 다음 결제부터." },
     ],
   },
   {
@@ -49,7 +59,7 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
       { title: "실시간 채팅", body: "평일 10:00~18:00 사람이 답합니다." },
       { title: "오류 신고 무료", body: "우리 쪽 실수는 토큰 · 횟수 어디에서도 차감하지 않습니다." },
       { title: "도움말 센터", body: "시작하기 · 수정 요청 · 요금 FAQ 를 언제든." },
-      { title: "전담 매니저", body: "엔터프라이즈 플랜은 처음부터 끝까지 함께." },
+      { title: "별도 상담", body: "사이트 10개 이상 · 앱 제작은 상담으로 맞춤 견적." },
     ],
   },
 ];
@@ -60,8 +70,16 @@ const FAQ = [
     a: `추가 크레딧을 구매해 이어갈 수 있습니다. ${REQUEST_KIND_LABEL.ai} ${formatKrw(CREDIT_PACKS[0].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[0])}) · ${formatKrw(CREDIT_PACKS[1].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[1])}), ${REQUEST_KIND_LABEL.expert} ${formatKrw(CREDIT_PACKS[2].priceKrw)}(1회) · ${formatKrw(CREDIT_PACKS[3].priceKrw)}(10회). 크레딧은 만료되지 않습니다. 우리 쪽 오류를 신고하는 '오류 신고'는 무료입니다.`,
   },
   {
-    q: "비즈니스 플랜의 결제 시스템 옵션은 무엇인가요?",
-    a: `쇼핑몰처럼 사이트 안에서 결제를 받아야 할 때 켭니다. 결제 연동 초기 구축 비용이 포함되어 첫 달만 ${formatKrw(BUSINESS_PAYMENT_ADDON_FIRST_MONTH_KRW)}이 청구되고, 다음 달부터는 월 89,000원입니다.`,
+    q: "월간과 연간 결제는 무엇이 다른가요?",
+    a: `연간 결제는 월 요금의 ${ANNUAL_MONTHS}배라 두 달 치를 아낍니다 (예: ${PLANS[0].name} 월 ${formatKrw(PLANS[0].priceKrw)} → 연 ${formatKrw(PLANS[0].priceKrw * ANNUAL_MONTHS)}). 토큰과 전문가 요청 한도는 연간 결제도 매달 다시 채워집니다. 사람이 처음부터 만드는 '전문가에게 맡기기' 첫 제작은 연간 결제에 들어 있고, 월간은 AI로 시작합니다.`,
+  },
+  {
+    q: "결제 시스템 연동은 무엇인가요?",
+    a: `쇼핑몰처럼 사이트 안에서 결제를 받아야 할 때 켭니다. 비즈니스 · 프로 플랜에서 고를 수 있고, 연동비 ${formatKrw(PAYMENT_SETUP_FEE_KRW)}은 처음 한 번만 받습니다. 플랜을 바꿔도 다시 받지 않습니다.`,
+  },
+  {
+    q: "플랜을 바꾸면 요금은 어떻게 되나요?",
+    a: "위 플랜으로 올리거나 월간에서 연간으로 바꾸면 지금 기간의 남은 날만큼을 빼고 바로 결제하며, 새 기간이 오늘부터 시작됩니다. 아래 플랜으로 내리거나 연간에서 월간으로 바꾸면 지금 기간이 끝나는 날(다음 결제일)부터 적용됩니다.",
   },
   {
     q: "템플릿은 꼭 사야 하나요?",
@@ -69,14 +87,14 @@ const FAQ = [
   },
   {
     q: "언제든 해지할 수 있나요?",
-    a: "네. 해지하면 현재 결제 기간이 끝날 때까지 그대로 이용하고 그 뒤로는 결제되지 않습니다. 기간 안에는 해지를 취소할 수 있습니다.",
+    a: "네. 해지하면 현재 결제 기간이 끝날 때까지 그대로 이용하고 그 뒤로는 결제되지 않습니다. 기간 안에는 해지를 취소할 수 있습니다. 연간 결제를 중간에 해지하고 환불을 원하면, 쓴 달 수만큼 월간 요금으로 계산해 뺀 나머지를 돌려드립니다.",
   },
 ];
 
 const HOW = [
   { n: "01", title: "플랜을 고르고 시작", body: "회원가입 후 플랜을 고르면 바로 제작에 들어갑니다. 템플릿은 선택 사항이고, 프롬프트만으로도 됩니다." },
   { n: "02", title: `${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 뒤 첫 완성본`, body: "대시보드에 페이지별 · 디바이스별 캡처가 올라옵니다. 네모를 그려 고칠 곳을 표시하고 한 번에 요청합니다." },
-  { n: "03", title: "쓴 만큼만, 넘으면 크레딧", body: "AI 는 실제 쓴 토큰만큼 차감되고 결제 기간마다 초기화됩니다. 한도를 넘으면 만료 없는 크레딧으로 이어갑니다." },
+  { n: "03", title: "쓴 만큼만, 넘으면 크레딧", body: "AI 는 실제 쓴 토큰만큼 차감되고 한도는 매달 다시 채워집니다. 한도를 넘으면 만료 없는 크레딧으로 이어갑니다." },
 ];
 
 const QUOTE = TESTIMONIALS[3];
@@ -93,9 +111,12 @@ export default function PricingPage() {
             <br />
             플랜을 가져가세요.
           </Display>
-          <Lead className="mt-6 max-w-2xl">플랜은 4개, 숨은 비용은 없습니다. 모든 플랜은 월 단위이고 언제든 상위 플랜으로 바꿀 수 있습니다. AI 는 실제 사용한 토큰만큼만 차감됩니다.</Lead>
+          <Lead className="mt-6 max-w-2xl">
+            플랜은 {PLANS.length}개, 숨은 비용은 없습니다. 월간으로 시작하거나 연간으로 두 달 치를 아끼세요. 언제든 상위 플랜으로 바꿀 수 있고, AI 는 실제 사용한 토큰만큼만
+            차감됩니다.
+          </Lead>
           <div className="mt-12">
-            <PlanGrid tone="dark" ctaHref={(code) => `/signup?plan=${code}`} />
+            <PlanGrid tone="dark" ctaBase="/signup" />
           </div>
         </Container>
       </section>

@@ -53,7 +53,7 @@ export default function DemoPage() {
         ]}
         quota={{
           ai: { monthly, used: usedTokens, remaining: monthly - usedTokens, credits: 0, periodEnd: DEMO_PERIOD_END },
-          expert: { weekly: plan.weeklyExpert, used: 0, remaining: plan.weeklyExpert, credits: 0 },
+          expert: { monthly: plan.monthlyExpert, used: 0, remaining: plan.monthlyExpert, credits: 0 },
         }}
         hasPlan
         demo

@@ -7,11 +7,22 @@ import { SubscribeCard } from "@/components/billing/subscribe-card";
 import { SubscriptionPanel } from "@/components/billing/subscription-panel";
 import { PlanGrid } from "@/components/pricing/plan-grid";
 import { Alert } from "@/components/ui/card";
-import { APPROX_TOKENS_PER_AI_REQUEST, CREDIT_PACKS, PLAN_BY_CODE, REQUEST_KIND_LABEL, creditAmountLabel, formatKrw, formatTokens, type PlanCode } from "@/config/plans";
+import {
+  APPROX_TOKENS_PER_AI_REQUEST,
+  BILLING_CYCLE_LABEL,
+  CREDIT_PACKS,
+  PLAN_BY_CODE,
+  REQUEST_KIND_LABEL,
+  creditAmountLabel,
+  formatKrw,
+  formatTokens,
+  type BillingCycle,
+  type PlanCode,
+} from "@/config/plans";
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { getClientEnv, paymentsAvailable } from "@/lib/env";
 import { getQuota } from "@/lib/quota";
-import { MAX_RENEWAL_ATTEMPTS } from "@/lib/subscriptions";
+import { MAX_RENEWAL_ATTEMPTS, currentTerms, cycleOf } from "@/lib/subscriptions";
 import { createClient } from "@/lib/supabase/server";
 import type { PaymentRow } from "@/lib/types/db";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
@@ -22,12 +33,16 @@ export const dynamic = "force-dynamic";
 export default async function BillingPage({ searchParams }: PageProps<"/billing">) {
   const user = await requireUser("/billing");
   const sp = await searchParams;
-  const selected = typeof sp.plan === "string" && sp.plan in PLAN_BY_CODE ? (sp.plan as PlanCode) : null;
+  // 새로 고를 수 있는 플랜만 (엔터프라이즈는 별도 상담)
+  const selected = typeof sp.plan === "string" && sp.plan in PLAN_BY_CODE && !PLAN_BY_CODE[sp.plan as PlanCode].hidden ? (sp.plan as PlanCode) : null;
 
   const [{ subscription, plan, state, graceUntil }, payments] = await Promise.all([getSubscription(user.id), listPayments(user.id)]);
   const quota = await getQuota(user.id, plan);
   const env = getClientEnv();
   const avail = paymentsAvailable();
+  const cycle: BillingCycle | null = subscription && plan ? cycleOf(subscription) : null;
+  // 주소의 cycle=year (요금제 · 가입에서 연간을 골라 온 경우) > 지금 구독의 주기 > 월간
+  const wantCycle: BillingCycle = sp.cycle === "year" ? "year" : sp.cycle === "month" ? "month" : (cycle ?? "month");
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -35,7 +50,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
       <p className="mt-1 text-sm text-ink-500">
         {plan ? (
           <>
-            현재 <span className="font-medium text-ink-900">{plan.name}</span> 플랜 · 기간 종료 {formatDate(subscription!.current_period_end)}
+            현재 <span className="font-medium text-ink-900">{plan.name}</span> 플랜 ({BILLING_CYCLE_LABEL[cycle ?? "month"]} 결제) · 기간 종료 {formatDate(subscription!.current_period_end)}
           </>
         ) : (
           "아직 사용 가능한 플랜이 없습니다. 플랜을 선택하면 제작과 수정 요청이 시작됩니다."
@@ -70,12 +85,16 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
       {selected ? (
         <div className="mt-6 max-w-xl">
           <SubscribeCard
+            key={`${selected}-${wantCycle}`}
             planCode={selected}
-            currentPlan={plan?.code ?? null}
+            initialCycle={wantCycle}
+            current={currentTerms(subscription)}
+            hadAddon={Boolean(subscription?.payment_addon)}
             storeId={env.NEXT_PUBLIC_PORTONE_STORE_ID}
             channelKey={env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY}
             customerEmail={user.email}
             mock={avail.mock}
+            now={new Date().toISOString()}
           />
         </div>
       ) : null}
@@ -83,7 +102,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
       <section className="mt-8">
         <h2 className="text-lg font-semibold">플랜 선택</h2>
         <div className="mt-4">
-          <PlanGrid tone="dark" currentPlan={plan?.code ?? null} ctaHref={(code) => `/billing?plan=${code}`} />
+          <PlanGrid tone="dark" currentPlan={plan?.code ?? null} currentCycle={cycle} initialCycle={wantCycle} ctaBase="/billing" />
         </div>
       </section>
 
@@ -104,7 +123,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
             <div className="flex items-center justify-between px-4 py-3">
               <span>{REQUEST_KIND_LABEL.expert}</span>
               <span className="tabular-nums text-ink-700">
-                {!plan ? <span className="text-ink-500">플랜 선택 후 시작</span> : quota.expert.weekly === null ? "이번 주 무제한" : `이번 주 ${quota.expert.used} / ${quota.expert.weekly}회`}
+                {!plan ? <span className="text-ink-500">플랜 선택 후 시작</span> : quota.expert.monthly === null ? "이번 달 무제한" : `이번 달 ${quota.expert.used} / ${quota.expert.monthly}회`}
                 {plan || quota.expert.credits > 0 ? <span className="ml-3 text-ink-400">크레딧 {quota.expert.credits}회</span> : null}
               </span>
             </div>
@@ -114,8 +133,8 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
             </div>
           </div>
           <p className="mt-2 text-xs text-ink-500">
-            토큰은 요청이 처리될 때 실제 사용량만큼 차감되며 결제 기간마다 초기화됩니다 (요청 1건 ≈ {formatTokens(APPROX_TOKENS_PER_AI_REQUEST)} 토큰). 전문가 한도는
-            매주 월요일에 초기화됩니다. 크레딧은 한도를 넘는 사용에만 차감되며 만료되지 않습니다.
+            토큰은 요청이 처리될 때 실제 사용량만큼 차감됩니다 (요청 1건 ≈ {formatTokens(APPROX_TOKENS_PER_AI_REQUEST)} 토큰). 토큰과 전문가 요청 한도는 결제일부터 한
+            달마다 다시 채워지고, 연간 결제도 매달 채워집니다{plan ? ` (다음: ${formatDate(quota.ai.periodEnd)})` : ""}. 크레딧은 한도를 넘는 사용에만 차감되며 만료되지 않습니다.
           </p>
         </div>
         <div>

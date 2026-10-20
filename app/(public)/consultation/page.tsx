@@ -50,7 +50,7 @@ export default function ConsultationPage() {
               </Link>
             </div>
             <p className="mt-8 max-w-lg text-[15px] leading-relaxed text-white/70">
-              어떤 사이트가 필요한지 아직 정리되지 않아도 괜찮습니다. 30분 통화에서 업종과 목적을 듣고, 페이지 구성과 맞는 플랜을 정리해 드립니다. 월 {formatKrw(PLANS[0].priceKrw)}부터 시작하는 4개 플랜 중 무엇이 맞는지, 결제 시스템이나 CMS 가 필요한지도 이때 정합니다.
+              어떤 사이트가 필요한지 아직 정리되지 않아도 괜찮습니다. 30분 통화에서 업종과 목적을 듣고, 페이지 구성과 맞는 플랜을 정리해 드립니다. 월 {formatKrw(PLANS[0].priceKrw)}부터 시작하는 {PLANS.length}개 플랜(월간 · 연간) 중 무엇이 맞는지, 결제 시스템이나 CMS 가 필요한지도 이때 정합니다.
             </p>
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-white/70">
               상담은 영업이 아니라 설계입니다. 통화 뒤에 맞춤 플랜을 이메일로 보내드리고, 결정은 천천히 하셔도 됩니다.

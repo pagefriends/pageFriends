@@ -1,10 +1,11 @@
 "use client";
 
-import { HandIcon, MaximizeIcon, MinusIcon, PlusIcon, SquareIcon } from "lucide-react";
+import { CheckIcon, HandIcon, LoaderCircleIcon, MaximizeIcon, MinusIcon, PlusIcon, SquareIcon } from "lucide-react";
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 
 import type { DraftBox, ExistingRequest } from "@/components/editor/types";
 import { REQUEST_KIND_SHORT } from "@/config/plans";
+import { requestStatus } from "@/config/requests";
 import type { Screenshot } from "@/lib/types/db";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,10 @@ export type CanvasHandle = { focus: (rect: { x: number; y: number; w: number; h:
 export type Highlight = { x: number; y: number; w: number; h: number };
 /** 고객이 올린 사진을 그 이미지 자리 위에 겹쳐 그린다 (구성 초안 그림에는 사진이 없으므로). 캡처 픽셀 기준 */
 export type PhotoOverlay = Highlight & { url: string; label: string };
+/** AI 작업 중: 보낸 네모의 라벨을 진행 상황으로 바꾼다 (active = 지금 고치는 중, 깜빡임) */
+export type LiveLabel = { text: string; tone: "active" | "queued" };
+/** AI 가 방금 반영한 곳 (진한 파랑 테두리로 잠깐). 캡처 픽셀 기준 */
+export type Flash = Highlight & { label: string };
 
 type Drag =
   | { type: "pan"; startX: number; startY: number; originX: number; originY: number }
@@ -52,6 +57,10 @@ export function EditorCanvas({
   defaultKind,
   highlights = [],
   photos = [],
+  locked = false,
+  lockDone = false,
+  liveLabels,
+  flashes = [],
   ref,
 }: {
   screenshot: Screenshot;
@@ -66,6 +75,12 @@ export function EditorCanvas({
   defaultKind: DraftBox["kind"];
   highlights?: Highlight[];
   photos?: PhotoOverlay[];
+  /** AI 작업 중: 네모를 그리거나 고칠 수 없다 (화면 이동 · 확대만) */
+  locked?: boolean;
+  /** AI 작업이 끝났다 (결과를 보는 중 — "계속 수정하기" 를 누르면 풀린다) */
+  lockDone?: boolean;
+  liveLabels?: Record<string, LiveLabel>;
+  flashes?: Flash[];
   ref?: React.Ref<CanvasHandle>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -98,9 +113,11 @@ export function EditorCanvas({
     setView({ zoom, x: (el.clientWidth - screenshot.width * zoom) / 2, y: pad });
   }, [screenshot.width]);
 
+  // 처음(페이지 · 화면을 바꿀 때마다 새로 그려진다)과 폭이 바뀔 때만 맞춘다. AI 가 화면을 바꿔 그림만 새로 오면
+  // 보던 자리를 그대로 둔다 — 바뀐 곳을 이어서 볼 수 있게
   useLayoutEffect(() => {
     fit();
-  }, [fit, screenshot.url]);
+  }, [fit]);
 
   const zoomAt = useCallback((factor: number, cx?: number, cy?: number) => {
     const el = containerRef.current;
@@ -141,8 +158,9 @@ export function EditorCanvas({
     return () => el.removeEventListener("wheel", onWheel);
   }, [zoomAt]);
 
-  // 키보드: V 이동, R 네모, Delete 삭제, Esc 선택 해제
+  // 키보드: V 이동, R 네모, Delete 삭제, Esc 선택 해제 (AI 작업 중에는 쓰지 않는다)
   useEffect(() => {
+    if (locked) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.tagName === "SELECT")) return;
@@ -156,7 +174,7 @@ export function EditorCanvas({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onDraftsChange, onSelect, selectedId]);
+  }, [onDraftsChange, onSelect, selectedId, locked]);
 
   const clampBox = useCallback(
     (b: DraftBox): DraftBox => {
@@ -175,7 +193,10 @@ export function EditorCanvas({
     const boxId = boxEl?.dataset.box;
     const p = toImage(e.clientX, e.clientY);
 
-    if (handle && boxId) {
+    if (locked) {
+      // AI 작업 중: 그리기 · 옮기기 없이 화면 이동만
+      dragRef.current = { type: "pan", startX: e.clientX, startY: e.clientY, originX: viewRef.current.x, originY: viewRef.current.y };
+    } else if (handle && boxId) {
       const origin = draftsRef.current.find((d) => d.id === boxId);
       if (!origin) return;
       dragRef.current = { type: "resize", id: boxId, handle, origin };
@@ -189,7 +210,8 @@ export function EditorCanvas({
       const id = `d_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
       dragRef.current = { type: "draw", id, startX: p.x, startY: p.y };
       onDraftsChange([...draftsRef.current, { id, x: p.x, y: p.y, w: 0, h: 0, message: "", kind: defaultKind }]);
-      onSelect(id);
+      // 고르는 것(오른쪽 카드로 스크롤 · 입력칸 포커스)은 다 그린 뒤에 — 좁은 화면에서 그리는 도중 화면이 내려가 네모가 엉뚱하게 커지지 않게
+      onSelect(null);
     } else {
       dragRef.current = { type: "pan", startX: e.clientX, startY: e.clientY, originX: viewRef.current.x, originY: viewRef.current.y };
       onSelect(null);
@@ -247,18 +269,20 @@ export function EditorCanvas({
       /* 이미 해제됨 */
     }
     if (drag?.type === "draw") {
-      // 너무 작은 네모(클릭에 가까운 것)는 버린다
+      // 너무 작은 네모(클릭에 가까운 것)는 버린다. 남긴 네모는 이제 고른다 (카드로 스크롤 · 입력칸 포커스)
       const min = 8 / viewRef.current.zoom;
       const d = draftsRef.current.find((x) => x.id === drag.id);
       if (!d || d.w < min || d.h < min) {
         onDraftsChange(draftsRef.current.filter((x) => x.id !== drag.id));
         onSelect(null);
+      } else {
+        onSelect(d.id);
       }
     }
   };
 
   const inv = 1 / view.zoom; // 화면 고정 크기 보정
-  const cursor = dragging === "pan" ? "grabbing" : dragging === "other" ? "crosshair" : mode === "move" ? "grab" : "crosshair";
+  const cursor = dragging === "pan" ? "grabbing" : dragging === "other" ? "crosshair" : mode === "move" || locked ? "grab" : "crosshair";
 
   return (
     <div
@@ -300,31 +324,51 @@ export function EditorCanvas({
           />
         ))}
 
-        {/* 이미 접수된 요청: 파란 테두리, 조작 불가. 오른쪽 "보낸 요청" 카드에 마우스를 올리면 같이 강조된다 */}
+        {/* 이미 접수된 요청: 파란 테두리, 조작 불가. 오른쪽 "보낸 요청" 카드에 마우스를 올리면 같이 강조된다.
+            AI 작업 중에는 라벨이 진행 상황(고치는 중 · 대기)으로 바뀌고, 지금 고치는 네모는 깜빡인다 */}
         {existing.map((r) => {
           const hovered = r.id === hoveredId;
+          const live = liveLabels?.[r.id];
+          const active = live?.tone === "active";
           return (
             <div
               key={r.id}
-              className={cn("pointer-events-none absolute border-brand-500", hovered && "bg-brand-500/15")}
+              className={cn("pointer-events-none absolute", active ? "border-sky-500" : "border-brand-500", hovered && "bg-brand-500/15")}
               style={{
                 left: r.region.x * screenshot.width,
                 top: r.region.y * screenshot.height,
                 width: r.region.w * screenshot.width,
                 height: r.region.h * screenshot.height,
-                borderWidth: (hovered ? 3 : 2) * inv,
-                borderStyle: r.status === "processing" ? "dashed" : "solid",
+                borderWidth: (hovered || active ? 3 : 2) * inv,
+                borderStyle: r.status === "processing" || live?.tone === "queued" ? "dashed" : "solid",
               }}
             >
+              {active ? <span className="absolute inset-0 animate-pulse bg-sky-400/25" /> : null}
               <span
-                className="absolute left-0 bg-brand-500 px-1 font-semibold whitespace-nowrap text-white"
+                className={cn("absolute left-0 px-1 font-semibold whitespace-nowrap text-white", active ? "bg-sky-500" : "bg-brand-500")}
                 style={{ top: -18 * inv, fontSize: 11 * inv, lineHeight: `${18 * inv}px`, paddingInline: 5 * inv, marginLeft: -2 * inv }}
               >
-                {r.awaiting ? "확인 필요" : r.status === "processing" ? "처리중" : "접수"} #{r.seq}
+                {live ? live.text : r.awaiting ? "확인 필요" : requestStatus(r.kind, r.status).label} #{r.seq}
               </span>
             </div>
           );
         })}
+
+        {/* AI 가 방금 반영한 곳: 진한 파랑 테두리 (잠깐) */}
+        {flashes.map((f, i) => (
+          <div
+            key={`fl-${i}`}
+            className="pointer-events-none absolute border-brand-700 bg-brand-500/10"
+            style={{ left: f.x, top: f.y, width: f.w, height: f.h, borderWidth: 3 * inv, borderStyle: "solid" }}
+          >
+            <span
+              className="absolute left-0 bg-brand-700 font-semibold whitespace-nowrap text-white"
+              style={{ top: -18 * inv, fontSize: 11 * inv, lineHeight: `${18 * inv}px`, paddingInline: 5 * inv, marginLeft: -2 * inv }}
+            >
+              {f.label}
+            </span>
+          </div>
+        ))}
 
         {/* 초안 네모: 빨간 테두리, 선택 시 핸들. 라벨 번호 = 오른쪽 패널 카드 번호 */}
         {drafts.map((d, i) => {
@@ -361,12 +405,23 @@ export function EditorCanvas({
 
       {/* 툴바 */}
       <div className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-1 rounded border border-ink-200 bg-surface p-1 shadow-sm" onPointerDown={(e) => e.stopPropagation()}>
-        <ToolButton active={mode === "move"} onClick={() => setMode("move")} title="이동 (V) — 드래그로 화면 이동">
-          <HandIcon className="size-4" /> 이동
-        </ToolButton>
-        <ToolButton active={mode === "box"} onClick={() => setMode("box")} title="빨간 네모 (R) — 드래그로 영역 그리기">
-          <SquareIcon className="size-4 text-mark" /> 빨간 네모
-        </ToolButton>
+        {locked ? (
+          <span
+            className="inline-flex h-8 items-center gap-1.5 rounded-sm bg-sky-100 px-2 text-[13px] font-medium whitespace-nowrap text-sky-800"
+            title={lockDone ? "결과를 확인한 뒤 '계속 수정하기' 를 누르면 다시 네모를 그릴 수 있어요" : "AI 가 고치는 동안에는 네모를 그릴 수 없어요"}
+          >
+            {lockDone ? <CheckIcon className="size-4" /> : <LoaderCircleIcon className="size-4 animate-spin" />} {lockDone ? "AI 작업 끝" : "AI 작업 중"}
+          </span>
+        ) : (
+          <>
+            <ToolButton active={mode === "move"} onClick={() => setMode("move")} title="이동 (V) — 드래그로 화면 이동">
+              <HandIcon className="size-4" /> 이동
+            </ToolButton>
+            <ToolButton active={mode === "box"} onClick={() => setMode("box")} title="빨간 네모 (R) — 드래그로 영역 그리기">
+              <SquareIcon className="size-4 text-mark" /> 빨간 네모
+            </ToolButton>
+          </>
+        )}
         <span className="mx-1 h-5 w-px bg-ink-200" />
         <ToolButton onClick={() => zoomAt(1 / 1.25)} title="축소">
           <MinusIcon className="size-4" />
@@ -381,7 +436,13 @@ export function EditorCanvas({
       </div>
 
       <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-surface/90 px-2 py-1 text-[11px] text-ink-500">
-        {mode === "box" ? "드래그해서 고칠 곳에 네모를 그리세요 · 휠로 확대/축소" : "드래그로 화면 이동 · 휠로 확대/축소"}
+        {locked
+          ? lockDone
+            ? "결과를 확인하고 '계속 수정하기' 를 누르면 다시 네모를 그릴 수 있어요"
+            : "AI가 고치는 동안에는 네모를 그릴 수 없어요 · 드래그로 화면 이동 · 휠로 확대/축소"
+          : mode === "box"
+            ? "드래그해서 고칠 곳에 네모를 그리세요 · 휠로 확대/축소"
+            : "드래그로 화면 이동 · 휠로 확대/축소"}
       </p>
     </div>
   );

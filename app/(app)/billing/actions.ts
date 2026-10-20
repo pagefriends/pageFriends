@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/session";
-import { cancelSubscription, resumeSubscription, retryNow, SubscriptionError } from "@/lib/subscriptions";
+import { cancelPendingChange, cancelSubscription, resumeSubscription, retryNow, SubscriptionError } from "@/lib/subscriptions";
 
 export type BillingActionResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -31,6 +31,18 @@ export async function resumeSubscriptionAction(): Promise<BillingActionResult> {
     await resumeSubscription(user);
     revalidatePath("/billing");
     return { ok: true, message: "해지를 취소했습니다. 다음 갱신일에 정상 결제됩니다." };
+  } catch (e) {
+    return toResult(e);
+  }
+}
+
+/** 다음 결제부터 바꾸기로 한 플랜 변경 취소 */
+export async function cancelPendingChangeAction(): Promise<BillingActionResult> {
+  const user = await requireUser("/billing");
+  try {
+    await cancelPendingChange(user);
+    revalidatePath("/billing");
+    return { ok: true, message: "예약한 플랜 변경을 취소했습니다. 다음 결제도 지금 플랜 그대로 나갑니다." };
   } catch (e) {
     return toResult(e);
   }

@@ -2,8 +2,9 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { PLAN_BY_CODE, type PlanCode } from "@/config/plans";
+import { BILLING_CYCLE_LABEL, PLAN_BY_CODE, cycleMonths, planPrice, type BillingCycle, type PlanCode } from "@/config/plans";
 import type { SessionUser } from "@/lib/auth/session";
+import type { CurrentTerms } from "@/lib/billing-quote";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { isPaymentsMock } from "@/lib/env";
 import { deleteBillingKey, getBillingKey, getPayment, payWithBillingKey, revokeSchedules, scheduleNextPayment, verifyPaymentMatches } from "@/lib/portone";
@@ -14,11 +15,12 @@ import type { SubscriptionRow } from "@/lib/types/db";
  * 구독 수명주기.
  *
  * 흐름 요약
- * - 활성화(subscribe) 직후 scheduleRenewal 로 다음 달 결제를 포트원에 예약하고 next_payment_id 를 저장한다.
+ * - 활성화(subscribe) 직후 scheduleRenewal 로 다음 결제(월간 = 한 달 뒤, 연간 = 1년 뒤)를 포트원에 예약하고 next_payment_id 를 저장한다.
  * - 예약 결제 결과는 웹훅으로 온다: Transaction.Paid → handleRenewalPaid(기간 연장 + 다음 예약),
  *   Transaction.Failed → handleRenewalFailed(past_due, 3일 뒤 재시도, 3회 실패면 해지).
  * - 해지(cancel)는 예약만 취소하고 기간 끝까지 유지한다. 해지 취소(resume)는 다시 예약한다.
  * - 결제 수단 변경(changeCard)은 빌링키를 교체하고, 미납 상태면 즉시 재결제한다.
+ * - 내리기 · 연간 → 월간(scheduleChange)은 pending_* 에 적어 두고, 다음 결제가 그 플랜 금액으로 나가며 성공하면 바뀐다.
  *
  * 크론 없이 동작하도록 만료 판정은 읽는 쪽(effectiveSubscription)에서 한다.
  */
@@ -67,6 +69,39 @@ export function effectiveSubscription(sub: SubscriptionRow | null, now = new Dat
   return { state: "active", usable: true, graceUntil: null };
 }
 
+/** 결제 주기 (0009 전 행은 컬럼이 없어 월간) */
+export function cycleOf(sub: Pick<SubscriptionRow, "billing_cycle">): BillingCycle {
+  return sub.billing_cycle === "year" ? "year" : "month";
+}
+
+/** 0009 를 실행해 결제 주기 컬럼이 있는 행인가 (없으면 주기 · 예약 변경 칸을 쓰지 않는다) */
+function hasCycleColumns(sub: SubscriptionRow): boolean {
+  return "billing_cycle" in sub;
+}
+
+/** 다음 결제부터 적용되는 플랜 · 주기 (예약 변경이 있으면 그것) */
+export function nextTerms(sub: SubscriptionRow): { planCode: PlanCode; cycle: BillingCycle } {
+  return {
+    planCode: (sub.pending_plan_code ?? sub.plan_code) as PlanCode,
+    cycle: sub.pending_billing_cycle === "year" || sub.pending_billing_cycle === "month" ? sub.pending_billing_cycle : cycleOf(sub),
+  };
+}
+
+/** 결제 화면 · 금액 계산(quoteChange)에 넘기는 지금 구독. 이용할 수 없는 구독(만료 · 해지됨)은 null */
+export function currentTerms(sub: SubscriptionRow | null, now = new Date()): CurrentTerms | null {
+  if (!sub) return null;
+  const eff = effectiveSubscription(sub, now);
+  if (!eff.usable) return null;
+  return {
+    planCode: sub.plan_code,
+    cycle: cycleOf(sub),
+    periodStart: sub.current_period_start,
+    periodEnd: sub.current_period_end,
+    paidUp: eff.state === "active" || eff.state === "cancelling",
+    pending: sub.pending_plan_code ? nextTerms(sub) : null,
+  };
+}
+
 async function loadSubscription(userId: string): Promise<SubscriptionRow | null> {
   const admin = createAdminClient();
   const { data } = await admin.from("subscriptions").select("*").eq("user_id", userId).maybeSingle();
@@ -79,11 +114,14 @@ async function loadByNextPaymentId(paymentId: string): Promise<SubscriptionRow |
   return (data as SubscriptionRow | null) ?? null;
 }
 
-function renewalAmount(sub: Pick<SubscriptionRow, "plan_code">): number {
-  return PLAN_BY_CODE[sub.plan_code as PlanCode].priceKrw;
+/** 다음 결제 금액 — 예약 변경이 있으면 바뀔 플랜 · 주기의 금액 */
+export function renewalAmount(sub: SubscriptionRow): number {
+  const t = nextTerms(sub);
+  return planPrice(PLAN_BY_CODE[t.planCode], t.cycle);
 }
-function renewalOrderName(sub: Pick<SubscriptionRow, "plan_code">): string {
-  return `${PLAN_BY_CODE[sub.plan_code as PlanCode].name} 플랜 (월) 자동 갱신`;
+function renewalOrderName(sub: SubscriptionRow): string {
+  const t = nextTerms(sub);
+  return `${PLAN_BY_CODE[t.planCode].name} 플랜 (${BILLING_CYCLE_LABEL[t.cycle]}) 자동 갱신`;
 }
 
 /**
@@ -108,7 +146,7 @@ export async function scheduleRenewal(sub: SubscriptionRow, at: Date): Promise<v
     status: "pending",
     amount_krw: amountKrw,
     order_name: renewalOrderName(sub),
-    meta: { planCode: sub.plan_code, renewal: true, scheduledAt: at.toISOString() },
+    meta: { ...nextTerms(sub), renewal: true, scheduledAt: at.toISOString() },
   });
 
   let scheduleId: string | null = null;
@@ -142,20 +180,22 @@ export async function clearRenewal(sub: SubscriptionRow): Promise<void> {
   await admin.from("subscriptions").update({ next_payment_id: null, portone_schedule_id: null, next_payment_at: null, updated_at: new Date().toISOString() }).eq("id", sub.id);
 }
 
-/** 결제 성공 반영: 기간 연장, 실패 카운터 초기화, 다음 달 예약 */
+/** 결제 성공 반영: 기간 연장(예약 변경이 있으면 그 플랜 · 주기로), 실패 카운터 초기화, 다음 결제 예약 */
 async function applyRenewalSuccess(sub: SubscriptionRow, paymentId: string): Promise<void> {
   const admin = createAdminClient();
   const now = new Date();
   const oldEnd = new Date(sub.current_period_end);
   // 제때 결제되면 기간이 이어지고, 많이 늦었으면(유예 지나 재결제) 오늘부터 새로 센다
   const start = oldEnd > addDays(now, -PAST_DUE_GRACE_DAYS) ? oldEnd : now;
-  const end = addMonths(start, 1);
+  const terms = nextTerms(sub);
+  const end = addMonths(start, cycleMonths(terms.cycle));
 
   await admin.from("payments").update({ status: "paid", paid_at: now.toISOString() }).eq("portone_payment_id", paymentId);
   const { data } = await admin
     .from("subscriptions")
     .update({
       status: "active",
+      ...(hasCycleColumns(sub) ? { plan_code: terms.planCode, billing_cycle: terms.cycle, pending_plan_code: null, pending_billing_cycle: null } : {}),
       current_period_start: start.toISOString(),
       current_period_end: end.toISOString(),
       failed_attempts: 0,
@@ -248,7 +288,7 @@ async function chargeNow(sub: SubscriptionRow, billingKey: string): Promise<void
     status: "pending",
     amount_krw: amountKrw,
     order_name: renewalOrderName(sub),
-    meta: { planCode: sub.plan_code, renewal: true, manual: true },
+    meta: { ...nextTerms(sub), renewal: true, manual: true },
   });
   if (!isPaymentsMock()) {
     try {
@@ -272,7 +312,49 @@ export async function cancelSubscription(user: SessionUser): Promise<void> {
   if (sub.cancel_at_period_end) return;
   await clearRenewal(sub);
   const admin = createAdminClient();
-  await admin.from("subscriptions").update({ cancel_at_period_end: true, cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", sub.id);
+  await admin
+    .from("subscriptions")
+    .update({
+      cancel_at_period_end: true,
+      cancelled_at: new Date().toISOString(),
+      // 해지하면 예약해 둔 플랜 변경도 의미가 없다
+      ...(hasCycleColumns(sub) ? { pending_plan_code: null, pending_billing_cycle: null } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sub.id);
+}
+
+/**
+ * 다음 결제부터 플랜 · 주기 바꾸기 (내리기 · 연간 → 월간). 지금은 결제하지 않고, 다음 결제를 바뀔 플랜 금액으로 다시 예약한다.
+ * 지금과 같은 플랜 · 주기를 넘기면 예약 변경을 취소한다. 해지 예약 중이었다면 해지도 취소된다 (계속 쓰겠다는 뜻).
+ */
+export async function scheduleChange(sub: SubscriptionRow, planCode: PlanCode, cycle: BillingCycle): Promise<SubscriptionRow> {
+  if (!hasCycleColumns(sub)) throw new SubscriptionError(503, "플랜 변경 예약은 DB 업데이트(0009) 뒤에 쓸 수 있습니다.");
+  const admin = createAdminClient();
+  const same = planCode === sub.plan_code && cycle === cycleOf(sub);
+  const { data, error } = await admin
+    .from("subscriptions")
+    .update({
+      pending_plan_code: same ? null : planCode,
+      pending_billing_cycle: same ? null : cycle,
+      cancel_at_period_end: false,
+      cancelled_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sub.id)
+    .select("*")
+    .single();
+  if (error) throw new SubscriptionError(500, error.message);
+  const fresh = data as SubscriptionRow;
+  await scheduleRenewal(fresh, new Date(fresh.current_period_end));
+  return fresh;
+}
+
+/** 예약한 플랜 변경 취소 (지금 플랜 그대로 갱신) */
+export async function cancelPendingChange(user: SessionUser): Promise<void> {
+  const sub = await loadSubscription(user.id);
+  if (!sub || !sub.pending_plan_code) throw new SubscriptionError(400, "예약한 플랜 변경이 없습니다.");
+  await scheduleChange(sub, sub.plan_code, cycleOf(sub));
 }
 
 export async function resumeSubscription(user: SessionUser): Promise<void> {

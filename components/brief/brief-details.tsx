@@ -1,6 +1,8 @@
 import { ExternalLinkIcon } from "lucide-react";
 
 import { Badge, Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
+import { BENCHMARK_ASPECT_LABEL, BENCHMARK_ATTESTATION, BENCHMARK_PERMISSION } from "@/config/benchmarks";
+import { STYLE_BY_ID, normalizeStyles } from "@/config/design-styles";
 import { formatTokens } from "@/config/plans";
 import { requestStatus } from "@/config/requests";
 import type { SlotRequestState } from "@/components/editor/types";
@@ -18,7 +20,9 @@ import {
   pageFullName,
   type ImageSlot,
 } from "@/lib/site-plan";
+import { designOf } from "@/lib/design-doc";
 import type { ProjectBrief, ProjectPageRow } from "@/lib/types/db";
+import { formatDateTime } from "@/lib/utils";
 
 /**
  * 위저드 입력(제작 정보) 전체. 제작 담당자가 사이트를 만들 때 기준으로 보는 화면이다 (관리자 → 제작 정보).
@@ -50,6 +54,9 @@ export function BriefDetails({
   const shotUrl = new Map(pages.map((p) => [p.path, p.screenshots.desktop?.url ?? p.screenshots.mobile?.url ?? null]));
   const nameOf = new Map((site?.pages ?? []).map((p) => [p.path, pageFullName(p)]));
   const ind = b ? industryOf(b.category) : null;
+  const tags = normalizeStyles(brief.styleTags?.length ? brief.styleTags : brief.tone);
+  const design = designOf(brief);
+  const benchmarks = brief.benchmarks ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -201,8 +208,58 @@ export function BriefDetails({
                 <span className="inline-block size-4 rounded-sm" style={{ background: brief.primaryColor }} /> {brief.primaryColor}
               </span>
             </Item>
-            <Item k="디자인 톤">{brief.tone.join(", ") || "-"}</Item>
-            {brief.referenceUrls.length ? (
+            <Item k="디자인 유형">
+              {tags.length ? (
+                <span className="flex flex-wrap gap-1">
+                  {tags.map((id, i) => (
+                    <Badge key={id} tone={i === 0 ? "blue" : "gray"}>
+                      {i === 0 ? "★ " : ""}
+                      {STYLE_BY_ID[id].label}
+                    </Badge>
+                  ))}
+                </span>
+              ) : (
+                "업종에 맞게"
+              )}
+            </Item>
+            {design.appliedTags?.length || design.notes ? (
+              <Item k="AI 가 디자인 유형을 이렇게 적용했어요" wide>
+                {design.appliedTags?.length ? (
+                  <ul className="list-disc pl-4 text-[13px] leading-relaxed">
+                    {design.appliedTags.map((a) => (
+                      <li key={a.tag}>
+                        <b>{STYLE_BY_ID[a.tag]?.label ?? a.tag}</b>: {a.how}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {design.notes ? <p className="mt-1 text-[13px] leading-relaxed text-ink-700">{design.notes}</p> : null}
+              </Item>
+            ) : null}
+            {benchmarks.length ? (
+              <Item k="벤치마킹 사이트" wide>
+                <ul className="flex flex-col gap-2">
+                  {benchmarks.map((b, i) => (
+                    <li key={`${b.url}-${i}`} className="rounded border border-ink-200 px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a href={b.url} target="_blank" rel="noreferrer noopener" className="break-all text-brand-600 hover:underline">
+                          {b.url}
+                        </a>
+                        <Badge tone={BENCHMARK_PERMISSION[b.permission].tone}>{BENCHMARK_PERMISSION[b.permission].short}</Badge>
+                      </div>
+                      {b.aspects.length ? <p className="mt-1 text-xs text-ink-500">참고할 점: {b.aspects.map((a) => BENCHMARK_ASPECT_LABEL[a] ?? a).join(" · ")}</p> : null}
+                      {b.permission === "granted" && b.permissionNote ? <p className="mt-0.5 text-xs text-ink-500">허락: {b.permissionNote}</p> : null}
+                      {b.note ? <p className="mt-0.5 text-xs whitespace-pre-wrap text-ink-700">{b.note}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+                {brief.benchmarkAttestedAt ? (
+                  <p className="mt-1.5 text-xs text-ink-500">
+                    {formatDateTime(brief.benchmarkAttestedAt)} 확인: &ldquo;{brief.benchmarkAttestation ?? BENCHMARK_ATTESTATION}&rdquo;
+                  </p>
+                ) : null}
+              </Item>
+            ) : brief.referenceUrls.length ? (
               <Item k="참고 사이트" wide>
                 <ul className="flex flex-col gap-0.5">
                   {brief.referenceUrls.map((u) => (

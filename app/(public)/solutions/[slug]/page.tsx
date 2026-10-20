@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { Carousel, FaqAccordion } from "@/components/marketing/interactive";
 import { Arc, BigNumber, Container, DarkCard, Display, Eyebrow, Hero, Lead, LightCard, Photo, Pill, QuestionsCard, RecommendSection, SampleBadge, Section, Tag, TrustStrip } from "@/components/marketing/primitives";
 import { HELP_FAQ, KEY_NUMBERS, SOLUTIONS, SOLUTION_BY_SLUG, TESTIMONIALS, ph } from "@/content/site";
-import { PLAN_BY_CODE, formatKrw } from "@/config/plans";
+import { PLAN_BY_CODE, formatKrw, planPrice } from "@/config/plans";
 
 /**
  * 솔루션 상세 (14개 공통 템플릿). 디자인 피클의 brand-and-identity 페이지 구성을 따른다:
@@ -133,18 +133,28 @@ export default async function SolutionPage({ params }: PageProps<"/solutions/[sl
           <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:gap-16">
             <div>
               <Eyebrow>추천 플랜</Eyebrow>
-              <Display className="mt-3">{solution.name}에는 {plan.name}</Display>
-              <Lead className="mt-5">{plan.tagline}. 월 단위 결제, 언제든 상위 플랜으로 바꿀 수 있습니다.</Lead>
+              <Display className="mt-3">{solution.name}에는 {plan.hidden ? "별도 상담" : plan.name}</Display>
+              <Lead className="mt-5">
+                {plan.tagline}.{" "}
+                {plan.hidden ? "규모와 기능에 맞춰 상담 후 견적을 드립니다." : "월간 또는 연간(2개월 무료)으로 결제하고, 언제든 상위 플랜으로 바꿀 수 있습니다."}
+              </Lead>
             </div>
             <LightCard className="text-ink-900">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-2xl font-extrabold">{plan.name}</p>
                 <p className="text-sm text-ink-500">{plan.tagline}</p>
               </div>
-              <p className="mt-5 text-5xl font-extrabold tracking-tight text-brand-600">
-                {formatKrw(plan.priceKrw)}
-                <span className="ml-1 text-base font-semibold text-ink-500">/ 월</span>
-              </p>
+              {plan.hidden ? (
+                <p className="mt-5 text-4xl font-extrabold tracking-tight text-brand-600">상담 후 견적</p>
+              ) : (
+                <>
+                  <p className="mt-5 text-5xl font-extrabold tracking-tight text-brand-600">
+                    {formatKrw(plan.priceKrw)}
+                    <span className="ml-1 text-base font-semibold text-ink-500">/ 월</span>
+                  </p>
+                  <p className="mt-2 text-sm text-ink-500">연간 결제 시 {formatKrw(planPrice(plan, "year"))} (2개월 무료)</p>
+                </>
+              )}
               <ul className="mt-6 space-y-2.5">
                 {plan.features.slice(0, 3).map((f) => (
                   <li key={f} className="flex items-start gap-2.5 text-[15px] text-ink-700">
@@ -157,9 +167,15 @@ export default async function SolutionPage({ params }: PageProps<"/solutions/[sl
                 <Pill href="/pricing" size="md">
                   요금제 자세히 <ArrowRightIcon className="size-4" />
                 </Pill>
-                <Pill href={`/signup?plan=${plan.code}`} variant="outline" size="md">
-                  이 플랜으로 시작
-                </Pill>
+                {plan.hidden ? (
+                  <Pill href="/consultation" variant="outline" size="md">
+                    상담 신청
+                  </Pill>
+                ) : (
+                  <Pill href={`/signup?plan=${plan.code}`} variant="outline" size="md">
+                    이 플랜으로 시작
+                  </Pill>
+                )}
               </div>
             </LightCard>
           </div>

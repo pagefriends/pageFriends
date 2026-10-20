@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AiBrief } from "@/components/admin/ai-brief";
 import { BriefDetails } from "@/components/brief/brief-details";
 import { slotStatuses } from "@/components/editor/types";
 import { ProjectStatusControl } from "@/components/admin/quick-actions";
 import { Badge } from "@/components/ui/card";
 import { getAdminProject } from "@/lib/admin";
+import { aiReadiness, reapStaleRuns } from "@/lib/ai/engine";
+import { listAiRuns } from "@/lib/ai/runs";
+import { createClient } from "@/lib/supabase/server";
 import { listProjectPhotos, type SitePhoto } from "@/lib/photos";
 import { listProjectReleases } from "@/lib/releases";
 import { dueLabel, remainingLabel } from "@/config/requests";
@@ -20,7 +24,15 @@ export default async function AdminProjectPage({ params }: PageProps<"/admin/pro
   const data = await getAdminProject(id);
   if (!data) notFound();
   const { project, ownerEmail, pages, openRequests, requests } = data;
-  const [photos, rel] = await Promise.all([project.brief.site ? listProjectPhotos(project.id) : Promise.resolve<Record<string, SitePhoto[]>>({}), listProjectReleases(project.id)]);
+  // 멈춘 AI 처리를 먼저 정리하고(담당자에게 넘김) 지시서 · 실행 기록을 읽는다
+  await reapStaleRuns().catch(() => 0);
+  const [photos, rel, runs, readiness, template] = await Promise.all([
+    project.brief.site ? listProjectPhotos(project.id) : Promise.resolve<Record<string, SitePhoto[]>>({}),
+    listProjectReleases(project.id),
+    listAiRuns({ projectId: project.id }),
+    aiReadiness(),
+    projectTemplate(project.template_id),
+  ]);
 
   return (
     <div>
@@ -72,6 +84,9 @@ export default async function AdminProjectPage({ params }: PageProps<"/admin/pro
         </div>
       ) : null}
       <div className="mt-6">
+        <AiBrief projectId={project.id} brief={project.brief} template={template} runs={runs} readiness={readiness} />
+      </div>
+      <div className="mt-6">
         <BriefDetails
           brief={project.brief}
           pages={pages}
@@ -82,4 +97,12 @@ export default async function AdminProjectPage({ params }: PageProps<"/admin/pro
       </div>
     </div>
   );
+}
+
+/** 시작 템플릿 (지시서의 템플릿 스킬) */
+async function projectTemplate(templateId: string | null): Promise<{ slug: string; name: string } | null> {
+  if (!templateId) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("templates").select("slug, name").eq("id", templateId).maybeSingle();
+  return (data as { slug: string; name: string } | null) ?? null;
 }

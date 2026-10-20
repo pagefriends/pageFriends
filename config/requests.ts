@@ -1,4 +1,5 @@
-import { EXPERT_HOURS, type RequestKind } from "@/config/plans";
+import { AI_QUEUE_MINUTES } from "@/config/ai";
+import { BUG_HOURS, EXPERT_HOURS, type RequestKind } from "@/config/plans";
 import type { ProjectStatus, RequestStatus } from "@/lib/types/db";
 import { formatDateTime } from "@/lib/utils";
 
@@ -18,16 +19,53 @@ export const REQUEST_STATUS: Record<RequestStatus, { label: string; tone: Tone }
   rejected: { label: "반영 불가", tone: "red" },
 };
 
-/** AI 반영은 요청하면 바로 진행된다: 끝나기 전까지는 모두 "AI 진행 중", 끝나면 "반영 완료" */
+/**
+ * AI 반영은 요청하면 바로 AI 차례다: 접수(pending) = "AI 진행 중" (AI 가 처리하거나, 질문해 두고 답을 기다림),
+ * AI 가 맡지 못해 담당자에게 넘기면 processing = "담당자 확인 중", 끝나면 "반영 완료" (lib/ai/engine.ts).
+ */
 const AI_STATUS: Record<RequestStatus, { label: string; tone: Tone }> = {
   pending: { label: "AI 진행 중", tone: "sky" },
-  processing: { label: "AI 진행 중", tone: "sky" },
+  processing: { label: "담당자 확인 중", tone: "blue" },
   done: { label: "반영 완료", tone: "dark" },
   rejected: { label: "반영 불가", tone: "red" },
 };
 
+/**
+ * 오류 신고: AI 가 먼저 확인한다 — 접수(pending) = "확인 중" (AI · 담당자가 보는 중), 사람이 필요하면 processing = "담당자 확인 중"
+ * (메일 · 문자로 알리고 BUG_HOURS 안에 고친다), 고치면 "고침 완료".
+ */
+const BUG_STATUS: Record<RequestStatus, { label: string; tone: Tone }> = {
+  pending: { label: "확인 중", tone: "sky" },
+  processing: { label: "담당자 확인 중", tone: "blue" },
+  done: { label: "고침 완료", tone: "dark" },
+  rejected: { label: "반영 불가", tone: "red" },
+};
+
 export function requestStatus(kind: RequestKind, status: RequestStatus): { label: string; tone: Tone } {
-  return kind === "ai" ? AI_STATUS[status] : REQUEST_STATUS[status];
+  return kind === "ai" ? AI_STATUS[status] : kind === "bug" ? BUG_STATUS[status] : REQUEST_STATUS[status];
+}
+
+/** 위저드 · 편집기의 "AI 이미지 생성" 요청 (lib/site-plan.ts 가 만든다). Claude 는 이미지를 만들지 않으므로 담당자가 처리한다 */
+export function isImageRequest(message: string): boolean {
+  return message.startsWith("[AI 이미지 생성]");
+}
+
+/**
+ * 지금 AI 가 맡고 있는 요청인지 (편집기의 "AI 처리 중 N건" · "AI 작업 중" 화면 · 새 화면 확인).
+ * AI 반영과 오류 신고(AI 가 먼저 확인한다)가 AI 차례(접수 · 사용자 답을 기다리지 않음)이고 요청한 지 AI_QUEUE_MINUTES 안 —
+ * 그보다 오래된 접수는 담당자가 이어서 맡는다. AI 키가 없으면 부르는 쪽에서 쓰지 않는다 (원래 담당자 몫).
+ */
+export function isAiWorking(
+  r: { kind: RequestKind; status: RequestStatus; awaiting_user?: boolean | null; message: string; created_at: string },
+  now = Date.now(),
+): boolean {
+  return (
+    (r.kind === "ai" || r.kind === "bug") &&
+    r.status === "pending" &&
+    !r.awaiting_user &&
+    !isImageRequest(r.message) &&
+    now - new Date(r.created_at).getTime() < AI_QUEUE_MINUTES * 60_000
+  );
 }
 
 export const REQUEST_KIND_TONE: Record<RequestKind, "gray" | "sky" | "red"> = { ai: "gray", expert: "sky", bug: "red" };
@@ -36,7 +74,7 @@ export const REQUEST_KIND_TONE: Record<RequestKind, "gray" | "sky" | "red"> = { 
 export const REQUEST_KIND_PROMISE: Record<RequestKind, string> = {
   ai: "요청하면 AI가 바로 진행해요 · 토큰 사용",
   expert: `전문가가 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일) 안에 답변해요`,
-  bug: `무료 · ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 확인해요`,
+  bug: `무료 · AI가 바로 확인하고, 사람이 필요하면 담당자가 ${BUG_HOURS}시간 안에 고쳐요`,
 };
 
 /** 담당자가 글 없이 상태만 바꿨을 때 대화에 보이는 문장 */
@@ -57,19 +95,24 @@ export function needsPerson(kind: RequestKind): boolean {
   return kind !== "ai";
 }
 
-/** 사람이 맡는 일의 답변 기한 = 만든 시각 + 72시간 */
-export function expertDueAt(createdAt: string): Date {
-  return new Date(new Date(createdAt).getTime() + EXPERT_HOURS.max * 3_600_000);
+/** 사람이 맡는 일의 답변 기한 (시간): 오류 신고 24 · 그 밖(전문가 요청 · 전문가 첫 제작) 72 */
+export function dueHours(kind: RequestKind = "expert"): number {
+  return kind === "bug" ? BUG_HOURS : EXPERT_HOURS.max;
+}
+
+/** 사람이 맡는 일의 답변 기한 = 만든 시각 + dueHours */
+export function expertDueAt(createdAt: string, kind: RequestKind = "expert"): Date {
+  return new Date(new Date(createdAt).getTime() + dueHours(kind) * 3_600_000);
 }
 
 /** "10월 18일 오후 03:10까지" */
-export function dueLabel(createdAt: string): string {
-  return `${formatDateTime(expertDueAt(createdAt).toISOString())}까지`;
+export function dueLabel(createdAt: string, kind: RequestKind = "expert"): string {
+  return `${formatDateTime(expertDueAt(createdAt, kind).toISOString())}까지`;
 }
 
 /** 관리자용 남은 시간: "답변 기한 31시간 남음" · "답변 기한 5시간 지남" (서버 화면에서 그릴 때의 시각 기준) */
-export function remainingLabel(createdAt: string, now: number = Date.now()): { text: string; late: boolean } {
-  const hours = Math.round((expertDueAt(createdAt).getTime() - now) / 3_600_000);
+export function remainingLabel(createdAt: string, kind: RequestKind = "expert", now: number = Date.now()): { text: string; late: boolean } {
+  const hours = Math.round((expertDueAt(createdAt, kind).getTime() - now) / 3_600_000);
   return hours >= 0 ? { text: `답변 기한 ${hours}시간 남음`, late: false } : { text: `답변 기한 ${-hours}시간 지남`, late: true };
 }
 

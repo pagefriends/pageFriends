@@ -6,10 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { cancelSubscriptionAction, resumeSubscriptionAction, retryPaymentAction, type BillingActionResult } from "@/app/(app)/billing/actions";
+import { cancelPendingChangeAction, cancelSubscriptionAction, resumeSubscriptionAction, retryPaymentAction, type BillingActionResult } from "@/app/(app)/billing/actions";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
-import { PLAN_BY_CODE, formatKrw, type PlanCode } from "@/config/plans";
+import { BILLING_CYCLE_LABEL, BILLING_CYCLE_UNIT, PLAN_BY_CODE, formatKrw, planPrice, type BillingCycle, type PlanCode } from "@/config/plans";
 import type { SubscriptionState } from "@/lib/subscriptions";
 import type { SubscriptionRow } from "@/lib/types/db";
 import { formatDate } from "@/lib/utils";
@@ -91,22 +91,51 @@ export function SubscriptionPanel({
 
   const periodEnd = formatDate(subscription.current_period_end);
   const disabled = pending || busy;
+  const cycle: BillingCycle = subscription.billing_cycle === "year" ? "year" : "month";
+  // 다음 결제부터 바뀌기로 예약한 플랜 (내리기 · 연간 → 월간)
+  const pendingPlan = subscription.pending_plan_code ? PLAN_BY_CODE[subscription.pending_plan_code] : null;
+  const pendingCycle: BillingCycle = subscription.pending_billing_cycle === "year" ? "year" : subscription.pending_billing_cycle === "month" ? "month" : cycle;
+  const nextPlan = pendingPlan ?? plan;
+  const nextCycle = pendingPlan ? pendingCycle : cycle;
 
   return (
     <div className="rounded-md border border-ink-200 bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold">{plan.name} 플랜</h2>
+        <h2 className="text-lg font-semibold">
+          {plan.name} 플랜 <span className="text-base font-medium text-ink-500">· {BILLING_CYCLE_LABEL[cycle]} 결제</span>
+        </h2>
         <StateBadge state={state} />
-        {subscription.payment_addon ? <Badge tone="gray">결제 시스템 포함</Badge> : null}
+        {subscription.payment_addon ? <Badge tone="gray">결제 시스템 연동</Badge> : null}
       </div>
 
       <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
-        <Row k="월 요금" v={`${formatKrw(plan.priceKrw)} / 월`} />
+        <Row k="요금" v={`${formatKrw(planPrice(plan, cycle))} / ${BILLING_CYCLE_UNIT[cycle]}`} />
         <Row k="현재 기간" v={`${formatDate(subscription.current_period_start)} ~ ${periodEnd}`} />
-        {state === "active" && subscription.next_payment_at ? <Row k="다음 결제" v={formatDate(subscription.next_payment_at)} /> : null}
+        {state === "active" && subscription.next_payment_at ? (
+          <Row k="다음 결제" v={`${formatDate(subscription.next_payment_at)} · ${formatKrw(planPrice(nextPlan, nextCycle))}`} />
+        ) : null}
         {state === "cancelling" ? <Row k="이용 종료" v={`${periodEnd} (해지 예약됨)`} /> : null}
         {state === "past_due" ? <Row k="재시도" v={`${subscription.failed_attempts}/${maxAttempts}회 실패 · 다음 자동 재시도 ${subscription.next_payment_at ? formatDate(subscription.next_payment_at) : "-"}`} /> : null}
       </dl>
+
+      {pendingPlan && state === "active" ? (
+        <Alert tone="gray" className="mt-4">
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {periodEnd}부터 <b>{pendingPlan.name} ({BILLING_CYCLE_LABEL[pendingCycle]})</b>로 바뀌어요. 그때 {formatKrw(planPrice(pendingPlan, pendingCycle))}이 결제돼요.
+            </span>
+            <Button size="sm" variant="outline" onClick={() => run(cancelPendingChangeAction)} disabled={disabled}>
+              변경 취소
+            </Button>
+          </span>
+        </Alert>
+      ) : null}
+      {cycle === "year" && (state === "active" || state === "cancelling") ? (
+        <p className="mt-3 text-xs text-ink-500">
+          토큰 · 전문가 요청 한도는 연간 결제도 매달 다시 채워져요. 연간 결제를 중간에 해지하고 환불받으려면 고객센터로 알려 주세요 — 쓴 달 수만큼 월간 요금으로 계산해 뺀
+          나머지를 돌려드려요.
+        </p>
+      ) : null}
 
       {state === "past_due" ? (
         <Alert tone="red" className="mt-4">

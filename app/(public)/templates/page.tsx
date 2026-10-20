@@ -4,7 +4,9 @@ import Link from "next/link";
 
 import { buttonClass } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
+import { STYLE_BY_ID, isStyleId, type StyleId } from "@/config/design-styles";
 import { TEMPLATE_PRICE_KRW, formatKrw } from "@/config/plans";
+import { templateDesign } from "@/config/template-designs";
 import { listTemplates } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +22,18 @@ const KINDS = [
 export default async function TemplatesPage({ searchParams }: PageProps<"/templates">) {
   const sp = await searchParams;
   const kind = sp.kind === "demo" || sp.kind === "live" ? sp.kind : undefined;
-  const { templates, error } = await listTemplates(kind);
+  const style: StyleId | undefined = isStyleId(sp.style) ? sp.style : undefined;
+  const { templates: all, error } = await listTemplates(kind);
+  // 디자인 유형으로 고르기 (config/template-designs.ts 의 태그)
+  const styleOptions = [...new Set(all.flatMap((t) => templateDesign(t.slug)?.tags ?? []))];
+  const templates = style ? all.filter((t) => templateDesign(t.slug)?.tags.includes(style)) : all;
+  const href = (k: string | undefined, st: string | undefined) => {
+    const q = new URLSearchParams();
+    if (k) q.set("kind", k);
+    if (st) q.set("style", st);
+    const qs = q.toString();
+    return qs ? `/templates?${qs}` : "/templates";
+  };
 
   return (
     <>
@@ -41,7 +54,7 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/templa
               return (
                 <Link
                   key={k.key}
-                  href={k.key === "all" ? "/templates" : `/templates?kind=${k.key}`}
+                  href={href(k.key === "all" ? undefined : k.key, style)}
                   className={cn("rounded-full border px-4 py-2 text-[13px] font-semibold", active ? "border-sky-400 bg-sky-400 text-night-950" : "border-white/20 text-white/80 hover:border-white")}
                 >
                   {k.label}
@@ -49,6 +62,27 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/templa
               );
             })}
           </div>
+          {styleOptions.length ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-[13px] text-white/60">디자인 유형</span>
+              <Link
+                href={href(kind, undefined)}
+                className={cn("rounded-full border px-3 py-1.5 text-[12px] font-semibold", !style ? "border-white bg-white text-night-950" : "border-white/20 text-white/80 hover:border-white")}
+              >
+                전체
+              </Link>
+              {styleOptions.map((id) => (
+                <Link
+                  key={id}
+                  href={href(kind, id)}
+                  title={STYLE_BY_ID[id].desc}
+                  className={cn("rounded-full border px-3 py-1.5 text-[12px] font-semibold", style === id ? "border-white bg-white text-night-950" : "border-white/20 text-white/80 hover:border-white")}
+                >
+                  {STYLE_BY_ID[id].label}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -75,6 +109,15 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/templa
                     </div>
                     <p className="mt-0.5 text-xs text-ink-500">{t.category}</p>
                     <p className="mt-3 line-clamp-2 text-[13px] leading-relaxed text-ink-600">{t.description}</p>
+                    {templateDesign(t.slug)?.tags.length ? (
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {templateDesign(t.slug)!.tags.map((id) => (
+                          <span key={id} className="rounded-sm bg-ink-900 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                            {STYLE_BY_ID[id].label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="mt-4 flex flex-wrap gap-1.5">
                       {t.pages.map((p) => (
                         <span key={p} className="rounded-full border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-600">
@@ -89,7 +132,7 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/templa
             ))}
           </ul>
 
-          {!error && templates.length === 0 ? <p className="text-sm text-ink-500">아직 등록된 템플릿이 없습니다.</p> : null}
+          {!error && templates.length === 0 ? <p className="text-sm text-ink-500">{style ? "이 디자인 유형의 템플릿이 아직 없습니다." : "아직 등록된 템플릿이 없습니다."}</p> : null}
 
           <div className="mt-14 flex flex-col items-start gap-4 rounded-2xl bg-night-950 p-8 text-white sm:flex-row sm:items-center sm:justify-between">
             <div>

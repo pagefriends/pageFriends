@@ -2,7 +2,9 @@ import { z } from "zod";
 
 import { apiError } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
+import { designOf } from "@/lib/design-doc";
 import { renderDraft } from "@/lib/draft-render";
+import { draftVersion } from "@/lib/projects";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectBrief, ProjectPageRow } from "@/lib/types/db";
 
@@ -31,6 +33,10 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/drafts/[pag
   if (!brief?.site || !brief.business || !planned) return apiError(404, "NOT_FOUND", "초안을 찾을 수 없습니다.");
 
   const stored = (page as Pick<ProjectPageRow, "screenshots">).screenshots[device];
+  // 디자인 문서는 사이트 주인이 직접 고칠 수도 있으므로 designOf 가 값을 다시 검사한다.
+  // 저장된 캡처가 지금 디자인 버전으로 그린 것이 아니면(주소의 v 가 다르면) 저장된 높이를 강제하지 않는다 — 잘리거나 빈 띠가 생기지 않게
+  const design = designOf(brief);
+  const current = !stored || draftVersion(stored.url) === design.version;
   const { svg } = renderDraft(
     {
       siteName: brief.siteName,
@@ -41,14 +47,15 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/drafts/[pag
       page: planned,
       device,
       year: Number(new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "Asia/Seoul" }).format(new Date())),
+      design: brief.design ? design : undefined,
     },
-    stored?.height,
+    current ? stored?.height : undefined,
   );
 
   return new Response(svg, {
     headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",
-      "Cache-Control": "private, max-age=60",
+      "Cache-Control": current ? "private, max-age=60" : "no-store",
       // 주소를 직접 열어도 SVG 안에서 스크립트·외부 자원이 돌지 않게
       "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
       "X-Content-Type-Options": "nosniff",

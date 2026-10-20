@@ -5,21 +5,25 @@ import Link from "next/link";
 import { ProjectWizard } from "@/components/wizard/project-wizard";
 import { buttonClass } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
-import { PLAN_BY_CODE } from "@/config/plans";
+import { PLAN_BY_CODE, expertBuildIncluded } from "@/config/plans";
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { countProjects } from "@/lib/projects";
 import { getQuota } from "@/lib/quota";
+import { cycleOf } from "@/lib/subscriptions";
 import { createClient } from "@/lib/supabase/server";
 import type { TemplateRow } from "@/lib/types/db";
 
 export const metadata: Metadata = { title: "새 사이트" };
+// 제작 시작 뒤 AI 첫 제작(after)이 이 시간 안에 끝나야 한다 (서버 액션은 페이지의 설정을 따른다)
+export const maxDuration = 300;
 
 export default async function NewProjectPage({ searchParams }: PageProps<"/projects/new">) {
   const user = await requireUser("/projects/new");
   const sp = await searchParams;
   const preselectSlug = typeof sp.template === "string" ? sp.template : null;
 
-  const [{ plan }, purchased, count] = await Promise.all([getSubscription(user.id), loadPurchasedTemplates(user.id), countProjects(user.id)]);
+  const [{ plan, subscription }, purchased, count] = await Promise.all([getSubscription(user.id), loadPurchasedTemplates(user.id), countProjects(user.id)]);
+  const expertBuildAllowed = Boolean(plan && subscription && expertBuildIncluded(cycleOf(subscription)));
   const effective = plan ?? PLAN_BY_CODE.starter;
   const full = effective.maxSites !== null && count >= effective.maxSites;
   // AI 이미지 생성 예상치를 비교할 남은 토큰 (한도 + 크레딧). 플랜이 없으면 0 — 이미지 생성은 플랜이 있어야 한다
@@ -61,6 +65,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
           maxPages={effective.pageRange?.max ?? 30}
           paymentAllowed={effective.paymentSystem !== "none"}
           tokenBudget={tokenBudget}
+          expertBuildAllowed={expertBuildAllowed}
         />
       </div>
     </div>

@@ -133,7 +133,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps<"/ad
                     const s = requestStatus(r.kind, r.status);
                     const last = r.lastEntry;
                     // 사람이 답하는 요청은 접수 뒤 72시간 안에 답한다 — 남은 시간을 보여 늦지 않게
-                    const due = needsPerson(r.kind) && isOpenStatus(r.status) ? remainingLabel(r.created_at) : null;
+                    const due = needsPerson(r.kind) && isOpenStatus(r.status) ? remainingLabel(r.created_at, r.kind) : null;
                     return (
                       <li key={r.id}>
                         <Link href={`/admin/requests/${r.id}`} className="flex gap-3 px-4 py-3 hover:bg-ink-50">

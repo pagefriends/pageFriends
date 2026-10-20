@@ -1,10 +1,15 @@
 import { notFound } from "next/navigation";
 
 import { ProjectEditor } from "@/components/editor/editor";
+import { normalizeStyles } from "@/config/design-styles";
 import { PLAN_BY_CODE } from "@/config/plans";
+import { templateDesign } from "@/config/template-designs";
+import { aiConfigured } from "@/lib/ai/claude";
+import { designOf, isAiPending } from "@/lib/design-doc";
 import { listProjectPhotos } from "@/lib/photos";
+import { listPurchasedTemplateIds, listTemplates } from "@/lib/templates";
 import { emptyImageCount, generatedImageCount } from "@/lib/site-plan";
-import { STATUS_EVENT_TEXT, dueLabel, isOpenStatus, needsPerson } from "@/config/requests";
+import { STATUS_EVENT_TEXT, dueLabel, isAiWorking, isOpenStatus, needsPerson } from "@/config/requests";
 import { APPLY_STATE, releaseStage } from "@/config/releases";
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { NO_NEWS, getMessageSummary, listRequestThreads } from "@/lib/messages";
@@ -13,6 +18,8 @@ import { getQuota } from "@/lib/quota";
 import { NO_RELEASE, listReleaseSummaries } from "@/lib/releases";
 
 export const dynamic = "force-dynamic";
+// "요청하기" 뒤 AI 처리(after)가 이 시간 안에 끝나야 한다 (서버 액션은 페이지의 설정을 따른다)
+export const maxDuration = 300;
 
 export default async function ProjectPage({ params, searchParams }: PageProps<"/projects/[id]">) {
   const { id } = await params;
@@ -21,12 +28,14 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
   const data = await getProject(user.id, id);
   if (!data) notFound();
 
-  const [{ plan }, requests, threads, summary, releases] = await Promise.all([
+  const [{ plan }, requests, threads, summary, releases, catalog, purchased] = await Promise.all([
     getSubscription(user.id),
     listProjectRequests(id),
     listRequestThreads(id),
     getMessageSummary(),
     listReleaseSummaries([id]),
+    listTemplates(),
+    listPurchasedTemplateIds(user.id),
   ]);
   const quota = await getQuota(user.id, plan);
   // 상단 "웹사이트에 적용": 끝난 수정 중 아직 실제 웹사이트에 올라가지 않은 수 · 진행 중인 적용 단계
@@ -78,12 +87,31 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
     welcome = { text: parts.join(" "), tone: failed ? "red" : "blue" };
   }
 
+  // AI: 디자인 버전(캡처 주소의 v 와 같다) · 첫 제작 중인지 · 지금 AI 가 맡고 있는 AI 반영 네모 (config/requests.ts isAiWorking)
+  const brief = data.project.brief;
+  const design = designOf(brief);
+  const working = requests.filter((r) => isAiWorking(r));
+  const ai = site
+    ? {
+        enabled: aiConfigured(),
+        version: design.version,
+        pending: isAiPending(design),
+        open: working.length,
+        // AI 가 지금 처리 중인 묶음 (가장 최근). 새로 고침해도 "AI 작업 중" 화면을 이어서 보여 준다
+        batchId: working[0]?.batch_id ?? null,
+      }
+    : null;
+  const templates = catalog.templates.map((t) => ({ id: t.id, name: t.name, slug: t.slug, tags: templateDesign(t.slug)?.tags ?? [], purchased: purchased.has(t.id) }));
+
   return (
     <ProjectEditor
       projectId={id}
       projectName={data.project.name}
       welcome={welcome}
       buildNote={buildNote}
+      siteStyles={normalizeStyles(brief.styleTags?.length ? brief.styleTags : brief.tone)}
+      templates={templates}
+      ai={ai}
       pages={data.pages.map((p) => {
         const pp = planned.get(p.path);
         return {
@@ -123,8 +151,9 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
           page_id: r.page_id,
           device: r.device,
           awaiting: Boolean(r.awaiting_user) && isOpenStatus(r.status),
-          due: needsPerson(r.kind) && isOpenStatus(r.status) ? dueLabel(r.created_at) : null,
+          due: needsPerson(r.kind) && isOpenStatus(r.status) ? dueLabel(r.created_at, r.kind) : null,
           lastReply: last ? (last.body ?? (last.status ? STATUS_EVENT_TEXT[last.status] : null)) : r.resolution_note,
+          lastReplyByAi: last?.via === "ai",
           unread: fromAdmin.some((m) => !m.read_at),
         };
       })}

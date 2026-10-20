@@ -59,6 +59,8 @@ export function RequestThreads({
                 const shot = page?.screenshots[r.device];
                 const entries = threads?.get(r.id) ?? [];
                 const awaiting = Boolean(r.awaiting_user) && isOpenStatus(r.status);
+                // AI 가 물어본 질문 (AI 차례인 접수에서 AI 글이 마지막) — 답하면 AI 가 이어서 처리한다 (lib/ai/engine.ts resumeAfterAnswer)
+                const aiAsked = awaiting && r.kind === "ai" && r.status === "pending" && entries.at(-1)?.via === "ai";
                 const unread = entries.some((m) => m.author_role === "admin" && !m.read_at);
                 const apply = applyStates?.get(r.id);
                 return (
@@ -76,7 +78,7 @@ export function RequestThreads({
                           {!awaiting ? <NewTag unread={unread} label="새 답변" /> : null}
                           {r.kind === "ai" && r.tokens_used > 0 ? <span className="tabular-nums">{formatTokens(r.tokens_used)} 토큰</span> : null}
                           {r.kind === "bug" ? <span>무료</span> : null}
-                          {needsPerson(r.kind) && isOpenStatus(r.status) ? <span>답변 기한 {dueLabel(r.created_at)}</span> : null}
+                          {needsPerson(r.kind) && isOpenStatus(r.status) ? <span>답변 기한 {dueLabel(r.created_at, r.kind)}</span> : null}
                         </div>
                         <div className="mt-2 flex gap-3">
                           {shot ? (
@@ -89,12 +91,16 @@ export function RequestThreads({
 
                         {threads ? (
                           <div className="mt-3 flex flex-col gap-3 border-l-2 border-ink-200 pl-3">
-                            <Thread entries={entries} viewer="user" />
-                            {awaiting ? <p className="text-xs font-medium text-sky-600">담당자가 답을 기다리고 있습니다. 답글을 보내면 작업이 이어집니다.</p> : null}
+                            <Thread entries={entries} viewer="user" kind={r.kind} />
+                            {awaiting ? (
+                              <p className="text-xs font-medium text-sky-600">
+                                {aiAsked ? "AI가 답을 기다리고 있어요. 답글을 보내면 AI가 이어서 반영해요." : "담당자가 답을 기다리고 있습니다. 답글을 보내면 작업이 이어집니다."}
+                              </p>
+                            ) : null}
                             <ReplyToggle
                               send={replyAction(r.id)}
                               open={awaiting}
-                              placeholder={awaiting ? "담당자의 질문에 답해 주세요" : "이 요청에 대해 담당자에게 남길 말을 적어 주세요"}
+                              placeholder={aiAsked ? "AI의 질문에 답해 주세요" : awaiting ? "담당자의 질문에 답해 주세요" : "이 요청에 대해 담당자에게 남길 말을 적어 주세요"}
                             />
                           </div>
                         ) : r.resolution_note ? (

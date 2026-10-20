@@ -1,5 +1,7 @@
-import type { CreditKind, DeviceKind, PlanCode, RequestKind } from "@/config/plans";
-import type { SlotRect } from "@/lib/draft-render";
+import type { StyleId } from "@/config/design-styles";
+import type { BillingCycle, CreditKind, DeviceKind, PlanCode, RequestKind } from "@/config/plans";
+import type { DesignDoc } from "@/lib/design-doc";
+import type { FieldRect, SectionRect, SlotRect } from "@/lib/draft-render";
 import type { BusinessInfo, SitePlan } from "@/lib/site-plan";
 
 /** supabase/migrations/0001_init.sql 과 1:1. 컬럼을 바꾸면 여기도 같이 바꾼다. */
@@ -27,6 +29,11 @@ export type SubscriptionRow = {
   failed_attempts: number;
   last_failure_at: string | null;
   last_failure_reason: string | null;
+  /** 결제 주기 (0009). 0009 전에는 컬럼이 없다 → 월간으로 본다 (cycleOf) */
+  billing_cycle?: BillingCycle;
+  /** 다음 결제부터 바뀌기로 예약한 플랜 · 주기 (내리기 · 연간 → 월간). 0009 */
+  pending_plan_code?: PlanCode | null;
+  pending_billing_cycle?: BillingCycle | null;
   created_at: string;
   updated_at: string;
 };
@@ -75,6 +82,51 @@ export type ProjectBrief = {
   business?: BusinessInfo;
   /** 헤더 메뉴·하위 페이지 · 페이지 종류 · 이미지 자리 · AI 이미지 생성 여부 */
   site?: SitePlan;
+  /** 디자인 유형 태그 (config/design-styles.ts). 순서대로 — 첫 번째가 대표. 2026-10-17 이후 사이트만. 예전 사이트는 tone 을 변환해 쓴다 */
+  styleTags?: StyleId[];
+  /** 벤치마킹 사이트 (첫 요청에 받음) */
+  benchmarks?: Benchmark[];
+  /** 벤치마킹 확인 문구("참고 사이트의 글·사진·로고·코드는 그대로 쓰지 않고 …")에 체크한 시각 (서버 시각) */
+  benchmarkAttestedAt?: string | null;
+  /** 그때 동의한 확인 문구 (문구가 바뀌어도 무엇에 동의했는지 남게) */
+  benchmarkAttestation?: string | null;
+  /** 시작한 템플릿의 slug (template_id 와 같은 템플릿. AI 지시서가 config/template-designs.ts 를 찾을 때 쓴다) */
+  templateSlug?: string | null;
+  /** 디자인 문서: 테마 + 문구 (lib/design-doc.ts). 규칙 · AI · 담당자가 고친다. 없으면 규칙으로 만든다 */
+  design?: DesignDoc;
+};
+
+/** 벤치마킹 허락 상태: 우리 회사 사이트 · 운영자에게 허락 받음 · 허락 없음(분위기만 참고) */
+export type BenchmarkPermission = "own" | "granted" | "none";
+
+export type Benchmark = {
+  url: string;
+  /** 참고할 점 (config/benchmarks.ts 의 키) */
+  aspects: string[];
+  /** 좋았던 점 */
+  note: string;
+  permission: BenchmarkPermission;
+  /** 허락을 어떻게 받았는지 (granted 일 때) */
+  permissionNote: string;
+  /** 서버가 사이트를 읽어 만든 요약 (lib/ai/benchmark.ts). 허락 없음이면 추상적인 신호만 남긴다 */
+  digest?: BenchmarkDigest | null;
+};
+
+export type BenchmarkDigest = {
+  fetchedAt: string;
+  ok: boolean;
+  error?: string;
+  title?: string;
+  description?: string;
+  /** 자주 쓰인 색 (많이 쓴 순) */
+  colors?: string[];
+  fonts?: string[];
+  /** 메뉴 이름 (허락 받은 · 우리 사이트만) */
+  nav?: string[];
+  /** 제목들 (허락 받은 · 우리 사이트만) */
+  headings?: string[];
+  /** 추상 신호: 밝기 · 색 느낌 · 글꼴 계열 · 구역 수 */
+  signals?: { background?: "light" | "dark"; colorMood?: string; fontClass?: string; sections?: number; images?: number };
 };
 
 export type ProjectRow = {
@@ -92,7 +144,17 @@ export type ProjectRow = {
  * 페이지 캡처. draft 면 위저드 입력으로 그린 구성 초안(/api/drafts/…)이고, slots 는 그 안의 이미지 자리 위치(캡처 픽셀)다.
  * 실제 제작 캡처로 바꿀 때 slots 를 함께 넣으면 편집기의 "이미지 자리" 목록이 그대로 동작한다.
  */
-export type Screenshot = { url: string; width: number; height: number; draft?: boolean; slots?: SlotRect[] };
+export type Screenshot = {
+  url: string;
+  width: number;
+  height: number;
+  draft?: boolean;
+  slots?: SlotRect[];
+  /** 문구 자리 위치 (디자인 문서의 copy 키). 네모가 어떤 글을 가리키는지 AI 가 찾을 때 쓴다 */
+  fields?: FieldRect[];
+  /** 구역 위치 (첫 화면 · 서비스 카드 · 푸터 …) */
+  sections?: SectionRect[];
+};
 
 export type ProjectPageRow = {
   id: string;
@@ -126,9 +188,14 @@ export type ChangeRequestRow = {
   awaiting_user?: boolean;
   /** 이 수정이 실린 웹사이트 적용. done 인데 null 이면 "적용 대기". 0007 적용 전 DB 에는 컬럼이 없다 */
   release_id?: string | null;
+  /** 네모마다 고른 디자인 유형 · 참고 템플릿 (AI 반영). 0008 적용 전 DB 에는 컬럼이 없다 */
+  options?: RequestOptions | null;
   created_at: string;
   resolved_at: string | null;
 };
+
+/** 요청(네모)별 AI 옵션. styles 가 비어 있으면 사이트의 디자인 유형을 쓴다 */
+export type RequestOptions = { styles?: StyleId[]; templateId?: string | null };
 
 /**
  * supabase/migrations/0007_releases.sql — 웹사이트 적용 (개발 서버 → 운영).
@@ -181,6 +248,8 @@ export type MessageRow = {
   created_at: string;
   /** 상대편이 읽은 시각. 사용자 글은 관리자가, 관리자 글은 사용자가 읽으면 찍힌다 */
   read_at: string | null;
+  /** 'ai' = AI 엔진이 쓴 글 (화면에 "AI" 로 보인다). 0008 적용 전 DB 에는 컬럼이 없다 */
+  via?: "ai" | null;
 };
 
 /** AI 크레딧은 토큰 수, 전문가 크레딧은 횟수 */

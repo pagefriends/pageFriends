@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { markRequestCheckedAction, markUserMessagesReadAction } from "@/app/(admin)/admin/actions";
+import { AiRerunButton, AiRunList } from "@/components/admin/ai-runs";
 import { AutoCheck } from "@/components/admin/auto-check";
 import { ProjectStatusControl } from "@/components/admin/quick-actions";
 import { RegionPreview } from "@/components/admin/region-preview";
@@ -11,12 +12,17 @@ import { MarkRead } from "@/components/messages/mark-read";
 import { Thread } from "@/components/messages/thread";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEVICE_LABEL, REQUEST_KIND_LABEL, formatTokens, getPlan } from "@/config/plans";
-import { REQUEST_KIND_TONE, dueLabel, isOpenStatus, needsPerson, remainingLabel, requestStatus } from "@/config/requests";
+import { REQUEST_KIND_TONE, dueLabel, isImageRequest, isOpenStatus, needsPerson, remainingLabel, requestStatus } from "@/config/requests";
 import { APPLY_STATE, RELEASE_STAGE_ADMIN, applyState, releaseStage } from "@/config/releases";
+import { STYLE_BY_ID, normalizeStyles } from "@/config/design-styles";
 import { getAdminRequest } from "@/lib/admin";
+import { aiConfigured } from "@/lib/ai/claude";
+import { reapStaleRuns } from "@/lib/ai/engine";
+import { listAiRuns } from "@/lib/ai/runs";
 import { getSubscription } from "@/lib/auth/session";
 import { listProjectReleases } from "@/lib/releases";
 import { FEATURE_LABEL } from "@/lib/site-plan";
+import { listTemplates } from "@/lib/templates";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -33,14 +39,21 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
   const ownerPlan = owner.plan ?? getPlan(owner.subscription?.plan_code);
   const awaiting = Boolean(request.awaiting_user) && isOpenStatus(request.status);
   const st = requestStatus(request.kind, request.status);
-  // 사람이 답하는 요청은 접수 뒤 72시간 안에 답한다
-  const due = needsPerson(request.kind) && isOpenStatus(request.status) ? remainingLabel(request.created_at) : null;
+  // 사람이 답하는 요청의 기한: 전문가 요청 72시간 · 오류 신고 24시간 (config/requests.ts dueHours)
+  const due = needsPerson(request.kind) && isOpenStatus(request.status) ? remainingLabel(request.created_at, request.kind) : null;
   const builder = brief.site?.builder ?? null;
   const unreadIds = thread.messages.filter((m) => m.author_role === "user" && !m.read_at).map((m) => m.id);
   // 끝난 수정이면 실제 웹사이트에 올라갔는지 (적용 대기 · n번째 적용의 어느 단계)
   const rel = request.status === "done" ? await listProjectReleases(project.id) : null;
   const apply = rel?.available ? applyState(request, rel.byId) : null;
   const release = request.release_id ? rel?.byId.get(request.release_id) : undefined;
+  // AI 반영 요청: 멈춘 처리를 정리하고 실행 기록을 읽는다
+  if (request.kind === "ai" || request.kind === "bug") await reapStaleRuns().catch(() => 0);
+  const runs = request.kind === "ai" || request.kind === "bug" ? await listAiRuns({ requestId: request.id }, 10) : null;
+  const imageRequest = isImageRequest(request.message);
+  const reqStyles = normalizeStyles(request.options?.styles ?? []);
+  const refTemplateId = request.options?.templateId;
+  const refTemplate = refTemplateId ? (await listTemplates()).templates.find((t) => t.id === refTemplateId) : undefined;
 
   return (
     <div>
@@ -110,7 +123,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
             <CardBody>
               {thread.available ? (
                 thread.messages.length > 0 ? (
-                  <Thread entries={thread.messages} viewer="admin" />
+                  <Thread entries={thread.messages} viewer="admin" kind={request.kind} />
                 ) : (
                   <p className="text-sm text-ink-500">아직 주고받은 글이 없습니다. 오른쪽에서 상태를 바꾸거나 글을 보내면 여기에 쌓입니다.</p>
                 )
@@ -152,6 +165,37 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
         </div>
 
         <div className="flex flex-col gap-6">
+          {request.kind === "ai" || request.kind === "bug" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>{request.kind === "bug" ? "AI 오류 확인" : "AI 처리"}</CardTitle>
+              </CardHeader>
+              <CardBody className="flex flex-col gap-3 text-sm">
+                {imageRequest ? (
+                  <p className="text-xs text-ink-500">AI 이미지 생성 요청은 지금은 담당자가 만들어 넣어요 (이미지 생성 API 는 다음 단계).</p>
+                ) : !aiConfigured() ? (
+                  <p className="text-xs text-ink-500">API 키(ANTHROPIC_API_KEY)가 없어 AI 가 처리하지 않아요. 담당자가 처리해 주세요.</p>
+                ) : null}
+                {reqStyles.length || refTemplateId ? (
+                  <p className="text-xs text-ink-700">
+                    이 네모의 옵션:{" "}
+                    {[
+                      reqStyles.length ? `디자인 유형 ${reqStyles.map((id, i) => `${i === 0 ? "★" : ""}${STYLE_BY_ID[id].label}`).join(" · ")}` : null,
+                      refTemplateId ? `참고 템플릿 ${refTemplate?.name ?? "(목록에 없음)"}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
+                {runs?.available ? <AiRunList runs={runs.runs} path={`/admin/requests/${request.id}`} /> : <p className="text-xs text-ink-500">0008_ai.sql 을 적용하면 AI 실행 기록이 보여요.</p>}
+                {request.kind === "bug" ? (
+                  <p className="text-xs text-ink-500">오류 신고는 AI 가 먼저 확인해요: 최근 AI 변경 때문이면 되돌리고, 테마 · 문구로 고칠 수 있으면 고치고, 아니면 담당자 확인 중으로 넘겨요 (24시간 안에 처리).</p>
+                ) : !imageRequest ? (
+                  <AiRerunButton kind="request" id={request.id} disabled={!aiConfigured() || !runs?.available} label="AI로 다시 처리" />
+                ) : null}
+              </CardBody>
+            </Card>
+          ) : null}
           <Card>
             <CardHeader>
               <CardTitle>상태 변경 · 사용자에게 답하기</CardTitle>
@@ -160,7 +204,8 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
               <RequestForm requestId={request.id} status={request.status} awaiting={awaiting} kind={request.kind} tokensUsed={request.tokens_used} messaging={thread.available} />
               {request.kind === "ai" ? (
                 <p className="mt-3 text-xs text-ink-500">
-                  요청자 플랜 {ownerPlan?.name ?? "없음"} · 월 토큰 {ownerPlan ? (ownerPlan.monthlyAiTokens === null ? "무제한" : formatTokens(ownerPlan.monthlyAiTokens)) : "-"}. 사용 토큰을 저장하면
+                  요청자 플랜 {ownerPlan?.name ?? "없음"}
+                  {ownerPlan && owner.subscription?.billing_cycle === "year" ? " (연간)" : ""} · 월 토큰 {ownerPlan ? (ownerPlan.monthlyAiTokens === null ? "무제한" : formatTokens(ownerPlan.monthlyAiTokens)) : "-"}. 사용 토큰을 저장하면
                   한도 초과분이 토큰 크레딧에서 차감됩니다.
                 </p>
               ) : null}
@@ -181,7 +226,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
               {brief.business ? <Row k="한 줄 소개" v={brief.business.tagline} /> : null}
               {brief.business ? <Row k="서비스 · 상품" v={brief.business.offerings.map((o) => o.name).join(" · ")} /> : null}
               <Row k="목적" v={brief.purpose} />
-              <Row k="디자인 톤" v={brief.tone?.join(", ")} />
+              <Row k="디자인 유형" v={normalizeStyles(brief.styleTags?.length ? brief.styleTags : brief.tone).map((id, i) => `${i === 0 ? "★" : ""}${STYLE_BY_ID[id].label}`).join(" · ")} />
               <Row k="메인 색상" v={brief.primaryColor} />
               <Row k="페이지" v={brief.pages?.join(" · ")} />
               <Row k="기능" v={brief.features?.map((f) => FEATURE_LABEL[f] ?? f).join(", ")} />

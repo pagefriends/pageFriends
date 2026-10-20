@@ -6,13 +6,19 @@ import Link from "next/link";
 import { startTransition, useActionState, useEffect, useState, useSyncExternalStore } from "react";
 
 import { createProjectAction, type CreateProjectState } from "@/app/(app)/projects/new/actions";
+import { BenchmarkEditor, EMPTY_BENCHMARK, benchmarkProblem, normalizeUrl, type BenchmarkDraft } from "@/components/wizard/benchmark-editor";
 import { ImageStep, type SlotOverrides } from "@/components/wizard/image-step";
-import { HeaderPreview, MenuEditor } from "@/components/wizard/menu-editor";
+import { MenuEditor } from "@/components/wizard/menu-editor";
 import { Chip, Field, StepTitle, SummaryRow, Tip } from "@/components/wizard/parts";
+import { StylePicker, StylePreview } from "@/components/wizard/style-picker";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
+import { BENCHMARK_PERMISSION, MAX_BENCHMARKS } from "@/config/benchmarks";
+import { STYLE_BY_ID, normalizeStyles, type StyleId } from "@/config/design-styles";
 import { EXPERT_HOURS, formatTokens } from "@/config/plans";
+import { templateDesign } from "@/config/template-designs";
+import type { BenchmarkPermission } from "@/lib/types/db";
 import {
   FEATURE_OPTIONS,
   INDUSTRIES,
@@ -38,7 +44,6 @@ import {
 import type { TemplateRow } from "@/lib/types/db";
 import { cn } from "@/lib/utils";
 
-const TONES = ["깔끔한", "신뢰감 있는", "따뜻한", "고급스러운", "활기찬", "미니멀", "전문적인", "친근한"];
 const COLORS = ["#2563eb", "#0ea5e9", "#1e40af", "#0f172a", "#334155", "#0284c7"];
 const STEPS = ["시작", "회사 · 서비스", "메뉴 · 페이지", "디자인", "이미지", "확인"] as const;
 const MAX_OFFERINGS = 8;
@@ -68,9 +73,13 @@ type Draft = {
   /** auto = 추천 구성 그대로 (회사 정보가 바뀌면 다시 추천) · custom = 직접 고침 */
   menuSource: "auto" | "custom";
   homeNote: string;
-  tone: string[];
+  /** 디자인 유형 태그 (순서대로 — 첫 번째가 대표) */
+  styleTags: StyleId[];
   primaryColor: string;
-  referenceUrls: string;
+  /** 벤치마킹 사이트 (첫 요청에 받음) */
+  benchmarks: BenchmarkDraft[];
+  /** "그대로 쓰지 않고 허락 여부를 사실대로 적었습니다" 체크 */
+  attested: boolean;
   prompt: string;
   extraFeatures: string[];
   generate: boolean;
@@ -99,9 +108,10 @@ const EMPTY: Draft = {
   menu: [],
   menuSource: "auto",
   homeNote: "",
-  tone: [],
+  styleTags: [],
   primaryColor: COLORS[0],
-  referenceUrls: "",
+  benchmarks: [{ ...EMPTY_BENCHMARK }],
+  attested: false,
   prompt: "",
   extraFeatures: [],
   generate: false,
@@ -142,8 +152,41 @@ function savedExists(): boolean {
   }
 }
 
+/** 템플릿을 고르면 그 템플릿의 디자인 유형 · 메인 색으로 시작한다 (고객이 바꿀 수 있다) */
+function templateStart(slug: string): Pick<Draft, "styleTags" | "primaryColor"> | Record<string, never> {
+  const d = templateDesign(slug);
+  return d ? { styleTags: d.tags, primaryColor: d.primaryColor } : {};
+}
+
+/** 저장해 둔 벤치마킹 줄. 예전 위저드의 "참고 사이트"(한 줄에 하나) 글도 줄로 바꾼다 */
+function restoreBenchmarks(saved: Partial<Draft> & { referenceUrls?: unknown }): BenchmarkDraft[] {
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
+  if (Array.isArray(saved.benchmarks)) {
+    const rows = (saved.benchmarks as unknown[])
+      .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
+      .slice(0, MAX_BENCHMARKS)
+      .map((r) => ({
+        url: str(r.url, 300),
+        aspects: Array.isArray(r.aspects) ? (r.aspects as unknown[]).filter((a): a is string => typeof a === "string") : [],
+        note: str(r.note, 300),
+        permission: r.permission === "own" || r.permission === "granted" || r.permission === "none" ? (r.permission as BenchmarkPermission) : null,
+        permissionNote: str(r.permissionNote, 200),
+      }));
+    if (rows.length) return rows;
+  }
+  if (typeof saved.referenceUrls === "string" && saved.referenceUrls.trim()) {
+    const urls = saved.referenceUrls
+      .split(/\n|,/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, MAX_BENCHMARKS);
+    if (urls.length) return urls.map((url) => ({ ...EMPTY_BENCHMARK, url }));
+  }
+  return [{ ...EMPTY_BENCHMARK }];
+}
+
 /** 저장해 둔 값을 기본값 위에 얹는다. 모양이 다르면 그 칸은 기본값을 쓴다 */
-function restore(saved: Partial<Draft>, templateIds: Set<string>): Draft {
+function restore(saved: Partial<Draft> & { tone?: unknown; referenceUrls?: unknown }, templateIds: Set<string>): Draft {
   const pick = <K extends keyof Draft>(k: K, ok: (v: unknown) => boolean): Draft[K] => (ok(saved[k]) ? (saved[k] as Draft[K]) : EMPTY[k]);
   const str = (v: unknown) => typeof v === "string";
   const arr = (v: unknown) => Array.isArray(v);
@@ -166,9 +209,11 @@ function restore(saved: Partial<Draft>, templateIds: Set<string>): Draft {
     menu: pick("menu", arr),
     menuSource: pick("menuSource", (v) => v === "auto" || v === "custom"),
     homeNote: pick("homeNote", str),
-    tone: pick("tone", arr),
+    // 예전 위저드의 "디자인 톤"(깔끔한 · 신뢰감 있는 …)도 새 태그로 바꿔 이어 쓴다
+    styleTags: normalizeStyles(arr(saved.styleTags) ? saved.styleTags : arr(saved.tone) ? (saved.tone as unknown[]) : []),
     primaryColor: pick("primaryColor", (v) => str(v) && /^#[0-9a-f]{6}$/i.test(v as string)),
-    referenceUrls: pick("referenceUrls", str),
+    benchmarks: restoreBenchmarks(saved),
+    attested: saved.attested === true,
     prompt: pick("prompt", str),
     extraFeatures: pick("extraFeatures", arr),
     generate: pick("generate", (v) => typeof v === "boolean"),
@@ -197,6 +242,7 @@ export function ProjectWizard({
   maxPages,
   paymentAllowed,
   tokenBudget,
+  expertBuildAllowed,
 }: {
   purchasedTemplates: TemplateRow[];
   preselectSlug: string | null;
@@ -206,9 +252,11 @@ export function ProjectWizard({
   paymentAllowed: boolean;
   /** 이번 달 남은 토큰 (한도 + 크레딧). null = 무제한 */
   tokenBudget: number | null;
+  /** "전문가에게 맡기기" 를 고를 수 있는가 (연간 결제 플랜만) */
+  expertBuildAllowed: boolean;
 }) {
   const preselected = purchasedTemplates.find((t) => t.slug === preselectSlug) ?? null;
-  const [s, setS] = useState<Draft>(() => (preselected ? { ...EMPTY, start: "template", templateId: preselected.id } : EMPTY));
+  const [s, setS] = useState<Draft>(() => (preselected ? { ...EMPTY, start: "template", templateId: preselected.id, ...templateStart(preselected.slug) } : EMPTY));
   const [touched, setTouched] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const hasSaved = useSyncExternalStore(subscribeStorage, savedExists, () => false);
@@ -218,6 +266,8 @@ export function ProjectWizard({
     setTouched(true);
     setS((prev) => ({ ...prev, ...p }));
   };
+  // 저장해 둔 초안에 "전문가에게 맡기기" 가 있어도 연간 결제가 아니면 AI 로 만든다 (서버도 같은 규칙으로 막는다)
+  const builder: Builder = expertBuildAllowed ? s.builder : "ai";
 
   // 손댄 뒤부터 브라우저에 임시 저장. 제출하면 지우고, 서버가 오류를 돌려주면(state 바뀜) 다시 저장한다
   useEffect(() => {
@@ -243,7 +293,7 @@ export function ProjectWizard({
   // 페이지·이미지 자리 계획. 서버가 프로젝트를 만들 때와 같은 함수라 여기서 보여 준 자리가 그대로 만들어진다 (계산이 가벼워 매번 다시 만든다)
   const plan = buildSitePlan({
     mode,
-    builder: s.builder,
+    builder,
     siteName: s.siteName.trim(),
     business: { category, tagline: s.tagline, offerings, strengths: s.strengths, about: s.about, contact: s.contact, purposes: s.purposes },
     menu: s.menu,
@@ -262,11 +312,17 @@ export function ProjectWizard({
       ? menuFromPageNames(template.pages).slice(0, Math.max(1, maxPages - 1))
       : recommendMenu({ category, purposes: s.purposes, offerings, maxPages });
 
+  // 벤치마킹: 주소를 적은 줄만 센다. 템플릿을 골랐으면 템플릿이 첫 벤치마킹이라 주소는 선택
+  const benchmarkRows = s.benchmarks.filter((b) => b.url.trim());
+  const benchmarkError = benchmarkRows.map(benchmarkProblem).find(Boolean) ?? null;
+  const benchmarkMissing = !template && benchmarkRows.length === 0;
+  const benchmarkValid = !benchmarkError && !benchmarkMissing && (benchmarkRows.length === 0 || s.attested);
+
   const valid = [
     s.mode !== null && (s.start === "prompt" || Boolean(template)),
     Boolean(s.siteName.trim() && s.industry.trim() && s.tagline.trim() && offerings.length > 0 && (s.purposes.length > 0 || s.purposeDetail.trim())),
     s.menu.length > 0 && s.menu.every((m) => m.label.trim() && m.children.every((c) => c.label.trim())) && pageCount <= maxPages,
-    true,
+    benchmarkValid,
     !overBudget,
     true,
   ];
@@ -302,7 +358,7 @@ export function ProjectWizard({
     const payload = {
       templateId: template?.id ?? null,
       mode,
-      builder: s.builder,
+      builder,
       siteName: s.siteName.trim(),
       industry: s.industry.trim(),
       category,
@@ -316,13 +372,17 @@ export function ProjectWizard({
       audience: s.audience.trim(),
       menu: s.menu,
       homeNote: s.homeNote,
-      tone: s.tone,
+      styleTags: s.styleTags,
       primaryColor: s.primaryColor,
       features: [...new Set([...autoFeatures, ...s.extraFeatures])],
-      referenceUrls: s.referenceUrls
-        .split(/\n|,/)
-        .map((x) => x.trim())
-        .filter(Boolean),
+      benchmarks: benchmarkRows.map((b) => ({
+        url: normalizeUrl(b.url) ?? b.url.trim(),
+        aspects: b.aspects,
+        note: b.note.trim(),
+        permission: b.permission,
+        permissionNote: b.permission === "granted" ? b.permissionNote.trim() : "",
+      })),
+      attested: benchmarkRows.length > 0 && s.attested,
       prompt: s.prompt.trim(),
       images: { generate: s.generate, overrides: Object.entries(s.overrides).map(([id, o]) => ({ id, ...o })) },
     };
@@ -465,20 +525,30 @@ export function ProjectWizard({
               <p className="text-sm font-semibold">누가 만들까요?</p>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 <ModeCard
-                  active={s.builder === "ai"}
+                  active={builder === "ai"}
                   onClick={() => patch({ builder: "ai" })}
                   icon={<SparklesIcon className="size-5" />}
                   title="AI로 바로 만들기"
                   desc="제작 시작을 누르면 AI가 바로 구성 초안을 만들어요. 고칠 곳도 빨간 네모로 요청하면 AI가 바로 진행해요."
                 />
                 <ModeCard
-                  active={s.builder === "expert"}
+                  active={builder === "expert"}
                   onClick={() => patch({ builder: "expert" })}
+                  disabled={!expertBuildAllowed}
                   icon={<UserRoundCheckIcon className="size-5" />}
                   title="전문가에게 맡기기"
                   desc={`전문 디자이너가 직접 만들어 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일) 안에 첫 완성본을 올려 드려요. 그동안 구성 초안으로 미리 의견을 줄 수 있어요.`}
+                  note={expertBuildAllowed ? undefined : "연간 결제 플랜에 들어 있어요"}
                 />
               </div>
+              {!expertBuildAllowed ? (
+                <p className="mt-2 text-xs text-ink-500">
+                  사람이 처음부터 만드는 제작은 연간 결제에만 들어 있어요. 월간은 AI로 시작하고, 고칠 곳은 전문가 요청으로 맡길 수 있어요.{" "}
+                  <Link href="/billing?cycle=year" className="font-medium text-brand-700 underline">
+                    연간 결제 보기
+                  </Link>
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -501,7 +571,7 @@ export function ProjectWizard({
                       <li key={t.id}>
                         <button
                           type="button"
-                          onClick={() => patch({ templateId: t.id, menuSource: "auto", menu: [] })}
+                          onClick={() => patch({ templateId: t.id, menuSource: "auto", menu: [], ...templateStart(t.slug) })}
                           className={cn("w-full overflow-hidden rounded-md border text-left", s.templateId === t.id ? "border-brand-600 ring-1 ring-brand-600" : "border-ink-200 hover:border-ink-400")}
                         >
                           <div className="relative aspect-[4/3] bg-ink-50">
@@ -715,15 +785,15 @@ export function ProjectWizard({
         {/* 3. 디자인 */}
         {s.step === 3 ? (
           <div className="flex flex-col gap-5">
-            <StepTitle title="어떤 느낌이면 좋을까요?" desc={guided ? "잘 모르겠으면 넘어가도 괜찮아요. 담당자가 업종에 맞게 잡아 드려요." : undefined} />
-            <Field label="디자인 톤 (최대 3개)">
-              <div className="flex flex-wrap gap-1.5">
-                {TONES.map((t) => (
-                  <Chip key={t} active={s.tone.includes(t)} onClick={() => patch({ tone: toggle(s.tone, t, 3) })}>
-                    {t}
-                  </Chip>
-                ))}
-              </div>
+            <StepTitle
+              title="어떤 느낌이면 좋을까요?"
+              desc={guided ? "디자인 유형을 고르고, 참고할 사이트를 알려 주세요. 디자인 유형은 골라 두지 않아도 업종에 맞게 잡아 드려요." : "디자인 유형(태그) 조합대로 AI 가 테마 · 문구를 만들어요. 벤치마킹 사이트는 꼭 필요해요."}
+            />
+            <Field
+              label="디자인 유형 (여러 개 · 최대 4개)"
+              hint={template ? `템플릿 '${template.name}' 의 디자인 유형으로 시작했어요. 바꿔도 돼요.` : undefined}
+            >
+              <StylePicker value={s.styleTags} onChange={(styleTags) => patch({ styleTags })} guided={guided} primaryColor={s.primaryColor} onPickColor={(primaryColor) => patch({ primaryColor })} />
             </Field>
             <Field label="메인 색상" hint={guided ? "버튼과 강조 글자에 쓰여요. 로고 색이 있다면 그 색을 골라 주세요." : undefined}>
               <div className="flex flex-wrap items-center gap-2">
@@ -741,11 +811,29 @@ export function ProjectWizard({
                 <span className="text-xs text-ink-500">{s.primaryColor}</span>
               </div>
               <div className="mt-3">
-                <HeaderPreview menu={s.menu} siteName={s.siteName} cta={cta} primaryColor={s.primaryColor} />
+                <StylePreview
+                  styles={s.styleTags}
+                  primaryColor={s.primaryColor}
+                  preset={template ? templateDesign(template.slug)?.theme : undefined}
+                  siteName={s.siteName}
+                  tagline={s.tagline}
+                  cta={cta}
+                  menu={s.menu.map((m) => m.label)}
+                />
+                <p className="mt-1.5 text-[11px] text-ink-500">첫 화면 미리보기예요. 실제 초안은 페이지마다 같은 디자인으로 그려져요.</p>
               </div>
             </Field>
-            <Field label="참고 사이트" optional htmlFor="refs" hint={guided ? "마음에 드는 사이트 주소가 있으면 알려 주세요. 분위기를 참고해요. 한 줄에 하나씩 (최대 5개)" : "한 줄에 하나씩 (최대 5개)"}>
-              <Textarea id="refs" value={s.referenceUrls} onChange={(e) => patch({ referenceUrls: e.target.value })} placeholder="https://" className="min-h-16" />
+            <Field label="벤치마킹 사이트" required={!template}>
+              <BenchmarkEditor
+                rows={s.benchmarks}
+                onChange={(benchmarks) => patch({ benchmarks })}
+                attested={s.attested}
+                onAttest={(attested) => patch({ attested })}
+                templateName={template?.name ?? null}
+                guided={guided}
+              />
+              {benchmarkMissing ? <p className="mt-2 text-xs text-mark">벤치마킹할 사이트를 1개 이상 적어 주세요. (템플릿으로 시작하면 템플릿이 그 역할을 해요)</p> : null}
+              {!benchmarkError && !benchmarkMissing && benchmarkRows.length > 0 && !s.attested ? <p className="mt-2 text-xs text-mark">확인 체크를 해 주세요.</p> : null}
             </Field>
             <Field label={template ? "템플릿에서 바꾸고 싶은 점" : expert ? "추가 요청 · 프롬프트" : "더 하고 싶은 말"} optional htmlFor="prompt">
               <Textarea
@@ -787,7 +875,7 @@ export function ProjectWizard({
             <StepTitle title="이대로 만들까요?" desc="제작을 시작하면 바로 구성 초안이 만들어지고 편집 화면으로 이동해요. 시작한 뒤에도 수정 요청으로 바꿀 수 있어요." />
             <dl className="divide-y divide-ink-100 rounded-md border border-ink-200 px-4">
               <SummaryRow k="만드는 방식">
-                {s.builder === "ai" ? "AI로 바로 만들기" : `전문가에게 맡기기 · ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 첫 완성본`}
+                {builder === "ai" ? "AI로 바로 만들기" : `전문가에게 맡기기 · ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 첫 완성본`}
               </SummaryRow>
               <SummaryRow k="시작 방식">{template ? `템플릿: ${template.name}` : "설명만으로"} · {guided ? "쉬운 모드" : "직접 구성"}</SummaryRow>
               <SummaryRow k="회사 · 브랜드">
@@ -820,10 +908,22 @@ export function ProjectWizard({
                 ) : null}
               </SummaryRow>
               <SummaryRow k="디자인">
-                <span className="inline-flex items-center gap-2">
+                <span className="inline-flex flex-wrap items-center gap-2">
                   <span className="inline-block size-4 rounded-sm" style={{ background: s.primaryColor }} /> {s.primaryColor}
-                  {s.tone.length ? <span className="text-ink-500">· {s.tone.join(", ")}</span> : null}
+                  <span className="text-ink-500">
+                    · {s.styleTags.length ? s.styleTags.map((id, i) => `${i === 0 ? "★" : ""}${STYLE_BY_ID[id].label}`).join(" · ") : "디자인 유형은 업종에 맞게"}
+                  </span>
                 </span>
+              </SummaryRow>
+              <SummaryRow k="벤치마킹">
+                <ul className="flex flex-col gap-1">
+                  {template ? <li>템플릿 {template.name} · 사용 허락 포함</li> : null}
+                  {benchmarkRows.map((b, i) => (
+                    <li key={i} className="break-all">
+                      {normalizeUrl(b.url) ?? b.url} <span className="text-ink-500">· {b.permission ? BENCHMARK_PERMISSION[b.permission].short : "-"}</span>
+                    </li>
+                  ))}
+                </ul>
               </SummaryRow>
               <SummaryRow k="이미지">
                 {imageCount > 0 ? (
@@ -841,7 +941,7 @@ export function ProjectWizard({
               <ol className="list-decimal pl-4">
                 <li>지금 바로 메뉴 · 페이지 구성 초안이 만들어져요. 이미지 자리에는 어떤 이미지가 필요한지 적혀 있어요.</li>
                 {imageCount > 0 ? <li>AI 이미지 {imageCount}장 생성 요청이 접수돼요. 진행 상황은 요청 내역에서 볼 수 있어요.</li> : null}
-                {s.builder === "ai" ? (
+                {builder === "ai" ? (
                   <li>고칠 곳은 화면에 빨간 네모를 그려 요청하면 AI가 바로 진행해요. 담당자가 마무리하면 &lsquo;제작 완료&rsquo; 로 바뀌어요.</li>
                 ) : (
                   <li>
@@ -875,17 +975,41 @@ export function ProjectWizard({
   );
 }
 
-function ModeCard({ active, onClick, icon, title, desc }: { active: boolean; onClick: () => void; icon?: React.ReactNode; title: string; desc: string }) {
+function ModeCard({
+  active,
+  onClick,
+  icon,
+  title,
+  desc,
+  disabled,
+  note,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon?: React.ReactNode;
+  title: string;
+  desc: string;
+  disabled?: boolean;
+  /** 제목 옆 작은 안내 (예: 고를 수 없는 이유) */
+  note?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
-      className={cn("flex gap-3 rounded-md border p-4 text-left transition-colors", active ? "border-brand-600 bg-brand-50 ring-1 ring-brand-600" : "border-ink-200 hover:border-ink-400")}
+      className={cn(
+        "flex gap-3 rounded-md border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        active ? "border-brand-600 bg-brand-50 ring-1 ring-brand-600" : "border-ink-200 enabled:hover:border-ink-400",
+      )}
     >
       {icon ? <span className={cn("mt-0.5 shrink-0", active ? "text-brand-700" : "text-ink-500")}>{icon}</span> : null}
       <span>
-        <span className="block font-semibold">{title}</span>
+        <span className="block font-semibold">
+          {title}
+          {note ? <span className="ml-2 rounded bg-ink-100 px-1.5 py-0.5 text-[11px] font-medium text-ink-600">{note}</span> : null}
+        </span>
         <span className="mt-1 block text-[13px] leading-relaxed text-ink-500">{desc}</span>
       </span>
     </button>

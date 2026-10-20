@@ -16,7 +16,7 @@ function safeNext(next: string | null | undefined): string {
   return next;
 }
 
-export function AuthForm({ mode, next, plan }: { mode: "login" | "signup"; next?: string; plan?: string }) {
+export function AuthForm({ mode, next, plan, cycle }: { mode: "login" | "signup"; next?: string; plan?: string; cycle?: "month" | "year" }) {
   const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState("");
@@ -26,8 +26,8 @@ export function AuthForm({ mode, next, plan }: { mode: "login" | "signup"; next?
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // 플랜을 고르고 가입하면 결제 페이지로, 아니면 대시보드로
-  const destination = plan ? `/billing?plan=${encodeURIComponent(plan)}` : safeNext(next);
+  // 플랜을 고르고 가입하면 결제 페이지로(고른 결제 주기 그대로), 아니면 대시보드로
+  const destination = plan ? `/billing?plan=${encodeURIComponent(plan)}${cycle === "year" ? "&cycle=year" : ""}` : safeNext(next);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

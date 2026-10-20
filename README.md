@@ -23,7 +23,7 @@ Supabase 없이도 볼 수 있는 화면: `/` 메인, `/pricing` 요금제, `/de
 ## 2. Supabase 설정
 
 1. 프로젝트 생성 → Settings > API 에서 URL, anon key, service_role key 를 `.env.local` 에 넣는다.
-2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` → `0005_inquiries.sql` → `0006_messages.sql` → `0007_releases.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
+2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` → `0005_inquiries.sql` → `0006_messages.sql` → `0007_releases.sql` → `0008_ai.sql` → `0009_billing_cycle.sql` → `0010_bug_ai.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
 3. Authentication > Providers
    - Email: 켜기. 로컬 테스트는 "Confirm email" 을 꺼야 가입 즉시 로그인된다.
    - Google: Client ID/Secret 입력. Google Cloud 콘솔의 승인된 리디렉션 URI 에 `https://<ref>.supabase.co/auth/v1/callback` 추가.
@@ -68,6 +68,12 @@ components/editor/     캔버스(줌·팬·네모 그리기/이동/크기조절)
 components/wizard/     새 사이트 위저드: 단계 화면 · 메뉴/하위 페이지 편집기 · 이미지 단계
 components/brief/      제작 정보(위저드 입력) 보기 — 관리자 /admin/projects/[id] · 사용자 /projects/[id]/brief
 lib/site-plan.ts       업종별 추천 메뉴 · 페이지 종류 · 이미지 자리 계획 (위저드와 서버가 같이 쓴다)
+lib/design-doc.ts      디자인 문서 (테마 · 문구 자리) — AI 가 고치는 "사이트". 태그 · 템플릿 → 테마 규칙, 바꾸기 검사
+lib/ai/                AI 하네스 · 엔진: skills(스킬) · harness(지시서 조립) · claude(API) · schemas(출력 형식) · layout(네모 ↔ 문구 자리 · 네모 옮기기) · engine(첫 제작 · 수정 처리 · 기록)
+config/design-styles.ts 디자인 유형 18개 (축 · 쓸 것 · 피할 것 · 말투) + 여러 개 합치기(mergeStyles)
+config/template-designs.ts 템플릿마다 디자인 유형 · 테마 · 구성 (seed slug 기준)
+config/benchmarks.ts   벤치마킹 참고할 점 · 허락 상태별 규칙 · 확인 문구
+config/ai.ts           모델 · 노력 수준 · 가격 · 하루 한도 · 지시서 버전
 lib/draft-render.ts    구성 초안 그림(SVG) — app/api/drafts/[pageId]/[device] 가 그린다
 components/messages/   대화 부품: 대화 줄기 · 입력칸 · 읽음 표시 · 알림 종 · 확인할 내용
 config/plans.ts        플랜·크레딧·템플릿 가격 상수 (가격은 여기서만 바꾼다)
@@ -90,13 +96,26 @@ scripts/gen-samples.mjs 샘플 캡처 SVG 생성 (public/samples, config/samples
 - 네모 하나 = 요청 하나. 캔버스의 N번 빨간 네모와 오른쪽 패널의 N번 카드가 1:1 이고, 카드/네모에 마우스를 올리면 서로 강조된다. 종류는 네모마다 따로 고른다 (AI 반영 · 전문가 요청 · 오류 신고).
 - "요청하기"는 모든 페이지·디바이스의 네모를 한 묶음(batch)으로 보낸다. DB 함수 `submit_change_requests` 가 한도 검사 → 크레딧 차감 → 삽입을 한 트랜잭션으로 처리한다.
 
-## 사용량 모델 (0004_tokens_sites.sql)
+## 요금제 (0009_billing_cycle.sql)
 
-- **사이트 수**: 플랜별 동시 보유 사이트 수 (스타터 1 · 비즈니스 2 · 프로 5 · 엔터프라이즈 10, `Plan.maxSites`). `createProjectAction` 이 검사하고 대시보드가 남은 슬롯을 보여준다.
-- **AI 반영 = 토큰**: 플랜별 월 토큰 한도 (`Plan.monthlyAiTokens`, 결제 기간 기준). 제출 시점에는 남은 토큰(한도 − 사용 + 크레딧)이 0 이면 막기만 하고,
+- 플랜 3개, 월간 · 연간 결제 (`config/plans.ts`, 금액은 부가세 포함): 스타터 19,800원 · 비즈니스 29,800원 · 프로 49,800원 / 월. **연간 = 월 요금 × 10** (2개월 무료).
+  엔터프라이즈는 요금제에서 빼고 "별도 상담" (`hidden`, 예전 구독을 읽을 때만 쓴다).
+- 금액 · 적용 방식은 `lib/billing-quote.ts` 의 `quoteChange` 하나로 계산한다 (결제 화면 미리 보기와 서버 결제가 같은 함수):
+  처음 시작 = 바로 결제 · 올리기(상위 플랜, 월간 → 연간) = 남은 기간만큼 빼고 바로 결제, 오늘부터 새 기간 ·
+  내리기 · 연간 → 월간 = 다음 결제일부터 (`subscriptions.pending_plan_code` / `pending_billing_cycle` 에 적어 두고 갱신 결제가 그 금액으로 나간다).
+- 결제 시스템(쇼핑몰 결제) 연동비 `PAYMENT_SETUP_FEE_KRW`(20만 원)는 처음 켤 때 한 번만 (`subscriptions.payment_addon`).
+- "전문가에게 맡기기"(사람이 처음부터 제작)는 연간 결제에만 (`expertBuildIncluded`). 월간은 AI 로 시작한다 — 위저드와 `createProjectAction` 이 같이 막는다.
+- 연간 결제 중도 해지 환불(약관): 결제 금액 − 이용한 개월 수 × 월간 요금. 지금은 담당자가 포트원 관리 화면에서 직접 부분 취소한다.
+- 0009 전 DB 에서도 월간은 그대로 동작한다 (`activate_subscription` · `submit_change_requests` 를 예전 인자로 다시 부름). 연간 · 예약 변경은 0009 이후.
+
+## 사용량 모델 (0004_tokens_sites.sql → 0009)
+
+- **사이트 수**: 플랜별 동시 보유 사이트 수 (스타터 1 · 비즈니스 2 · 프로 5, `Plan.maxSites`). `createProjectAction` 이 검사하고 대시보드가 남은 슬롯을 보여준다.
+- **사용 기간** (`usage_window(user_id)`, 0009): 결제 기간 시작일부터 한 달씩 센 "지금이 속한 달". 월간이면 결제 기간과 같고, 연간이면 1년 안에서 매달 다시 채워진다.
+- **AI 반영 = 토큰**: 플랜별 월 토큰 한도 (`Plan.monthlyAiTokens`, 사용 기간 기준). 제출 시점에는 남은 토큰(한도 − 사용 + 크레딧)이 0 이면 막기만 하고,
   처리 시점에 `record_ai_usage(request_id, tokens, monthly_limit)` 로 실제 사용 토큰을 기록하면서 한도 초과분을 토큰 크레딧에서 차감한다.
   지금은 관리자 요청 상세의 "사용 토큰" 칸으로 기록하고, AI 파이프라인이 붙으면 같은 RPC 를 service role 로 호출한다. 사용량 조회는 `ai_token_usage(user_id)`.
-- **전문가 요청 = 주간 횟수** (변경 없음). 초과분은 횟수 크레딧에서 제출 시 차감.
+- **전문가 요청 = 월 횟수** (`Plan.monthlyExpert`: 1 · 2 · 4, 사용 기간 기준 `request_usage(user_id)`). 초과분은 횟수 크레딧에서 제출 시 차감.
 - **오류 신고 (`kind = 'bug'`)**: 무료. 한도·크레딧·토큰 어디에서도 차감하지 않는다.
 - 크레딧 팩: AI 는 토큰(1만 토큰 180원 · 10만 토큰 1,400원), 전문가는 횟수(1회 8,900원 · 10회 64,900원). `credits.kind='ai'` 의 balance 는 토큰 수.
 - 저장 좌표는 0~1 정규화 값이라 캡처를 다시 찍어 크기가 바뀌어도 위치가 유지된다.
@@ -143,6 +162,39 @@ scripts/gen-samples.mjs 샘플 캡처 SVG 생성 (public/samples, config/samples
   적용 전에 수정이 다시 열리면 묶음에서 빠지고, 이미 적용된 수정을 다시 고쳐 끝내면 "적용 대기" 로 돌아온다(트리거 `change_requests_release_sync`).
 - 적용 기한은 사람이 맡는 일과 같은 `EXPERT_HOURS`(24~72시간). 표기 · 확인 목록 키는 `config/releases.ts`, 읽기는 `lib/releases.ts`.
 
+## AI 엔진 1단계 — 디자인 유형 · 벤치마킹 · 템플릿 + 하네스 (0008_ai.sql)
+
+AI 는 웹사이트 코드를 통째로 쓰지 않고 **디자인 문서**(`brief.design`: 테마 + 문구 자리)만 고친다. 구성 초안 그림(`lib/draft-render.ts`)이 이 문서로 그려진다.
+AI 출력은 정해진 형식(구조화 출력)으로만 받고, 코드가 값 범위 · 키 · 글자 수 · 지어낸 사실을 다시 검사한 뒤 반영한다 — 한 곳을 고쳐도 다른 곳이 깨지지 않고, 같은 형식의 기록이 쌓여 나중에 자체 모델을 학습시키기 좋다.
+
+- **디자인 유형(태그)**: 18개 중 최대 4개, 처음 고른 것이 대표(★). 태그마다 축(여백 · 제목 무게 · 모서리 · 색 · 온도 · 말투) · 글꼴 · 쓸 것 · 피할 것 · 말투가 있고,
+  `mergeStyles` 가 대표 가중치 2로 합친다. 반대 축은 "충돌" 로 알려 대표를 따르고 다른 쪽은 포인트에만 쓴다. 위저드 3단계에서 고르고, 첫 화면 미리보기와 "AI가 이렇게 적용해요" 가 바로 바뀐다.
+  API 키가 없어도 규칙으로 테마를 만들어 **초안이 태그대로 달라 보인다** (명조 · 여백 · 모서리 · 버튼 · 첫 화면 배치 · 카드 · 다크).
+- **벤치마킹(첫 요청 필수)**: 주소 1~3개 · 참고할 점 · 좋았던 점 · **허락 상태**(우리 사이트 / 허락 받음(+어떻게) / 허락 없음 — 분위기만) · 확인 체크(시각 · 문구 저장).
+  템플릿으로 시작하면 템플릿(사용 허락 포함)이 첫 벤치마킹이라 주소는 선택. 허락 수준별로 AI 가 참고할 수 있는 범위가 지시서에 들어간다. 사이트 화면을 직접 읽는 기능(SSRF 방어 포함)은 다음 단계.
+- **템플릿**: `config/template-designs.ts` 에 태그 · 테마 · 구성. 위저드에서 고르면 태그 · 메인 색 · 테마가 미리 채워지고, 편집기의 AI 반영 네모마다 **참고 템플릿**(구매한 것만)을 붙일 수 있다. `/templates` 에 디자인 유형 필터.
+- **네모별 옵션**: AI 반영 네모마다 디자인 유형 · 참고 템플릿 → `change_requests.options` (submit_change_requests 가 저장 · 템플릿 구매 확인).
+- **하네스**(`lib/ai/harness.ts`): system[0] 기본 규칙 + 정책 스킬(지어낸 사실 금지 · 연락처 · 실제 사진 · 자료/지시 구분 · AI 티 피하기) → system[1] 이 사이트의 스킬(디자인 유형 · 업종 · 시작 템플릿 · 벤치마킹) → user(고객 자료 · 문구 자리 · 요청 글 · 네모 · 네모별 옵션). 두 system 블록은 캐시한다.
+  관리자 `/admin/projects/[id]` **AI 작업 지시서** 에서 합친 결과 · 스킬 · 실제 지시문 전체 · 실행 기록을 본다.
+- **엔진**(`lib/ai/engine.ts`, 키가 있을 때): 위저드 "AI로 바로 만들기" 뒤 `after()` 로 첫 제작(토큰 차감 없음 · 사용자당 하루 2번) / "요청하기" 뒤 AI 반영 네모를 차례로 처리 →
+  `apply` 디자인 새 버전 + 캡처 다시 그리기 + **네모 위치 옮기기**(그림 높이가 바뀌어도 네모가 같은 곳을 가리키게) + "AI가 반영했어요" 대화 + 토큰 기록 /
+  `ask` 사용자에게 질문(확인 필요, 답하면 이어서) / `expert` 담당자에게 넘김. 이미지 생성 요청은 담당자가 처리. 쓰기는 `ai_apply_design` · `ai_finish_request`(service role 전용)가 한 트랜잭션으로.
+  AI 반영은 담당자 확인 없이 편집기 화면에 바로 반영된다 (실제 웹사이트 적용은 따로 "웹사이트 적용" 흐름).
+- **AI 작업 중 화면**: "요청하기" 로 보낸 묶음을 엔진이 **하나씩 순서대로**(페이지 순서 → 화면 → 네모 번호, AI 반영 다음 오류 신고) 처리하고,
+  편집기는 1초마다 `GET /api/projects/[id]/ai-progress?batch=` (`lib/ai/progress.ts`)로 진행을 읽는다. 네모마다 가리키는 곳 · 단계
+  (확인 → 고칠 방법 정하기 → 바꿀 내용 쓰기 → 새 화면 그리기, `ai_runs.output.live`) · 걸린 시간 · AI 설명(답을 쓰는 동안 먼저 도착)을 보여 주고,
+  하나 반영될 때마다 화면을 바로 새로 그리며 고치는 네모를 따라 페이지 · 화면을 옮긴다. 그동안 캔버스는 잠긴다 (화면 이동 · 확대만). 새로 고침해도 이어진다.
+  AI 에게는 같이 보낸 다른 요청(먼저 반영된 것 · 다음 차례)을 알려 앞 요청을 되돌리거나 다음 요청의 일을 미리 하지 않게 한다.
+- **오류 신고 = AI 가 먼저 확인** (`processBugReport`, 0010): 최근 AI 변경(최근 8건) 때문이면 **그 변경만 되돌리고**(그 뒤에 다시 바뀐 값은 두고, 되돌린 실행에는 평가 "잘못함"),
+  테마 · 문구로 고칠 수 있는 화면 문제면 고치고 → "고침 완료". 기능 · 사진 · 구조처럼 할 수 없거나 확신이 없으면 "담당자 확인 중" 으로 넘기고 **24시간**(`BUG_HOURS`) 안에 관리자가 고친다.
+  오류 신고는 무료(토큰 차감 없음). AI 작업 중 화면이 끝나면 결과마다 "이상해요 · 오류 신고" 로 그 자리에 오류 신고 네모를 바로 만들 수 있다.
+  키 없이 흐름을 시험할 때는 가짜 API 서버를 띄우고 `.env.development.local` 에 `ANTHROPIC_API_KEY` · `ANTHROPIC_BASE_URL` 을 잠깐 넣는다 (SDK 가 읽는다. 끝나면 지운다).
+- **비용**: Claude Opus 5.5 (`config/ai.ts`). 사용자 토큰 차감 = 실제 비용을 입력 토큰 단위로 바꾼 값(입력 1 · 캐시 쓰기 1.25 · 캐시 읽기 0.05 · 출력 5). 하루 전체 비용 상한 `AI_DAILY_BUDGET_USD`(기본 30달러).
+  안전 거절에 대비해 서버 쪽 대체 모델(`fallbacks: "default"`)을 켰다. 10분이 지나도 끝나지 않은 처리, 요청하고 30분이 지나도 AI 가 손대지 못한 접수(`AI_QUEUE_MINUTES`)는 이유를 남기고 담당자에게 넘긴다.
+- **기록 · 학습**: 실행마다 `ai_runs`(지시서 버전 · 입력 요약 · 출력 · 반영한 변경 · 토큰 · 비용). 관리자가 "잘함 · 잘못함 · 고쳐서 마무리" 로 평가해 정답 · 오답 데이터를 남긴다.
+  학습에 쓰기 전에 개인정보를 가명 처리하고, 약관 · 개인정보 처리방침에 AI 처리(국외 이전: Anthropic) · 서비스 개선 활용을 적어야 한다.
+- 키가 없거나 0008 이 없으면 AI 를 부르지 않는다 — 화면은 그대로, AI 반영은 담당자가 처리한다.
+
 ### 아직 연결하지 않은 것 (다음 단계)
 
 - 실제 AI 사이트 생성·캡처 파이프라인: 지금은 위저드 입력으로 그린 **구성 초안**(`/api/drafts/…`)을 캡처 자리에 넣는다 (예전 사이트는 샘플 SVG). 실제 캡처 URL 과 크기(+ 이미지 자리 위치 `slots`)만 넣으면 편집기는 그대로 동작한다.
@@ -150,7 +202,7 @@ scripts/gen-samples.mjs 샘플 캡처 SVG 생성 (public/samples, config/samples
 - 결제 실패·해지 알림 메일: 지금은 결제 페이지 배너로만 알린다.
 - 대화 알림 메일 · 푸시: 새 답변·메시지는 로그인했을 때 화면 안에서만 알린다. 메일 발송 수단(SMTP · 메일 API)을 붙이면 `admin_reply_request` · `post_message` 호출 뒤에 보내면 된다.
 - 대화에 파일 첨부: 대화는 아직 글만 주고받는다. 이미지 자리에 넣을 사진은 "실제 사진 올리기"(아래)로 받는다.
-- 실제 AI 처리 엔진: AI 반영 · AI 로 바로 만들기는 화면과 상태로는 바로 진행되지만, 실제 결과물은 아직 담당자가 만든다. AI 엔진을 붙이면 같은 요청을 처리하고 `record_ai_usage` 로 토큰을 기록하면 된다.
+- AI 2단계: 실제 웹사이트(HTML) 렌더러 · 구역 추가/삭제 같은 구조 변경 · 버전 되돌리기 화면 · 작업 대기열(지금은 after()) · 벤치마킹 사이트 읽기 · 이미지 생성 API. 3단계: ai_runs 로 평가셋 → 자체 모델 파인튜닝 → 쉬운 요청은 자체 모델로 보내는 라우터.
 - 실제 배포 자동화: 웹사이트 적용은 담당자가 배포한 뒤 단계를 기록한다. 고객 사이트 호스팅의 배포 훅(예: Vercel Deploy Hook)을 붙이면 "개발 서버에 배포" · "운영에 배포" 버튼이 직접 배포하고 주소를 받아 오게 바꿀 수 있다 (`admin_release_staging` · `admin_release_live` 는 그대로).
 
 ## 새 사이트 위저드 · 구성 초안 · 이미지 자리
@@ -176,7 +228,8 @@ scripts/gen-samples.mjs 샘플 캡처 SVG 생성 (public/samples, config/samples
 
 ## 요청 · 프로젝트 상태 (저절로 바뀌고, 예외만 콤보로)
 
-- **AI 반영**은 요청하면 바로 진행된다: 끝날 때까지 "AI 진행 중", 끝나면 "반영 완료" (`requestStatus(kind, status)`, config/requests.ts).
+- **AI 반영**은 요청하면 바로 AI 차례다: 접수 = "AI 진행 중"(AI 가 처리하거나, 질문해 두고 답을 기다림), AI 가 맡지 못해 담당자에게 넘기면 "담당자 확인 중", 끝나면 "반영 완료"
+  (`requestStatus(kind, status)`, config/requests.ts). 넘길 때는 AI 가 이유를 대화에 남긴다 (lib/ai/engine.ts).
 - **전문가 요청 · 오류 신고**는 사람이 24~72시간 안에 답한다 (`EXPERT_HOURS`, config/plans.ts). 사용자 화면에 "답변 기한 · 10월 18일 …까지", 관리자 목록·상세에 "답변 기한 N시간 남음/지남".
   - 접수 → 담당자가 요청 화면을 **열면** 자동으로 "확인 완료" (`AutoCheck` → `markRequestCheckedAction`, 대화에 "담당자가 요청을 확인했습니다").
   - 담당자가 **답변을 보내면** 자동으로 "답변 완료". "사용자 답 필요(질문)" 를 체크하면 "확인 완료" 로 남는다.

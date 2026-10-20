@@ -11,11 +11,11 @@ import type { RequestKind } from "@/config/plans";
 import { isOpenStatus, requestStatus } from "@/config/requests";
 import type { RequestStatus } from "@/lib/types/db";
 
-const STATUS_OPTIONS: { value: RequestStatus; hint: string }[] = [
-  { value: "pending", hint: "아직 열어 보지 않음" },
-  { value: "processing", hint: "담당자가 확인함 · 질문하고 답을 기다리는 중" },
+const STATUS_OPTIONS: { value: RequestStatus; hint: string; aiHint?: string }[] = [
+  { value: "pending", hint: "아직 열어 보지 않음", aiHint: "AI 차례 (AI 가 처리 중이거나, 질문하고 답을 기다리는 중)" },
+  { value: "processing", hint: "담당자가 확인함 · 질문하고 답을 기다리는 중", aiHint: "담당자가 맡음 (AI 가 넘긴 요청 · 담당자의 질문)" },
   { value: "done", hint: "답변·반영을 마침" },
-  { value: "rejected", hint: "이유를 글로 적어 주세요. 전문가 주간 한도에서 제외됨" },
+  { value: "rejected", hint: "이유를 글로 적어 주세요. 전문가 월 한도에서 제외됨" },
 ];
 
 /** 자주 쓰는 문장. 누르면 입력칸에 들어가고, 고쳐서 보낼 수 있다. */
@@ -120,7 +120,7 @@ export function RequestForm({
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {requestStatus(kind, o.value).label} — {o.hint}
+              {requestStatus(kind, o.value).label} — {kind === "ai" ? (o.aiHint ?? o.hint) : o.hint}
             </option>
           ))}
         </Select>
