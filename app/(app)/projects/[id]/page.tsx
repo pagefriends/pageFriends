@@ -161,6 +161,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
       hasPlan={Boolean(plan)}
       news={summary.available ? (summary.byProject.get(id) ?? NO_NEWS) : null}
       website={website}
+      siteAdmin={site ? { lists: design.collections?.length ?? 0 } : null}
     />
   );
 }

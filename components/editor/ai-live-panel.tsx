@@ -23,7 +23,7 @@ const STEPS: Record<LiveItem["kind"], string[]> = {
   ai: ["요청 확인", "고칠 방법 정하기", "바꿀 내용 쓰기", "새 화면 그리기"],
   bug: ["신고 확인", "원인 찾기", "고칠 내용 쓰기", "새 화면 그리기"],
 };
-const STAGE_INDEX: Record<LiveStage | "check", number> = { check: 0, thinking: 1, writing: 2, rendering: 3 };
+const STAGE_INDEX: Record<LiveStage | "check", number> = { check: 0, thinking: 1, writing: 2, rendering: 3, database: 3 };
 
 /** 걸린 시간 "7초" · "1분 5초" */
 function secs(ms: number): string {
@@ -240,9 +240,11 @@ function StateChip({ item, isNext, elapsed }: { item: LiveItem; isNext: boolean;
 /** 처리 중인 네모의 단계 (check = 아직 실행 전, 요청 · 화면 확인 중) */
 function Stepper({ kind, stage }: { kind: LiveItem["kind"]; stage: LiveStage | "check" }) {
   const at = STAGE_INDEX[stage];
+  // 관리자 목록을 바꾸는 중이면 마지막 단계 이름이 바뀐다
+  const steps = stage === "database" ? [...STEPS[kind].slice(0, 3), "관리자 페이지 만들기"] : STEPS[kind];
   return (
     <ol className="mt-2 grid grid-cols-4 gap-1">
-      {STEPS[kind].map((label, i) => {
+      {steps.map((label, i) => {
         const state = i < at ? "done" : i === at ? "now" : "todo";
         return (
           <li key={label} className="flex flex-col items-center gap-1 text-center">

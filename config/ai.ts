@@ -18,7 +18,7 @@ export const AI_MAX_TOKENS = { build: 32_000, edit: 16_000 } as const;
  * 지시서 버전. 하네스 · 스킬 문구를 바꾸면 올린다 — 실행 기록(ai_runs)에 남아 어떤 지시서로 만든 결과인지 구분된다.
  * 형식: 날짜.순번
  */
-export const PROMPT_VERSION = "2026-10-19.3";
+export const PROMPT_VERSION = "2026-10-29.1";
 
 /** 편집기 "AI 작업 중" 화면이 진행 상황을 확인하는 간격 (밀리초) */
 export const AI_LIVE_POLL_MS = 1000;

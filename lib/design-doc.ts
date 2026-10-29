@@ -1,4 +1,5 @@
 import { STYLE_BY_ID, mergeStyles, normalizeStyles, type StyleId, type StyleMerge } from "@/config/design-styles";
+import { sanitizeCollections, type Collection } from "@/lib/collections";
 import { contrastText } from "@/lib/site-plan";
 
 /**
@@ -6,6 +7,7 @@ import { contrastText } from "@/lib/site-plan";
  *
  *   theme: 색 · 글꼴 · 제목 굵기 · 모서리 · 여백 · 버튼 · 첫 화면 배치 · 카드 모양 · 밝기
  *   copy:  정해진 문구 자리(COPY_FIELDS)의 글. 사이트 공통(site) → 페이지별(pages[path]) 순으로 덮어쓴다.
+ *   collections: 관리자 목록 (lib/collections.ts). 사이트 주인이 관리자 페이지에서 글을 올리는 목록 · 그 목록을 보여 줄 페이지.
  *
  * AI 는 코드를 쓰지 않고 이 문서의 값만 바꾼다 (정해진 키 · 정해진 값 범위만 통과). 그래서 한 곳을 고쳐도 다른 곳이 깨지지 않고,
  * 수정 1건이 작고, 같은 형식의 기록이 쌓여 나중에 자체 모델을 학습시키기 좋다.
@@ -75,6 +77,8 @@ export type DesignDoc = {
   styleTags: StyleId[];
   theme: Theme;
   copy: { site: CopyMap; pages: Record<string, CopyMap> };
+  /** 관리자 목록 (표는 사이트 전용 Supabase 프로젝트에 있다 — lib/site-db). 없으면 빈 목록 */
+  collections?: Collection[];
   /** AI 가 태그를 어떻게 적용했는지 (사용자 · 관리자 화면) */
   appliedTags?: { tag: StyleId; how: string }[];
   /** AI 의 디자인 설명 */
@@ -413,6 +417,7 @@ export function designOf(brief: { design?: DesignDoc | null; tone?: string[]; st
     styleTags: normalizeStyles(d.styleTags ?? tags),
     theme: sanitizeTheme(d.theme, fallback.theme),
     copy: { site: cleanCopy(d.copy?.site), pages: Object.fromEntries(Object.entries(d.copy?.pages ?? {}).map(([k, v]) => [k, cleanCopy(v)])) },
+    collections: sanitizeCollections(d.collections),
     appliedTags: Array.isArray(d.appliedTags) ? d.appliedTags.filter((a) => a && typeof a.how === "string").slice(0, 8) : undefined,
     notes: typeof d.notes === "string" ? d.notes.slice(0, 2000) : undefined,
     aiPending: d.aiPending === true,
@@ -543,7 +548,8 @@ export const THEME_KEYS: (keyof Theme)[] = [
   "cardStyle",
 ];
 
-export type AppliedChange = { kind: "theme" | "copy"; key: string; path?: string; before: string; after: string };
+/** data = 관리자 목록 (key 는 목록 키, before · after 는 목록 요약. 만들었으면 before 가, 숨겼으면 after 가 빈 글자) */
+export type AppliedChange = { kind: "theme" | "copy" | "data"; key: string; path?: string; before: string; after: string };
 
 /**
  * 바꿀 값을 검사해 새 문서를 만든다. 범위를 벗어난 값 · 모르는 키 · 없는 페이지는 버리고(rejected 에 이유), 실제로 바뀐 것만 applied 에 남긴다.
@@ -617,6 +623,11 @@ export function applyChanges(
 /** 바뀐 값 한 줄 (관리자 화면 · 대화) */
 export function describeChange(c: AppliedChange): string {
   if (c.kind === "copy") return `${fieldDef(c.key)?.label ?? c.key}: "${c.before || "기본 문구"}" → "${c.after}"`;
+  if (c.kind === "data") {
+    if (!c.before) return `관리자 목록 만듦: ${c.after}`;
+    if (!c.after) return `관리자 목록 숨김 (저장된 글은 그대로): ${c.before}`;
+    return `관리자 목록 바꿈: ${c.before} → ${c.after}`;
+  }
   const label: Record<string, string> = {
     primary: "메인 색",
     accent: "포인트 색",

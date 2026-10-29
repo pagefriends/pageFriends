@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { FIELD_TYPES, LIST_LAYOUTS } from "@/lib/collections";
 import { BUTTON_STYLES, CARD_STYLES, DENSITIES, FONT_CLASSES, HERO_LAYOUTS, RADII, SATURATIONS, TEMPERATURES, THEME_KEYS } from "@/lib/design-doc";
 
 /**
@@ -40,6 +41,20 @@ export const EditOutput = z.object({
   expertNote: z.string().describe("expert 일 때 담당자가 할 일. 아니면 빈 글자"),
   themeChanges: z.array(z.object({ key: enumOf(THEME_KEYS), value: z.string() })),
   copyChanges: z.array(z.object({ scope: z.enum(["site", "page"]), path: z.string(), key: z.string(), value: z.string() })),
+  collectionChanges: z
+    .array(
+      z.object({
+        key: z.string().describe("목록 키 = 표 이름. 영어 소문자 · 숫자 · 밑줄 (예: notices, menu_items)"),
+        label: z.string().describe("관리자 페이지에 보일 한국어 이름 (예: 공지사항)"),
+        page: z.string().describe("이 목록을 보여 줄 페이지 주소. 관리자 페이지에만 두려면 빈 글자"),
+        layout: enumOf(LIST_LAYOUTS).describe("list 게시판처럼 한 줄씩 · cards 사진 카드"),
+        remove: z.boolean().describe("목록을 사이트 · 관리자 페이지에서 숨길 때만 true (저장된 글은 지워지지 않는다)"),
+        fields: z
+          .array(z.object({ key: z.string().describe("칸 키. 영어 소문자 · 숫자 · 밑줄"), label: z.string().describe("칸 이름 (한국어)"), type: enumOf(FIELD_TYPES) }))
+          .describe("칸 전체 목록. 첫 칸이 목록의 제목으로 보인다"),
+      }),
+    )
+    .describe("관리자 목록을 만들거나 바꿀 때만. 아니면 빈 목록"),
 });
 export type EditOutput = z.infer<typeof EditOutput>;
 

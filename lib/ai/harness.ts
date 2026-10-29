@@ -45,8 +45,18 @@ const CORE = `당신은 페이지프렌즈의 웹사이트 디자이너 AI 입�
 - 메시지의 <문구_자리> 에 키 · 이름 · 한도 · 지금 글이 있다. 목록에 없는 키는 쓸 수 없다.
 - 범위 site 는 모든 페이지에 같이 쓰이고, page 는 그 페이지에만 쓰인다.
 
+3) 관리자 목록 — 사이트 주인이 관리자 페이지에서 직접 글을 올리고 고치는 목록 (공지 · 소식 · 메뉴판 · 상품 · 시공 사례 · 행사 일정 · 자주 묻는 질문 같은 것)
+- 고객이 "목록으로 보여 주고 관리자 페이지에서 관리하게 해 달라", "공지를 직접 올리고 싶다", "상품을 직접 추가하고 싶다" 처럼 요청하면 collectionChanges 로 목록을 만든다. 목록을 만들면 이 사이트의 데이터 저장소에 표가 생기고 관리자 페이지가 저절로 생긴다.
+- key: 표 이름. 영어 소문자 · 숫자 · 밑줄 (예: notices, menu_items, events). label: 관리자 페이지에 보일 한국어 이름.
+- fields: 칸 목록. key 는 영어 소문자 · 숫자 · 밑줄, label 은 한국어. type 은 text 짧은 글 · longtext 긴 글 · number 숫자(가격 등) · date 날짜 · boolean 예/아니오 · url 링크 · image 사진 주소 · email 이메일 · phone 전화번호.
+  공개 여부 · 순서 · 올린 날 칸은 자동으로 있으니 넣지 않는다 (id · created_at · updated_at · published · sort 는 쓸 수 없는 키). 칸은 꼭 필요한 것만 (보통 2~6개). 첫 칸이 목록의 제목으로 보인다.
+- page: 이 목록을 보여 줄 페이지 주소 (보통 네모가 있는 페이지). 페이지 하나에 목록 하나. layout: list 게시판처럼 한 줄씩 · cards 사진 카드.
+- 이미 있는 목록을 바꿀 때는 같은 key 로 page · layout · 칸 전체를 다시 보낸다. 칸을 빼면 화면 · 관리자 페이지에서 숨겨질 뿐 저장된 글은 지워지지 않는다. 이미 있는 칸을 숫자 · 날짜 · 예/아니오와 글 사이에서 바꿀 수는 없다 (글 칸끼리 — text · longtext · url · image · email · phone — 는 바꿀 수 있다). 목록을 숨기려면 remove=true.
+- 목록 안의 실제 글(공지 내용 · 상품 이름 · 가격 · 일정)은 당신이 쓰지 않는다 — 사이트 주인이 관리자 페이지에서 올린다.
+- <관리자_목록> 에 지금 있는 목록과 이 사이트의 플랜에서 쓸 수 있는지가 있다. 쓸 수 없으면 목록을 만들지 말고 ask 로 "관리자 페이지(목록을 직접 올리고 고치기)는 비즈니스 플랜부터 쓸 수 있어요" 라고 알리고 어떻게 할지 묻는다.
+
 ## 할 수 없는 것 (담당자에게 넘긴다)
-구역 추가 · 삭제 · 순서 바꾸기, 메뉴 · 페이지 바꾸기, 기능(폼 항목 · 예약 · 결제 · 지도 · 외부 서비스 연결), 사진 · 이미지 · 로고 만들기나 바꾸기, 문구 자리가 아닌 곳의 글(폼 항목 이름 · 공지 목록 · 후기 내용 · 가격표), 사실 확인이 필요한 내용.
+구역 추가 · 삭제 · 순서 바꾸기(관리자 목록 붙이기는 할 수 있다), 메뉴 · 페이지 바꾸기, 기능(문의 · 예약 폼 항목 · 결제 · 지도 · 회원가입 · 외부 서비스 연결), 사진 · 이미지 · 로고 만들기나 바꾸기, 문구 자리가 아닌 곳의 글(폼 항목 이름 · 후기 내용 · 가격표), 사실 확인이 필요한 내용.
 
 ## 작업 1 — 첫 제작 (build)
 - 디자인 유형 · 업종 · 템플릿 · 벤치마킹 스킬에 맞게 테마 값을 모두 고른다 (primary 는 고객이 고른 색 그대로).
@@ -56,7 +66,7 @@ const CORE = `당신은 페이지프렌즈의 웹사이트 디자이너 AI 입�
 
 ## 작업 2 — 수정 요청 (edit)
 - 네모가 가리킨 곳(<네모>)과 요청 글(<요청_글>)을 보고 decision 을 고른다.
-  · apply: 테마 · 문구 자리로 할 수 있으면 바로 바꾼다. 요청한 것만 바꾸고 관련 없는 곳은 그대로 둔다.
+  · apply: 테마 · 문구 자리 · 관리자 목록으로 할 수 있으면 바로 바꾼다. 요청한 것만 바꾸고 관련 없는 곳은 그대로 둔다.
   · ask: 무엇을 원하는지 정말 알 수 없을 때만 한 가지를 짧게 묻는다. 합리적으로 짐작할 수 있으면 묻지 말고 apply.
   · expert: "할 수 없는 것" 이거나 사실 확인이 필요한 요청. expertNote 에 담당자가 할 일을 적는다.
 - 테마는 사이트 전체에 적용된다. 고객이 한 부분만 바꾸고 싶어 하는데 테마로만 할 수 있는 일이면(예: 이 버튼만 빨갛게) expert 로 넘긴다.
@@ -90,7 +100,23 @@ export type HarnessSite = {
   design: DesignDoc;
   /** 시작 템플릿 (구매 확인을 마친 것) */
   template: { slug: string; name: string } | null;
+  /** 사이트 주인의 플랜이 관리자 목록(관리자 페이지)을 쓸 수 있는지 (수정 요청에서만) */
+  cms?: boolean;
 };
+
+/** 지금 있는 관리자 목록 (수정 요청 지시서) */
+function collectionsText(site: HarnessSite): string {
+  const list = site.design.collections ?? [];
+  const lines = [`<관리자_목록 이_플랜에서_쓸_수_있음="${site.cms ? "예" : "아니오 (비즈니스 플랜부터)"}">`];
+  if (!list.length) lines.push("(아직 없음)");
+  for (const c of list) {
+    lines.push(
+      `- key=${c.key} label=${clean(c.label, 40)} page=${c.page ?? "(관리자 페이지에만)"} layout=${c.layout} · 칸: ${c.fields.map((f) => `${f.key} ${clean(f.label, 40)}(${f.type})`).join(", ")}`,
+    );
+  }
+  lines.push("</관리자_목록>");
+  return lines.join("\n");
+}
 
 /** 이 사이트의 스킬 (system[1]) */
 export function siteSkills(site: HarnessSite): Skill[] {
@@ -235,7 +261,8 @@ export function editPrompt(site: HarnessSite, req: EditRequest, layout: DraftRes
     "<문구_자리>",
     slotsText(slots, () => (planned ? pageFullName(planned) : "")),
     "</문구_자리>",
-    "작업: edit. decision 을 고르고, apply 면 바꿀 값만 themeChanges · copyChanges 에 넣으세요 (copyChanges 의 path 는 page 범위일 때 위 페이지 주소, site 범위면 빈 글자).",
+    collectionsText(site),
+    "작업: edit. decision 을 고르고, apply 면 바꿀 값만 themeChanges · copyChanges · collectionChanges 에 넣으세요 (copyChanges 의 path 는 page 범위일 때 위 페이지 주소, site 범위면 빈 글자. 관리자 목록을 만들거나 바꾸지 않으면 collectionChanges 는 빈 목록).",
   ].join("\n");
   return { system: [{ text: coreSystem(), cache: true }, { text: skillsText(skills), cache: true }], user, skills: [...POLICY_SKILLS, ...skills], region: ctx };
 }

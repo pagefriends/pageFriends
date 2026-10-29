@@ -14,6 +14,7 @@ import { getSubscription, requireUser } from "@/lib/auth/session";
 import { rulesDesign } from "@/lib/design-doc";
 import { countProjects, createProject, imageRequestItems } from "@/lib/projects";
 import { getQuota } from "@/lib/quota";
+import { siteDbConfigured, startSiteDatabase } from "@/lib/site-db/provision";
 import {
   FEATURE_OPTIONS,
   INDUSTRIES,
@@ -227,6 +228,8 @@ export async function createProjectAction(_prev: CreateProjectState, formData: F
   // AI 로 만들기: 응답을 보낸 뒤 백그라운드에서 AI 가 테마 · 문구를 다듬는다 (키 · 하루 한도 · 플랜은 엔진이 다시 확인한다).
   // redirect() 는 예외를 던지므로 그 전에 걸어 둔다
   if (aiBuild) after(() => startSiteBuild(result.id));
+  // 이 사이트 전용 Supabase 프로젝트 (관리자 목록 · 관리자 페이지가 쓴다). 매달 비용이 드는 일이라 플랜이 있을 때만 만든다
+  if (plan?.siteDatabase && siteDbConfigured().ok) after(() => startSiteDatabase(result.id));
 
   let imagesFailed = false;
   if (imageCount > 0 && plan) {

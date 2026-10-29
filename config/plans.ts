@@ -50,7 +50,13 @@ export type Plan = {
   devices: DeviceKind[];
   /** 결제 시스템(쇼핑몰 결제) 연동: none 불가 · addon 연동비를 한 번 내고 켬 · included 포함 */
   paymentSystem: "none" | "addon" | "included";
+  /** 관리자 페이지(관리자 목록을 직접 올리고 고치기 · AI 가 목록을 만들기) */
   cms: boolean;
+  /**
+   * 사이트를 만들 때 그 사이트 전용 Supabase 프로젝트를 바로 만든다 (lib/site-db). 프로젝트마다 매달 비용이 든다
+   * (Supabase Pro 조직 기준 Micro $10). false 면 만들지 않는다.
+   */
+  siteDatabase: boolean;
   features: string[];
   recommended?: boolean;
   /** 요금제 화면 · 새 결제에 나오지 않는 플랜 (예전 구독을 읽을 때만 쓴다) */
@@ -108,6 +114,7 @@ const ALL_PLANS: Plan[] = [
     devices: ["mobile", "desktop"],
     paymentSystem: "none",
     cms: false,
+    siteDatabase: true,
     features: ["사이트 1개", "3~5 페이지", "모바일 · 웹 대응", "토큰 월 30만", "전문가 수정 요청 월 1회", "결제 시스템 · CMS 미포함"],
   },
   {
@@ -122,6 +129,7 @@ const ALL_PLANS: Plan[] = [
     devices: ["mobile", "tablet", "desktop"],
     paymentSystem: "addon",
     cms: true,
+    siteDatabase: true,
     features: [
       "사이트 2개",
       "쇼핑몰 · 예약 등 기능형 사이트",
@@ -144,6 +152,7 @@ const ALL_PLANS: Plan[] = [
     devices: ["mobile", "tablet", "desktop"],
     paymentSystem: "addon",
     cms: true,
+    siteDatabase: true,
     features: [
       "사이트 5개",
       "대부분의 기능 구현 가능",
@@ -166,6 +175,7 @@ const ALL_PLANS: Plan[] = [
     devices: ["mobile", "tablet", "desktop"],
     paymentSystem: "included",
     cms: true,
+    siteDatabase: true,
     features: ["사이트 10개", "모든 기능 제작", "개인 앱(모바일 앱) 제작 가능", "토큰 · 전문가 요청 무제한", "전담 매니저", "결제 시스템 · CMS 포함"],
     hidden: true,
   },

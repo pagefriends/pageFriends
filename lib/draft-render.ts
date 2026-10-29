@@ -1,4 +1,6 @@
 import type { DeviceKind } from "@/config/plans";
+import { SITE_DB_DRAFT_ROWS } from "@/config/site-db";
+import { formatCell, type Collection, type CollectionRow } from "@/lib/collections";
 import { copyOf, paletteOf, rulesDesign, type DesignDoc, type Palette, type Theme } from "@/lib/design-doc";
 import {
   RATIO_SHAPE,
@@ -30,6 +32,9 @@ import {
  *   fields   문구 자리(copy 키) — 네모가 어떤 글을 가리키는지 AI 가 찾는다
  *   sections 구역(첫 화면 · 서비스 카드 · 푸터 …)
  *
+ * 관리자 목록(디자인 문서 collections)이 붙은 페이지는 그 목록을 그린다. 관리자 페이지에서 올린 글(rows)을 받으면 그 글을,
+ * 없으면 빈 자리를 그린다 — 줄 수와 상관없이 높이가 같아서 글을 올려도 저장된 캡처 크기 · 네모 위치가 그대로다.
+ *
  * 같은 입력이면 같은 그림이 나와야 한다 (프로젝트를 만들 때 크기·자리 위치를 저장하고, 그림은 요청 때마다 다시 그린다).
  * 그래서 Date 같은 바깥 값은 받지 않고 year 를 인자로 받는다.
  * 그림 안 글꼴은 보는 컴퓨터에 깔린 글꼴로 보인다 (<img> 로 띄운 SVG 는 웹 글꼴을 못 불러온다).
@@ -55,6 +60,7 @@ export const SECTION_LABEL: Record<string, string> = {
   title: "페이지 제목 띠",
   subnav: "하위 메뉴 탭",
   main: "본문",
+  list: "관리자 목록",
   footer: "푸터",
 };
 
@@ -69,6 +75,8 @@ export type DraftInput = {
   year: number;
   /** 디자인 문서. 없으면 메인 색만 쓴 기본 모습 (예전 초안과 같은 크기) */
   design?: DesignDoc;
+  /** 관리자 목록에 올라온 공개 글 (목록 키 → 줄). 없으면 빈 자리로 그린다 (높이는 같다) */
+  rows?: Record<string, CollectionRow[]>;
 };
 
 export type DraftResult = { width: number; height: number; svg: string; slots: SlotRect[]; fields: FieldRect[]; sections: SectionRect[] };
@@ -180,6 +188,8 @@ type Ctx = {
   slots: SlotRect[];
   fields: FieldRect[];
   sections: SectionRect[];
+  /** 아직 그리지 않은 관리자 목록 — 아래 행동 유도 띠가 있는 페이지면 띠 바로 앞에 그린다 */
+  pendingList: Collection | null;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -691,6 +701,11 @@ function footer(ctx: Ctx, y: number): number {
 }
 
 function ctaBand(ctx: Ctx, y: number): number {
+  if (ctx.pendingList) {
+    const list = ctx.pendingList;
+    ctx.pendingList = null;
+    y = collectionList(ctx, y, list, true);
+  }
   const purposes = ctx.in.business.purposes;
   const title = cp(
     ctx,
@@ -1014,6 +1029,99 @@ function formButton(ctx: Ctx, x: number, y: number, w: number, label: string, ke
       text(x + w / 2, y + 27, label, { size: 16, weight: 700, fill: outline ? ctx.primaryText : ctx.onPrimary, anchor: "middle" }),
   );
   ctx.fields.push({ key, x: r(x), y: r(y), w: r(w), h: 54, text: label });
+}
+
+// ---------------------------------------------------------------------------------------------
+// 관리자 목록
+// ---------------------------------------------------------------------------------------------
+
+/** 목록 페이지 종류: 원래 그리던 빈 목록 대신 관리자 목록을 그린다. 나머지 종류는 본문 아래에 목록을 붙인다 */
+const LIST_REPLACES = new Set<PageKind>(["notice", "blog", "faq"]);
+
+/** 칸 값을 한 줄로 (긴 글은 첫 줄만) */
+function cell(c: Collection, row: CollectionRow, idx: number): string {
+  const f = c.fields[idx];
+  return f ? formatCell(f.type, row[f.key]).split("\n")[0] : "";
+}
+
+/** 게시판형: 제목 줄 + 늘 같은 수의 줄 (글이 없으면 회색 막대) */
+function listBoard(ctx: Ctx, top: number, c: Collection, rows: CollectionRow[] | null): number {
+  const rowH = ctx.mob ? 60 : 64;
+  const extra = c.fields.slice(1).findIndex((f) => f.type !== "longtext" && f.type !== "image");
+  const metaIdx = extra >= 0 ? extra + 1 : -1;
+  ctx.out.push(box(ctx.pad, top, ctx.cw, 52, C.soft2, { rx: Math.min(8, RAD.card) }));
+  const titleX = ctx.mob ? ctx.cw * 0.04 : ctx.cw * 0.16;
+  ctx.out.push(text(ctx.pad + titleX, top + 26, fit(c.fields[0].label, 14, ctx.cw * 0.5, true), { size: 14, weight: 700, fill: C.muted }));
+  if (!ctx.mob) {
+    ctx.out.push(text(ctx.pad + ctx.cw * 0.04, top + 26, "번호", { size: 14, weight: 700, fill: C.muted }));
+    ctx.out.push(text(ctx.pad + ctx.cw * 0.8, top + 26, metaIdx > 0 ? fit(c.fields[metaIdx].label, 14, ctx.cw * 0.18, true) : "올린 날", { size: 14, weight: 700, fill: C.muted }));
+  }
+  let yy = top + 52;
+  for (let i = 0; i < SITE_DB_DRAFT_ROWS.list; i++) {
+    const row = rows?.[i];
+    if (row) {
+      const title = cell(c, row, 0);
+      const meta = metaIdx > 0 ? cell(c, row, metaIdx) : formatCell("date", row.created_at);
+      if (ctx.mob) {
+        ctx.out.push(text(ctx.pad + 10, yy + 22, fit(title, 15, ctx.cw - 20, true), { size: 15, weight: 600, fill: C.ink }));
+        ctx.out.push(text(ctx.pad + 10, yy + 44, fit(meta, 12, ctx.cw - 20), { size: 12, fill: C.muted }));
+      } else {
+        ctx.out.push(text(ctx.pad + ctx.cw * 0.04, yy + 32, String(i + 1), { size: 14, fill: C.muted }));
+        ctx.out.push(text(ctx.pad + titleX, yy + 32, fit(title, 16, ctx.cw * 0.6, true), { size: 16, weight: 600, fill: C.ink }));
+        ctx.out.push(text(ctx.pad + ctx.cw * 0.8, yy + 32, fit(meta, 14, ctx.cw * 0.18), { size: 14, fill: C.muted }));
+      }
+    } else if (ctx.mob) {
+      ctx.out.push(box(ctx.pad + 10, yy + 16, ctx.cw * (i % 2 ? 0.7 : 0.85), 12, C.bar, { rx: 3 }) + box(ctx.pad + 10, yy + 38, 70, 9, C.bar, { rx: 3 }));
+    } else {
+      ctx.out.push(box(ctx.pad + ctx.cw * 0.04, yy + 26, 20, 11, C.bar, { rx: 3 }));
+      ctx.out.push(box(ctx.pad + titleX, yy + 26, ctx.cw * (i % 2 ? 0.42 : 0.55), 12, C.bar, { rx: 3 }));
+      ctx.out.push(box(ctx.pad + ctx.cw * 0.8, yy + 26, 90, 11, C.bar, { rx: 3 }));
+    }
+    yy += rowH;
+    ctx.out.push(hline(ctx.pad, ctx.pad + ctx.cw, yy));
+  }
+  return yy;
+}
+
+/** 카드형: 사진 자리 + 제목 + 한 줄 (사진은 그림에 넣지 않고 자리만 보여 준다) */
+function listCards(ctx: Ctx, top: number, c: Collection, rows: CollectionRow[] | null): number {
+  const n = SITE_DB_DRAFT_ROWS.cards;
+  const cols = ctx.mob ? 1 : ctx.desk ? 3 : 2;
+  const gap = ctx.s.gap;
+  const w = colWidth(ctx, cols, gap);
+  const ih = Math.round(w * 0.62);
+  const h = ih + 104;
+  const subIdx = c.fields.findIndex((f, i) => i > 0 && f.type !== "image" && f.type !== "boolean");
+  for (let i = 0; i < n; i++) {
+    const x = ctx.pad + (i % cols) * (w + gap);
+    const cy = top + Math.floor(i / cols) * (h + gap);
+    const row = rows?.[i];
+    ctx.out.push(card(ctx, x, cy, w, h));
+    ctx.out.push(box(x, cy, w, ih, C.soft2, { rx: RAD.card }) + pictureIcon(x + w / 2, cy + ih / 2, ctx.mob ? 30 : 38, C.faint));
+    if (row) {
+      ctx.out.push(text(x + 20, cy + ih + 32, fit(cell(c, row, 0), 17, w - 40, true), { size: 17, weight: 700, fill: C.ink, h: true }));
+      if (subIdx > 0) ctx.out.push(text(x + 20, cy + ih + 62, fit(cell(c, row, subIdx), 14, w - 40), { size: 14, fill: C.muted }));
+    } else {
+      ctx.out.push(box(x + 20, cy + ih + 24, w * 0.55, 15, C.bar, { rx: 3 }) + box(x + 20, cy + ih + 56, w * 0.75, 10, C.bar, { rx: 3 }));
+    }
+  }
+  return top + Math.ceil(n / cols) * (h + gap) - gap;
+}
+
+/** 관리자 목록 구역. withHeading = 다른 본문 아래에 붙일 때 (목록 페이지면 페이지 제목 띠가 이미 이름을 보여 준다) */
+function collectionList(ctx: Ctx, y: number, c: Collection, withHeading: boolean): number {
+  const rows = ctx.in.rows?.[c.key] ?? null;
+  return section(
+    ctx,
+    y,
+    C.bg,
+    (top) => {
+      const start = withHeading ? heading(ctx, ctx.pad, top, c.label, null) : top;
+      const end = c.layout === "cards" ? listCards(ctx, start, c, rows) : listBoard(ctx, start, c, rows);
+      return note(ctx, ctx.pad, end + 24, ctx.cw, "관리자 페이지에서 올린 글이 이 목록에 보여요");
+    },
+    "list",
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1505,6 +1613,7 @@ export function renderDraft(input: DraftInput, forceHeight?: number): DraftResul
       slots: [],
       fields: [],
       sections: [],
+      pendingList: null,
     };
 
     let y = header(ctx, 0);
@@ -1512,7 +1621,14 @@ export function renderDraft(input: DraftInput, forceHeight?: number): DraftResul
       y = titleBand(ctx, y);
       y = subNav(ctx, y);
     }
-    y = PAGE[input.page.kind](ctx, y);
+    const listed = (doc.collections ?? []).find((c) => c.page === input.page.path);
+    if (listed && LIST_REPLACES.has(input.page.kind)) y = collectionList(ctx, y, listed, false);
+    else {
+      // 본문 뒤에 붙인다. 아래 행동 유도 띠가 있으면 띠 앞에 그려진다 (ctaBand)
+      ctx.pendingList = listed ?? null;
+      y = PAGE[input.page.kind](ctx, y);
+      if (ctx.pendingList) y = collectionList(ctx, y, ctx.pendingList, true);
+    }
     y = footer(ctx, y);
 
     const height = Math.max(200, Math.round(forceHeight ?? y));

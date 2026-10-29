@@ -16,11 +16,13 @@ import {
 import { normalizeStyles, styleLabels } from "@/config/design-styles";
 import { BUG_HOURS, DEVICE_LABEL, EXPERT_HOURS, getPlan, type DeviceKind, type Plan, type PlanCode } from "@/config/plans";
 import { isImageRequest } from "@/config/requests";
+import { SITE_DB_AI_WAIT_MS } from "@/config/site-db";
 import { templateDesign } from "@/config/template-designs";
 import { aiConfigured, callStructured, type CallResult } from "@/lib/ai/claude";
 import { bugPrompt, buildPrompt, editPrompt, tagNames, type BatchPeer, type EditRequest, type HarnessSite, type RecentChange } from "@/lib/ai/harness";
 import { copyLimits, copySlots, plannedOf, renderPage, rerender, type LayoutPage } from "@/lib/ai/layout";
 import { BugOutput, BuildOutput, EditOutput } from "@/lib/ai/schemas";
+import { applyCollectionChanges, type SchemaSnapshot } from "@/lib/collections";
 import {
   THEME_KEYS,
   applyChanges,
@@ -33,7 +35,9 @@ import {
   type DesignDoc,
   type ThemeChange,
 } from "@/lib/design-doc";
+import { getServerEnv } from "@/lib/env";
 import { isMissingSchema } from "@/lib/messages";
+import { getSiteDatabase, syncSiteSchema } from "@/lib/site-db/provision";
 import { effectiveSubscription } from "@/lib/subscriptions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ProjectBrief, Region, RequestOptions, SubscriptionRow } from "@/lib/types/db";
@@ -185,8 +189,8 @@ async function saveDesign(admin: Admin, site: Site, from: DesignDoc, to: DesignD
   return "error";
 }
 
-function harnessSite(site: Site, design: DesignDoc): HarnessSite {
-  return { brief: site.brief, design, template: site.template };
+function harnessSite(site: Site, design: DesignDoc, cms?: boolean): HarnessSite {
+  return { brief: site.brief, design, template: site.template, cms };
 }
 
 /** 화면에 보이는 문구 ("페이지|키" → 글, 사이트 공통 문구는 페이지 칸이 비어 있다). paths 가 없으면 모든 페이지를 그린다 */
@@ -508,6 +512,9 @@ function revertChanges(doc: DesignDoc, runs: { applied: { changes?: AppliedChang
     for (const c of run.applied?.changes ?? []) {
       if (c.kind === "theme") {
         if (String(theme[c.key]) === c.after) theme[c.key] = c.before;
+      } else if (c.kind !== "copy") {
+        // 관리자 목록은 되돌리지 않는다 (사이트 주인이 이미 글을 올렸을 수 있다 — 담당자가 본다)
+        continue;
       } else if (c.path) {
         if (pages[c.path]?.[c.key] === c.after && c.before) pages[c.path] = { ...pages[c.path], [c.key]: c.before };
       } else if (site[c.key] === c.after && c.before) {
@@ -707,7 +714,7 @@ export async function processBugReport(requestId: string): Promise<ProcessResult
  * 처리 중 진행 단계 (편집기 "AI 작업 중" 화면). 처리 중인 실행의 output 칸에 { live } 로 적어 두고, 끝나면 진짜 출력으로 덮어쓴다.
  * thinking AI 가 고칠 방법을 정하는 중 · writing 답을 쓰는 중(앞쪽 decision · summary 가 오면 같이) · rendering 새 화면을 그리는 중
  */
-type LiveStage = { stage: "thinking" | "writing" | "rendering"; decision?: string; summary?: string };
+type LiveStage = { stage: "thinking" | "writing" | "rendering" | "database"; decision?: string; summary?: string };
 
 async function setLive(admin: Admin, runId: string | null, live: LiveStage): Promise<void> {
   if (!runId) return;
@@ -794,7 +801,7 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
   const layout = renderPage(site.brief, from, planned, req.device);
   if (!layout) return { ok: false, message: "그림을 그리지 못했습니다." };
   const prompt = editPrompt(
-    harnessSite(site, from),
+    harnessSite(site, from, plan.cms),
     { message: req.message, device: req.device, region: req.region, pagePath: page.path, styles, template: refTemplate, conversation, batch: opts.batch },
     layout,
   );
@@ -870,6 +877,34 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       return { ok: true, message: "담당자에게 넘겼습니다.", outcome: "handoff", summary };
     }
 
+    // 관리자 목록: 플랜이 관리자 페이지를 쓸 수 없으면 만들지 않고 알린다 (AI 가 지시서를 어기고 목록을 보냈을 때의 안전장치)
+    const wantsData = out.collectionChanges.length > 0;
+    if (wantsData && !plan.cms) {
+      if (tooManyQuestions) {
+        await handOff(`관리자 페이지(목록을 직접 올리고 고치기)는 비즈니스 플랜부터 쓸 수 있어요. ${HUMAN_LATER}`, { output: out, ...callFields(res) });
+        return { ok: true, message: "플랜에 관리자 페이지가 없어 담당자에게 넘겼습니다.", outcome: "handoff" };
+      }
+      await admin.rpc("ai_finish_request", {
+        p_request_id: requestId,
+        p_status: "pending",
+        p_body: "목록을 관리자 페이지에서 직접 올리고 고치는 기능은 비즈니스 플랜부터 쓸 수 있어요. 플랜을 올린 뒤 답글을 남겨 주시면 이어서 만들어 드릴게요.",
+        p_awaiting_user: true,
+        p_tokens: 0,
+        p_monthly_ai_tokens: null,
+      });
+      await finishRun(admin, runId, { status: "asked", output: out, ...callFields(res) });
+      return { ok: true, message: "플랜에 관리자 페이지가 없어 사용자에게 알렸습니다.", outcome: "asked" };
+    }
+    // 이미 사이트 DB 에 있는 표 · 칸 (칸 종류는 바꿀 수 없다)
+    let known: SchemaSnapshot = {};
+    if (wantsData) {
+      try {
+        known = (await getSiteDatabase(site.projectId, admin)).schema;
+      } catch (e) {
+        console.error("[ai] site db", e);
+      }
+    }
+
     // 반영: 그 사이 다른 수정이 먼저 반영됐으면(버전 충돌) 최신 디자인에 같은 변경을 다시 얹는다 (한 번)
     let current = site;
     let before = from;
@@ -884,12 +919,39 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
         pagePaths,
         copyLimits(current.brief),
       );
-      const changes = visibleChanges(current.brief, before, applied, page.path);
+      const data = wantsData ? applyCollectionChanges(doc.collections ?? [], out.collectionChanges, pagePaths, known) : null;
+      const changes: AppliedChange[] = [
+        ...visibleChanges(current.brief, before, applied, page.path),
+        ...(data?.applied ?? []).map((d) => ({ kind: "data" as const, key: d.key, before: d.before, after: d.after })),
+      ];
+      const allRejected = [...rejected, ...(data?.rejected ?? [])];
       if (!changes.length) {
-        await handOff(`${summary ? `${summary} ` : ""}AI 가 바꿀 수 있는 값을 찾지 못했어요. ${HUMAN_LATER}`, { output: out, applied: { changes: [], rejected }, ...callFields(res) });
+        await handOff(`${summary ? `${summary} ` : ""}AI 가 바꿀 수 있는 값을 찾지 못했어요. ${HUMAN_LATER}`, { output: out, applied: { changes: [], rejected: allRejected }, ...callFields(res) });
         return { ok: true, message: "바꿀 값이 없어 담당자에게 넘겼습니다.", outcome: "handoff", summary };
       }
-      const to: DesignDoc = { ...doc, version: before.version + 1, source: "ai", aiPending: false, updatedAt: new Date().toISOString() };
+      const to: DesignDoc = {
+        ...doc,
+        ...(data ? { collections: data.collections } : {}),
+        version: before.version + 1,
+        source: "ai",
+        aiPending: false,
+        updatedAt: new Date().toISOString(),
+      };
+      // 관리자 목록이 바뀌면 사이트 데이터 저장소에 표 · 칸부터 만든다 (실패하면 디자인도 바꾸지 않고 담당자에게)
+      if (data?.applied.length) {
+        await setLive(admin, runId, { stage: "database", decision: out.decision, summary });
+        const synced = await syncSiteSchema(site.projectId, to.collections ?? [], { source: "ai", requestId, runId, waitMs: SITE_DB_AI_WAIT_MS });
+        if (!synced.ok) {
+          await handOff(`${summary ? `${summary} ` : ""}관리자 페이지를 만드는 중에 문제가 생겼어요. ${HUMAN_LATER}`, {
+            status: "error",
+            error: synced.reason,
+            output: out,
+            applied: { changes, rejected: allRejected },
+            ...callFields(res),
+          });
+          return { ok: false, message: synced.reason, outcome: "error" };
+        }
+      }
       await setLive(admin, runId, { stage: "rendering", decision: out.decision, summary });
       const saved = await saveDesign(admin, current, before, to);
       if (saved === "conflict" && attempt === 0) {
@@ -902,10 +964,12 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       if (saved !== "ok") break;
       const tokens = (req.tokens_used ?? 0) + res.billed;
       const changed = changes.map(describeChange).join("\n· ");
+      // 관리자 목록을 만들었거나 바꿨으면 글을 올릴 곳을 알려 준다 (대화의 주소는 링크로 보인다)
+      const adminLink = data?.applied.some((d) => d.after) ? `\n관리자 페이지에서 글을 올릴 수 있어요: ${getServerEnv().APP_URL}/projects/${site.projectId}/admin` : "";
       const { error } = await admin.rpc("ai_finish_request", {
         p_request_id: requestId,
         p_status: "done",
-        p_body: `AI가 반영했어요. ${summary}\n· ${changed}`.slice(0, 2000),
+        p_body: `AI가 반영했어요. ${summary}\n· ${changed}${adminLink}`.slice(0, 2000),
         p_awaiting_user: false,
         p_tokens: tokens,
         p_monthly_ai_tokens: plan.monthlyAiTokens,
@@ -914,7 +978,7 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       await finishRun(admin, runId, {
         status: "applied",
         output: out,
-        applied: { changes, rejected },
+        applied: { changes, rejected: allRejected },
         design_version_after: to.version,
         tokens_billed: res.billed,
         ...callFields(res),

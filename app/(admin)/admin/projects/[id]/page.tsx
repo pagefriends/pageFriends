@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AiBrief } from "@/components/admin/ai-brief";
+import { SiteDbPanel } from "@/components/admin/site-db-panel";
 import { BriefDetails } from "@/components/brief/brief-details";
 import { slotStatuses } from "@/components/editor/types";
 import { ProjectStatusControl } from "@/components/admin/quick-actions";
@@ -9,6 +10,8 @@ import { Badge } from "@/components/ui/card";
 import { getAdminProject } from "@/lib/admin";
 import { aiReadiness, reapStaleRuns } from "@/lib/ai/engine";
 import { listAiRuns } from "@/lib/ai/runs";
+import { designOf } from "@/lib/design-doc";
+import { getSiteDatabase, siteDbConfigured, type SiteDbInfo } from "@/lib/site-db/provision";
 import { createClient } from "@/lib/supabase/server";
 import { listProjectPhotos, type SitePhoto } from "@/lib/photos";
 import { listProjectReleases } from "@/lib/releases";
@@ -26,12 +29,16 @@ export default async function AdminProjectPage({ params }: PageProps<"/admin/pro
   const { project, ownerEmail, pages, openRequests, requests } = data;
   // 멈춘 AI 처리를 먼저 정리하고(담당자에게 넘김) 지시서 · 실행 기록을 읽는다
   await reapStaleRuns().catch(() => 0);
-  const [photos, rel, runs, readiness, template] = await Promise.all([
+  const [photos, rel, runs, readiness, template, siteDb] = await Promise.all([
     project.brief.site ? listProjectPhotos(project.id) : Promise.resolve<Record<string, SitePhoto[]>>({}),
     listProjectReleases(project.id),
     listAiRuns({ projectId: project.id }),
     aiReadiness(),
     projectTemplate(project.template_id),
+    getSiteDatabase(project.id).catch((e): SiteDbInfo | null => {
+      console.error("[admin] site db", e);
+      return null;
+    }),
   ]);
 
   return (
@@ -81,6 +88,11 @@ export default async function AdminProjectPage({ params }: PageProps<"/admin/pro
               적용 기록 {rel.releases.length}건
             </Link>
           ) : null}
+        </div>
+      ) : null}
+      {project.brief.site && siteDb ? (
+        <div className="mt-4">
+          <SiteDbPanel projectId={project.id} info={{ ...siteDb, missing: siteDbConfigured().missing }} collections={designOf(project.brief).collections ?? []} />
         </div>
       ) : null}
       <div className="mt-6">

@@ -72,8 +72,8 @@ export function AiRunList({ runs, path }: { runs: AiRunRow[]; path: string }) {
                     <ul className="list-disc pl-4">
                       {changes.map((c, i) => (
                         <li key={i} className="break-words">
-                          {c.kind === "theme" ? "테마" : "문구"} {c.path ? `${c.path} ` : ""}
-                          <code>{c.key}</code>: {c.before || "(기본)"} → <b>{c.after}</b>
+                          {c.kind === "theme" ? "테마" : c.kind === "data" ? "관리자 목록" : "문구"} {c.path ? `${c.path} ` : ""}
+                          <code>{c.key}</code>: {c.before || (c.kind === "data" ? "(새로 만듦)" : "(기본)")} → <b>{c.after || (c.kind === "data" ? "(숨김)" : "")}</b>
                         </li>
                       ))}
                     </ul>

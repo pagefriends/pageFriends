@@ -1,6 +1,20 @@
 "use client";
 
-import { ClipboardListIcon, ClockIcon, LoaderCircleIcon, LockIcon, MessageSquareIcon, MonitorIcon, RefreshCwIcon, RocketIcon, SmartphoneIcon, SparklesIcon, TabletIcon, XIcon } from "lucide-react";
+import {
+  ClipboardListIcon,
+  ClockIcon,
+  DatabaseIcon,
+  LoaderCircleIcon,
+  LockIcon,
+  MessageSquareIcon,
+  MonitorIcon,
+  RefreshCwIcon,
+  RocketIcon,
+  SmartphoneIcon,
+  SparklesIcon,
+  TabletIcon,
+  XIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -55,6 +69,7 @@ export function ProjectEditor({
   siteStyles = [],
   templates = [],
   ai = null,
+  siteAdmin = null,
 }: {
   projectId: string;
   projectName: string;
@@ -84,6 +99,8 @@ export function ProjectEditor({
    * batchId = AI 가 지금 처리 중인 묶음 (새로 고침해도 "AI 작업 중" 화면을 이어서 보여 준다). 체험 모드 · 예전 사이트는 null
    */
   ai?: { enabled: boolean; version: number; pending: boolean; open: number; batchId?: string | null } | null;
+  /** 관리자 페이지 (AI 가 만든 관리자 목록 수). 체험 모드 · 예전 사이트는 null — 링크를 숨긴다 */
+  siteAdmin?: { lists: number } | null;
 }) {
   const router = useRouter();
   const [pageId, setPageId] = useState(pages[0]?.id ?? "");
@@ -503,6 +520,16 @@ export function ProjectEditor({
               <RocketIcon className="size-3.5" />
               {website.active ?? (website.ready && website.waiting > 0 ? "웹사이트에 적용" : website.ready && !website.published ? "웹사이트 공개 요청" : "웹사이트 적용")}
               {!website.active && website.waiting > 0 ? <CountChip strong>{website.waiting}</CountChip> : null}
+            </Link>
+          ) : null}
+          {!demo && siteAdmin ? (
+            <Link
+              href={`/projects/${projectId}/admin`}
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink-900"
+              title="공지 · 메뉴 · 상품처럼 자주 바뀌는 목록을 직접 올리고 고치는 곳 (AI에게 목록을 만들어 달라고 요청하면 생겨요)"
+            >
+              <DatabaseIcon className="size-3.5" /> 관리자 페이지
+              {siteAdmin.lists > 0 ? <CountChip>{siteAdmin.lists}</CountChip> : null}
             </Link>
           ) : null}
           {!demo ? (

@@ -31,6 +31,16 @@ export const serverEnvSchema = z.object({
   AI_DAILY_BUDGET_USD: optionalString,
   /** "off" 면 키가 있어도 AI 를 부르지 않는다 */
   AI_ENGINE: optionalString,
+
+  // 사이트마다 따로 만드는 Supabase 프로젝트 (lib/site-db). 관리 API 토큰이 없으면 만들지 않는다
+  /** Supabase 관리 API 토큰 (대시보드 > Account > Access Tokens). 서버 전용 */
+  SUPABASE_ACCESS_TOKEN: optionalString,
+  /** 사이트 프로젝트를 만들 조직 slug. 비우면 앱 메인 프로젝트가 있는 조직 (못 찾으면 토큰이 볼 수 있는 첫 조직) */
+  SUPABASE_SITES_ORG: optionalString,
+  /** 사이트 프로젝트 지역. 비우면 서울(ap-northeast-2) */
+  SUPABASE_SITES_REGION: optionalString,
+  /** "off" 면 토큰이 있어도 사이트 프로젝트를 만들지 않는다 */
+  SITE_DB: optionalString,
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

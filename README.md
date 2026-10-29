@@ -23,7 +23,7 @@ Supabase 없이도 볼 수 있는 화면: `/` 메인, `/pricing` 요금제, `/de
 ## 2. Supabase 설정
 
 1. 프로젝트 생성 → Settings > API 에서 URL, anon key, service_role key 를 `.env.local` 에 넣는다.
-2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` → `0005_inquiries.sql` → `0006_messages.sql` → `0007_releases.sql` → `0008_ai.sql` → `0009_billing_cycle.sql` → `0010_bug_ai.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
+2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` → `0005_inquiries.sql` → `0006_messages.sql` → `0007_releases.sql` → `0008_ai.sql` → `0009_billing_cycle.sql` → `0010_bug_ai.sql` → `0011_site_db.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
 3. Authentication > Providers
    - Email: 켜기. 로컬 테스트는 "Confirm email" 을 꺼야 가입 즉시 로그인된다.
    - Google: Client ID/Secret 입력. Google Cloud 콘솔의 승인된 리디렉션 URI 에 `https://<ref>.supabase.co/auth/v1/callback` 추가.
@@ -204,6 +204,28 @@ AI 출력은 정해진 형식(구조화 출력)으로만 받고, 코드가 값 �
 - 대화에 파일 첨부: 대화는 아직 글만 주고받는다. 이미지 자리에 넣을 사진은 "실제 사진 올리기"(아래)로 받는다.
 - AI 2단계: 실제 웹사이트(HTML) 렌더러 · 구역 추가/삭제 같은 구조 변경 · 버전 되돌리기 화면 · 작업 대기열(지금은 after()) · 벤치마킹 사이트 읽기 · 이미지 생성 API. 3단계: ai_runs 로 평가셋 → 자체 모델 파인튜닝 → 쉬운 요청은 자체 모델로 보내는 라우터.
 - 실제 배포 자동화: 웹사이트 적용은 담당자가 배포한 뒤 단계를 기록한다. 고객 사이트 호스팅의 배포 훅(예: Vercel Deploy Hook)을 붙이면 "개발 서버에 배포" · "운영에 배포" 버튼이 직접 배포하고 주소를 받아 오게 바꿀 수 있다 (`admin_release_staging` · `admin_release_live` 는 그대로).
+
+## 사이트 전용 Supabase · 관리자 목록 · 관리자 페이지 (0011_site_db.sql)
+
+고객이 사이트를 만들면 **그 사이트만 쓰는 Supabase 프로젝트**를 관리 API 로 자동으로 만든다 (`lib/site-db`). AI 에게 "이 페이지를 목록으로 만들고 관리자 페이지에서 관리하게 해 주세요" 라고 요청하면
+AI 가 **관리자 목록**(공지 · 메뉴 · 상품 …)을 만들고 → 그 프로젝트에 표가 생기고 → 사이트 주인의 **관리자 페이지**(`/projects/[id]/admin`)에 저절로 나타난다.
+
+- **설정** (`.env.local`): `SUPABASE_ACCESS_TOKEN`(대시보드 > Account > Access Tokens. 범위 제한 토큰이면 리소스는 조직 전체 · 권한은 Full access — 프로젝트 하나만 고르면 새 프로젝트를 못 만든다. 만료가 최대 1년이니 그 전에 바꿔 넣는다) + `APP_ENCRYPTION_KEY`(32자 이상, 키를 암호화해 둔다) + `SUPABASE_SERVICE_ROLE_KEY`.
+  조직은 `SUPABASE_SITES_ORG`(비우면 앱 메인 프로젝트가 있는 조직), 지역은 `SUPABASE_SITES_REGION`(비우면 서울). `SITE_DB=off` 면 만들지 않는다.
+  **무료 조직은 계정당 2개까지**라 운영에서는 조직을 Pro 로 올려야 한다 (프로젝트마다 Micro 약 $10/월). 무료 프로젝트는 1주일 동안 쓰지 않으면 멈춘다.
+- **언제 만드나**: 위저드 제출 뒤 백그라운드(`after`) — 플랜이 있고 `Plan.siteDatabase` 가 켜진 플랜만 (`config/plans.ts`, 지금은 모든 플랜). 플랜 없이 만든 사이트 · 예전 사이트는
+  AI 가 목록을 처음 만들 때, 관리자 페이지를 열었는데 목록이 있을 때, 담당자가 관리자 "제작 정보" 에서 "만들기" 를 누를 때 만든다.
+  상태는 `site_databases`: creating → provisioning(켜지는 중, 보통 1~3분) → ready(키를 받아 암호화 저장) / failed(이유 · 담당자 "다시 시도"). 같은 사이트에 두 개가 생기지 않게 행 하나를 조건부로 맡고,
+  만들다 끊기면 이름 `pf-<사이트 id 앞 8자리>-…` 로 이미 생긴 프로젝트를 찾아 이어 쓴다. 사이트 행이 지워져도 이 행은 남는다 (지울 프로젝트를 찾을 수 있게).
+- **관리자 목록** (`lib/collections.ts`, 디자인 문서 `collections`): 목록 = 표 하나. 키는 영어 소문자 · 숫자 · 밑줄, 칸 종류는 짧은 글 · 긴 글 · 숫자 · 날짜 · 예/아니오 · 링크 · 사진 주소 · 이메일 · 전화번호.
+  모든 표에 id · 만든 시각 · 고친 시각 · 공개(published) · 순서(sort)가 자동으로 있다. AI 는 정해진 형식(`EditOutput.collectionChanges`)으로만 보내고 **SQL 을 쓰지 않는다** —
+  코드가 키 · 종류를 다시 검사한 뒤 정해진 규칙으로 SQL 을 만든다(`planSchemaSync`: 새 표 + 공개된 줄만 누구나 읽는 RLS + 새 칸). 표 · 칸은 늘어나기만 한다: 목록이나 칸을 빼면 화면에서 숨길 뿐 글은 지우지 않고,
+  이미 있는 칸의 종류는 바꾸지 않는다. 실행한 SQL 은 `site_db_changes` 에 남는다. AI 작업 중 화면에는 "관리자 페이지 만들기" 단계로 보인다. 오류 신고의 되돌리기는 관리자 목록을 되돌리지 않는다.
+- **관리자 페이지**는 비즈니스 플랜부터 (`Plan.cms`). 스타터의 목록 요청은 AI 가 플랜을 안내하고 묻는다. 글 읽기 · 쓰기는 서버가 사이트 프로젝트의 Data API 를 비밀 키로 부른다 (`lib/site-db/data.ts`) —
+  표 · 칸은 실제로 만든 것(`site_databases.schema`)만 쓴다 (디자인 문서는 사이트 주인이 직접 고칠 수 있어서 그것만 믿지 않는다).
+- **구성 초안**: 목록이 붙은 페이지는 공개된 글을 읽어 함께 그린다 (게시판형 5줄 · 카드형 3장). 글 수와 상관없이 그림 높이가 같아 네모 위치가 흔들리지 않는다.
+  공지 · 블로그 · 자주 묻는 질문 페이지는 원래 빈 목록 대신, 다른 페이지는 본문 아래(아래 행동 유도 띠 앞)에 그린다.
+- 관리자 "제작 정보" 에 상태 · Supabase 대시보드 링크 · 만들기/다시 시도 · 표 다시 맞추기 · 목록이 보인다.
 
 ## 새 사이트 위저드 · 구성 초안 · 이미지 자리
 
