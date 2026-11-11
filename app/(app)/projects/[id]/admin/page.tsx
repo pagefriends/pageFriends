@@ -2,30 +2,27 @@ import { DatabaseIcon, MessageSquareIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { after } from "next/server";
 
 import { deleteRowAction, saveRowAction } from "@/app/(app)/projects/[id]/admin/actions";
-import { AutoRefresh } from "@/components/messages/auto-refresh";
 import { DeleteRowButton, RowForm } from "@/components/site-admin/row-form";
 import { buttonClass } from "@/components/ui/button";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
+import { SITE_DATA_PAGE_ROWS } from "@/config/site-data";
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { LIST_LAYOUT_LABEL, formatCell, type CollectionRow } from "@/lib/collections";
 import { designOf } from "@/lib/design-doc";
 import { getProject } from "@/lib/projects";
-import { listRows } from "@/lib/site-db/data";
-import { ensureSiteDatabase, getSiteDatabase, startSiteDatabase, type SiteDbInfo } from "@/lib/site-db/provision";
+import { listRows } from "@/lib/site-data";
 import { pageFullName } from "@/lib/site-plan";
+import { createClient } from "@/lib/supabase/server";
 import { cn, formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "관리자 페이지" };
 export const dynamic = "force-dynamic";
-// 데이터 저장소 준비 확인(after)이 이 시간 안에 끝나야 한다
-export const maxDuration = 300;
 
 /**
  * 사이트 주인의 관리자 페이지: AI 가 만든 관리자 목록(공지 · 메뉴 · 상품 …)에 글을 올리고 고치고 지운다.
- * 목록 정의는 디자인 문서(collections), 글은 이 사이트 전용 Supabase 프로젝트의 표에 있다 (lib/site-db).
+ * 목록 정의는 디자인 문서(collections), 글은 공용 DB 의 site_records 표에 있다 (lib/site-data.ts — 읽기는 로그인한 사이트 주인의 RLS).
  * 목록은 편집 화면에서 AI 에게 "목록으로 만들고 관리자 페이지에서 관리하게 해 달라" 고 요청하면 생긴다.
  */
 export default async function SiteAdminPage({ params, searchParams }: PageProps<"/projects/[id]/admin">) {
@@ -40,30 +37,32 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
   const selected = collections.find((c) => c.key === sp.c) ?? collections[0] ?? null;
   const pageName = new Map((data.project.brief.site?.pages ?? []).map((p) => [p.path, pageFullName(p)]));
 
-  let db: SiteDbInfo | null = null;
-  try {
-    db = await getSiteDatabase(id);
-  } catch (e) {
-    console.error("[site-admin] status", e);
-  }
-  // 목록이 있는데 저장소가 아직이면: 없으면 만들고, 켜지는 중이면 한 번 확인한다 (응답을 보낸 뒤 · 화면은 저절로 새로 고침)
-  if (db?.available && db.configured && collections.length && plan?.cms) {
-    if (db.status === "none") after(() => startSiteDatabase(id));
-    else if (db.status === "creating" || db.status === "provisioning") after(() => ensureSiteDatabase(id).then(() => undefined));
-  }
-  const ready = db?.status === "ready";
-
+  // 쪽 (한 쪽에 SITE_DATA_PAGE_ROWS 개)
+  const pageNo = Math.min(1000, Math.max(1, Math.floor(Number(sp.p)) || 1));
   let rows: CollectionRow[] = [];
-  let rowsError: string | null = null;
-  if (ready && selected) {
-    const res = await listRows(id, selected);
-    if (res.ok) rows = res.rows;
-    else rowsError = res.error;
+  let total: number | null = null;
+  let rowsError = false;
+  // 표가 아직 없다 (0013 전)
+  let missing = false;
+  if (selected) {
+    const supabase = await createClient();
+    const res = await listRows(supabase, id, selected, { offset: (pageNo - 1) * SITE_DATA_PAGE_ROWS, withTotal: true });
+    if (res.ok) {
+      rows = res.rows;
+      total = res.total;
+    } else if (res.missing) {
+      missing = true;
+    } else {
+      console.error("[site-admin] rows", res.error);
+      rowsError = true;
+    }
   }
+  const pages = total ? Math.ceil(total / SITE_DATA_PAGE_ROWS) : 1;
   const editRow = typeof sp.edit === "string" ? rows.find((r) => r.id === sp.edit) : undefined;
-  const base = `/projects/${id}/admin${selected ? `?c=${selected.key}` : ""}`;
+  const listHref = (p: number) => `/projects/${id}/admin?c=${selected?.key ?? ""}${p > 1 ? `&p=${p}` : ""}`;
+  const base = selected ? listHref(pageNo) : `/projects/${id}/admin`;
   const shown = selected?.fields.slice(0, 3) ?? [];
-  const canEdit = Boolean(plan?.cms) && ready;
+  const canEdit = Boolean(plan?.cms) && !missing;
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
@@ -92,7 +91,7 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
           <CardBody className="space-y-3 text-sm leading-relaxed text-ink-700">
             <p className="font-semibold text-ink-900">아직 관리자 목록이 없어요</p>
             <p>
-              편집 화면에서 목록을 둘 곳에 빨간 네모를 그리고 <b>AI 반영</b>으로 이렇게 요청해 보세요. AI가 목록과 데이터 저장소, 이 관리자 페이지를 바로 만들어요.
+              편집 화면에서 목록을 둘 곳에 빨간 네모를 그리고 <b>AI 반영</b>으로 이렇게 요청해 보세요. AI가 목록과 이 관리자 페이지를 바로 만들어요.
             </p>
             <p className="rounded-md bg-ink-50 px-3 py-2 text-ink-800">&ldquo;이 페이지를 공지사항 목록으로 바꾸고, 관리자 페이지에서 제목 · 내용 · 날짜를 직접 올릴 수 있게 해 주세요.&rdquo;</p>
             <Link href={`/projects/${id}`} className={buttonClass("dark", "sm")}>
@@ -102,7 +101,11 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
         </Card>
       ) : (
         <>
-          <StatusNote db={db} />
+          {missing ? (
+            <Alert tone="gray" className="mt-6">
+              관리자 페이지를 준비하고 있어요. 곧 글을 올릴 수 있어요.
+            </Alert>
+          ) : null}
 
           <nav className="mt-6 flex flex-wrap gap-2">
             {collections.map((c) => (
@@ -126,21 +129,31 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
                   <CardTitle>{selected.label}</CardTitle>
                   <span className="text-xs text-ink-500">
                     {LIST_LAYOUT_LABEL[selected.layout]} · {selected.page ? `${pageName.get(selected.page) ?? selected.page} 페이지에 보여요` : "관리자 페이지에만 있어요"}
+                    {total ? ` · 글 ${total.toLocaleString("ko-KR")}개` : ""}
                   </span>
                 </CardHeader>
                 <CardBody className="overflow-x-auto p-0">
                   {rowsError ? (
                     <p className="px-5 py-6 text-sm text-mark">글을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>
-                  ) : !ready ? (
-                    <p className="px-5 py-10 text-center text-sm text-ink-500">데이터 저장소가 준비되면 여기에 글이 보여요.</p>
+                  ) : missing ? (
+                    <p className="px-5 py-10 text-center text-sm text-ink-500">준비가 끝나면 여기에 글이 보여요.</p>
                   ) : rows.length === 0 ? (
-                    <p className="px-5 py-10 text-center text-sm text-ink-500">아직 올린 글이 없어요. ‘새 글 올리기’에서 첫 글을 올려 보세요.</p>
+                    pageNo > 1 ? (
+                      <p className="px-5 py-10 text-center text-sm text-ink-500">
+                        이 쪽에는 글이 없어요.{" "}
+                        <Link href={listHref(1)} className="font-medium text-brand-600 hover:underline">
+                          첫 쪽으로
+                        </Link>
+                      </p>
+                    ) : (
+                      <p className="px-5 py-10 text-center text-sm text-ink-500">아직 올린 글이 없어요. ‘새 글 올리기’에서 첫 글을 올려 보세요.</p>
+                    )
                   ) : (
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-ink-100 bg-ink-50 text-left text-xs text-ink-500">
                           {shown.map((f) => (
-                            <th key={f.key} className="px-4 py-2.5 font-semibold">
+                            <th key={f.key} className="whitespace-nowrap px-4 py-2.5 font-semibold">
                               {f.label}
                             </th>
                           ))}
@@ -174,6 +187,27 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
                       </tbody>
                     </table>
                   )}
+                  {pages > 1 ? (
+                    <div className="flex items-center justify-between border-t border-ink-100 px-4 py-3 text-xs text-ink-500">
+                      {pageNo > 1 ? (
+                        <Link href={listHref(pageNo - 1)} className="font-medium text-brand-600 hover:underline">
+                          ← 이전
+                        </Link>
+                      ) : (
+                        <span />
+                      )}
+                      <span className="tabular-nums">
+                        {pageNo} / {pages}쪽
+                      </span>
+                      {pageNo < pages ? (
+                        <Link href={listHref(pageNo + 1)} className="font-medium text-brand-600 hover:underline">
+                          다음 →
+                        </Link>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                  ) : null}
                 </CardBody>
               </Card>
 
@@ -194,7 +228,7 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
                       doneHref={base}
                     />
                   ) : (
-                    <p className="text-sm text-ink-500">{plan?.cms ? "데이터 저장소가 준비되면 글을 올릴 수 있어요." : "비즈니스 플랜부터 글을 올릴 수 있어요."}</p>
+                    <p className="text-sm text-ink-500">{plan?.cms ? "준비가 끝나면 글을 올릴 수 있어요." : "비즈니스 플랜부터 글을 올릴 수 있어요."}</p>
                   )}
                 </CardBody>
               </Card>
@@ -210,30 +244,4 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
 function formatInput(v: unknown): string {
   if (v === null || v === undefined) return "";
   return String(v);
-}
-
-/** 데이터 저장소 상태 안내. 준비 중이면 화면을 저절로 새로 고친다 */
-function StatusNote({ db }: { db: SiteDbInfo | null }) {
-  if (!db || !db.available || !db.configured) {
-    return (
-      <Alert tone="gray" className="mt-6">
-        관리자 페이지를 준비하고 있어요. 곧 글을 올릴 수 있어요.
-      </Alert>
-    );
-  }
-  if (db.status === "ready") return null;
-  if (db.status === "failed") {
-    return (
-      <Alert tone="red" className="mt-6">
-        데이터 저장소를 준비하지 못했어요. 담당자가 확인하고 있어요 — 궁금하면 메시지로 물어봐 주세요.
-      </Alert>
-    );
-  }
-  return (
-    <Alert tone="blue" className="mt-6">
-      이 사이트의 데이터 저장소를 준비하고 있어요 (보통 1~3분). 이 화면은 저절로 새로 고쳐져요.
-      {db.createdAt ? <span className="ml-1 text-xs opacity-80">시작 {formatDateTime(db.createdAt)}</span> : null}
-      <AutoRefresh seconds={8} />
-    </Alert>
-  );
 }

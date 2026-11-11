@@ -14,7 +14,6 @@ import { getSubscription, requireUser } from "@/lib/auth/session";
 import { rulesDesign } from "@/lib/design-doc";
 import { countProjects, createProject, imageRequestItems } from "@/lib/projects";
 import { getQuota } from "@/lib/quota";
-import { siteDbConfigured, startSiteDatabase } from "@/lib/site-db/provision";
 import {
   FEATURE_OPTIONS,
   INDUSTRIES,
@@ -140,11 +139,11 @@ export async function createProjectAction(_prev: CreateProjectState, formData: F
   }
   const devices: DeviceKind[] = effective.devices;
 
-  // 플랜별 사이트 수 제한 (스타터 1 · 비즈니스 2 · 프로 5 · 엔터프라이즈 10)
+  // 플랜의 사이트 수 제한 (2026-11-11 부터 모든 플랜 1개 — 여러 사이트는 상담)
   if (effective.maxSites !== null) {
     const count = await countProjects(user.id);
     if (count >= effective.maxSites) {
-      return { error: `${effective.name} 플랜은 사이트를 ${effective.maxSites}개까지 만들 수 있습니다. 더 만들려면 상위 플랜으로 올려주세요.` };
+      return { error: `${effective.name} 플랜은 사이트 ${effective.maxSites}개 기준이에요. 사이트를 더 운영하려면 상담으로 알려 주세요.` };
     }
   }
 
@@ -228,8 +227,6 @@ export async function createProjectAction(_prev: CreateProjectState, formData: F
   // AI 로 만들기: 응답을 보낸 뒤 백그라운드에서 AI 가 테마 · 문구를 다듬는다 (키 · 하루 한도 · 플랜은 엔진이 다시 확인한다).
   // redirect() 는 예외를 던지므로 그 전에 걸어 둔다
   if (aiBuild) after(() => startSiteBuild(result.id));
-  // 이 사이트 전용 Supabase 프로젝트 (관리자 목록 · 관리자 페이지가 쓴다). 매달 비용이 드는 일이라 플랜이 있을 때만 만든다
-  if (plan?.siteDatabase && siteDbConfigured().ok) after(() => startSiteDatabase(result.id));
 
   let imagesFailed = false;
   if (imageCount > 0 && plan) {

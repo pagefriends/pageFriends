@@ -77,7 +77,7 @@ export type DesignDoc = {
   styleTags: StyleId[];
   theme: Theme;
   copy: { site: CopyMap; pages: Record<string, CopyMap> };
-  /** 관리자 목록 (표는 사이트 전용 Supabase 프로젝트에 있다 — lib/site-db). 없으면 빈 목록 */
+  /** 관리자 목록 (글은 공용 DB 의 site_records 에 있다 — lib/site-data.ts). 없으면 빈 목록 */
   collections?: Collection[];
   /** AI 가 태그를 어떻게 적용했는지 (사용자 · 관리자 화면) */
   appliedTags?: { tag: StyleId; how: string }[];

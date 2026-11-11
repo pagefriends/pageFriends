@@ -1,9 +1,10 @@
 /**
- * 관리자 목록 — 사이트 주인이 관리자 페이지에서 직접 올리고 고치는 목록 (공지 · 소식 · 메뉴 · 상품 · 시공 사례 …).
+ * 관리자 목록 — 사이트 주인이 관리자 페이지에서 직접 올리고 고치는 목록 (공지 · 소식 · 메뉴 · 상품 · 강의 · 시공 사례 …).
  *
- * 목록 하나 = 사이트 전용 Supabase 프로젝트(lib/site-db)의 표 하나. 정의는 디자인 문서(brief.design.collections)에 두고,
- * AI 는 정해진 형식(collectionChanges)으로만 바꾼다 → 코드가 키 · 칸 종류를 다시 검사하고 → 표를 만드는 SQL 은 여기서 정해진 규칙으로만 만든다
- * (AI 가 SQL 을 쓰지 않는다). 표 · 칸은 늘어나기만 한다: 목록이나 칸을 빼면 화면 · 관리자 페이지에서 숨길 뿐 저장된 글은 지우지 않는다.
+ * 목록 정의(이름 · 칸 · 보여 줄 페이지)는 디자인 문서(brief.design.collections)에 두고, 글은 공용 DB 의 site_records 표에
+ * 사이트 · 목록별로 한 줄씩 저장한다 (칸 값은 JSON — lib/site-data.ts, 0013). 업종마다 칸이 달라도 표를 새로 만들지 않는다.
+ * AI 는 정해진 형식(collectionChanges)으로만 목록을 바꾸고 코드가 키 · 칸 종류를 다시 검사한다 (AI 가 SQL 을 쓰지 않는다).
+ * 목록이나 칸을 빼면 화면 · 관리자 페이지에서 숨길 뿐 저장된 글은 지우지 않는다 (같은 키로 다시 넣으면 다시 보인다).
  * 이 파일은 브라우저 · 서버 어디서나 쓰는 순수 함수만 둔다.
  */
 
@@ -22,10 +23,11 @@ export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
   phone: "전화번호",
 };
 
-const SQL_TYPE: Record<FieldType, string> = {
+/** 값의 갈래. 글 칸(짧은 글 · 긴 글 · 링크 · 사진 주소 · 이메일 · 전화번호)끼리는 종류를 바꿔도 저장된 글을 그대로 쓸 수 있다 */
+const VALUE_KIND: Record<FieldType, "text" | "number" | "date" | "boolean"> = {
   text: "text",
   longtext: "text",
-  number: "numeric",
+  number: "number",
   date: "date",
   boolean: "boolean",
   url: "text",
@@ -44,11 +46,8 @@ export type Collection = { key: string; label: string; page: string | null; layo
 
 export const COLLECTION_LIMITS = { collections: 10, fields: 20, label: 20, text: 200, longtext: 5000, url: 500 } as const;
 
-/** 모든 표에 자동으로 있는 칸 (AI · 사이트 주인이 정하지 않는다) */
+/** 모든 글에 자동으로 있는 칸 (AI · 사이트 주인이 정하지 않는다) */
 export const BASE_COLUMNS = ["id", "created_at", "updated_at", "published", "sort"] as const;
-
-/** 만든 적 있는 표 · 칸과 그 종류 (사이트 DB 에 실제로 있는 것). 늘어나기만 한다 */
-export type SchemaSnapshot = Record<string, Record<string, FieldType>>;
 
 /** 관리자 페이지 · 초안이 읽는 한 줄 */
 export type CollectionRow = { id: string; created_at: string; updated_at?: string; published: boolean; sort: number; [key: string]: unknown };
@@ -56,7 +55,7 @@ export type CollectionRow = { id: string; created_at: string; updated_at?: strin
 const KEY = /^[a-z][a-z0-9_]{0,39}$/;
 const RESERVED = new Set<string>([...BASE_COLUMNS, "pf_meta"]);
 
-/** 표 · 칸 이름: 영어 소문자로 시작 · 소문자 · 숫자 · 밑줄 · 40자까지 · 자동 칸 이름과 pg_ 로 시작하는 이름은 안 된다 */
+/** 목록 · 칸 키: 영어 소문자로 시작 · 소문자 · 숫자 · 밑줄 · 40자까지 · 자동 칸 이름과 pg_ 로 시작하는 이름은 안 된다 */
 export function isValidKey(k: unknown): k is string {
   return typeof k === "string" && KEY.test(k) && !k.startsWith("pg_") && !RESERVED.has(k);
 }
@@ -65,9 +64,9 @@ export function isFieldType(t: unknown): t is FieldType {
   return typeof t === "string" && (FIELD_TYPES as readonly string[]).includes(t);
 }
 
-/** 표의 칸 종류가 같은지 (짧은 글 · 긴 글 · 링크 · 사진 주소 · 이메일 · 전화번호는 모두 글 칸이라 서로 바꿀 수 있다) */
+/** 칸 종류를 바꿔도 되는지 (짧은 글 · 긴 글 · 링크 · 사진 주소 · 이메일 · 전화번호는 모두 글 칸이라 서로 바꿀 수 있다) */
 export function sameColumn(a: FieldType, b: FieldType): boolean {
-  return SQL_TYPE[a] === SQL_TYPE[b];
+  return VALUE_KIND[a] === VALUE_KIND[b];
 }
 
 /** 이름 (관리자 페이지 메뉴 · 칸 제목): 꺾쇠 · 제어 문자를 지우고 자른다 */
@@ -132,14 +131,13 @@ export type CollectionChangeInput = {
 export type CollectionApplied = { key: string; before: string; after: string };
 
 /**
- * 바꿀 목록을 검사해 새 정의를 만든다. 잘못된 키 · 종류, 없는 페이지, 이미 있는 칸의 종류 바꾸기는 버리고(rejected 에 이유),
- * 실제로 바뀐 것만 applied 에 남긴다. known = 사이트 DB 에 이미 있는 표 · 칸 (종류를 바꿀 수 없다).
+ * 바꿀 목록을 검사해 새 정의를 만든다. 잘못된 키 · 종류, 없는 페이지, 이미 있는 칸의 종류 바꾸기(숫자 · 날짜 · 예/아니오 ↔ 글)는 버리고
+ * (rejected 에 이유), 실제로 바뀐 것만 applied 에 남긴다. 종류를 막는 것은 이미 올린 글의 값이 새 종류와 맞지 않게 되지 않도록이다.
  */
 export function applyCollectionChanges(
   current: Collection[],
   changes: CollectionChangeInput[],
   pagePaths: readonly string[],
-  known: SchemaSnapshot,
 ): { collections: Collection[]; applied: CollectionApplied[]; rejected: string[] } {
   let list = current.map((c) => ({ ...c, fields: [...c.fields] }));
   const applied: CollectionApplied[] = [];
@@ -176,7 +174,7 @@ export function applyCollectionChanges(
         continue;
       }
       if (fields.some((x) => x.key === fk)) continue;
-      const was = known[key]?.[fk] ?? existing?.fields.find((x) => x.key === fk)?.type;
+      const was = existing?.fields.find((x) => x.key === fk)?.type;
       if (was && !sameColumn(was, f.type)) {
         rejected.push(`${key}.${fk}: 이미 있는 칸의 종류(${FIELD_TYPE_LABEL[was]})는 바꿀 수 없음`);
         fields.push({ key: fk, label: cleanLabel(f.label) || fk, type: was });
@@ -210,59 +208,6 @@ export function applyCollectionChanges(
     applied.push({ key, before, after });
   }
   return { collections: list, applied, rejected };
-}
-
-// ---------------------------------------------------------------------------------------------
-// 표 만들기 SQL (사이트 DB). 정해진 규칙으로만 만든다 — 이름은 isValidKey 를 통과한 것만, 종류는 정해진 목록만
-// ---------------------------------------------------------------------------------------------
-
-const ident = (k: string) => `"${k}"`;
-/** SQL 글자 (주석에만 쓴다). 작은따옴표를 두 번 쓰고 제어 문자를 지운다 */
-const lit = (s: string) => `'${s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/'/g, "''")}'`;
-
-/**
- * 원하는 목록 정의 → 사이트 DB 에 실행할 SQL 과 실행 뒤의 표 · 칸 목록.
- * 새 표는 기본 칸 + 공개된 줄만 누구나 읽는 규칙(RLS)과 함께 만들고, 새 칸은 add column 으로 더한다. 지우거나 종류를 바꾸지 않는다.
- * 같은 SQL 을 다시 실행해도 결과가 같다 (if not exists). 바꿀 것이 없으면 statements 가 비어 있다.
- */
-export function planSchemaSync(desired: Collection[], known: SchemaSnapshot): { statements: string[]; next: SchemaSnapshot } {
-  const next: SchemaSnapshot = Object.fromEntries(Object.entries(known).map(([t, cols]) => [t, { ...cols }]));
-  const statements: string[] = [];
-  for (const c of desired) {
-    if (!isValidKey(c.key)) continue;
-    const t = `public.${ident(c.key)}`;
-    const isNew = !next[c.key];
-    const added: CollectionField[] = [];
-    for (const f of c.fields) {
-      if (!isValidKey(f.key) || !isFieldType(f.type)) continue;
-      if (next[c.key]?.[f.key]) continue;
-      added.push(f);
-    }
-    if (!isNew && !added.length) continue;
-    if (isNew) {
-      statements.push(
-        `create table if not exists ${t} (id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now(), updated_at timestamptz not null default now(), published boolean not null default true, sort integer not null default 0)`,
-        `alter table ${t} enable row level security`,
-        `drop policy if exists pf_public_read on ${t}`,
-        `create policy pf_public_read on ${t} for select to anon, authenticated using (published)`,
-        `grant select on table ${t} to anon, authenticated`,
-        `grant select, insert, update, delete on table ${t} to service_role`,
-      );
-      next[c.key] = {};
-    }
-    statements.push(`comment on table ${t} is ${lit(c.label)}`);
-    for (const f of added) {
-      statements.push(`alter table ${t} add column if not exists ${ident(f.key)} ${SQL_TYPE[f.type]}`, `comment on column ${t}.${ident(f.key)} is ${lit(f.label)}`);
-      next[c.key][f.key] = f.type;
-    }
-  }
-  if (statements.length) statements.push(`notify pgrst, 'reload schema'`);
-  return { statements, next };
-}
-
-/** 한 번에 실행할 SQL (한 트랜잭션) */
-export function toSqlScript(statements: string[]): string {
-  return ["begin;", ...statements.map((s) => `${s};`), "commit;"].join("\n");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -332,14 +277,15 @@ export function coerceRow(c: Collection, input: Record<string, unknown>): { valu
   return { values, errors };
 }
 
-/** 칸 값을 한 줄 글로 (관리자 페이지 표 · 초안 목록) */
+/**
+ * 칸 값을 한 줄 글로 (관리자 페이지 표 · 초안 목록).
+ * 값은 JSON 이라 예전에 다른 종류로 올린 값이 섞일 수 있다 (칸을 뺐다가 다른 종류로 다시 넣은 경우) — 맞지 않는 값은 글 그대로 보여 준다.
+ */
 export function formatCell(type: FieldType, v: unknown): string {
   if (v === null || v === undefined || v === "") return "";
-  if (type === "boolean") return v === true ? "예" : "아니오";
-  if (type === "number") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n.toLocaleString("ko-KR") : "";
-  }
-  if (type === "date") return String(v).slice(0, 10);
+  if (type === "boolean" && typeof v === "boolean") return v ? "예" : "아니오";
+  if (type === "number" && typeof v === "number" && Number.isFinite(v)) return v.toLocaleString("ko-KR");
+  if (type === "date" && typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+  if (typeof v === "object") return "";
   return String(v).replace(/\s+/g, " ").trim();
 }

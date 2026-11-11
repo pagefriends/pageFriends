@@ -1,5 +1,5 @@
 import type { DeviceKind } from "@/config/plans";
-import { SITE_DB_DRAFT_ROWS } from "@/config/site-db";
+import { SITE_DATA_DRAFT_ROWS } from "@/config/site-data";
 import { formatCell, type Collection, type CollectionRow } from "@/lib/collections";
 import { copyOf, paletteOf, rulesDesign, type DesignDoc, type Palette, type Theme } from "@/lib/design-doc";
 import {
@@ -1035,8 +1035,11 @@ function formButton(ctx: Ctx, x: number, y: number, w: number, label: string, ke
 // 관리자 목록
 // ---------------------------------------------------------------------------------------------
 
-/** 목록 페이지 종류: 원래 그리던 빈 목록 대신 관리자 목록을 그린다. 나머지 종류는 본문 아래에 목록을 붙인다 */
-const LIST_REPLACES = new Set<PageKind>(["notice", "blog", "faq"]);
+/**
+ * 목록이 곧 본문인 페이지 종류: 원래 그리던 빈 목록(후기는 빈 후기 카드) 대신 관리자 목록을 그린다 — 같은 내용이 두 번 보이지 않게.
+ * 나머지 종류는 본문 아래에 목록을 붙인다 (사진 자리 · 고객 자료로 채운 본문을 가리지 않게)
+ */
+const LIST_REPLACES = new Set<PageKind>(["notice", "blog", "faq", "reviews"]);
 
 /** 칸 값을 한 줄로 (긴 글은 첫 줄만) */
 function cell(c: Collection, row: CollectionRow, idx: number): string {
@@ -1057,7 +1060,7 @@ function listBoard(ctx: Ctx, top: number, c: Collection, rows: CollectionRow[] |
     ctx.out.push(text(ctx.pad + ctx.cw * 0.8, top + 26, metaIdx > 0 ? fit(c.fields[metaIdx].label, 14, ctx.cw * 0.18, true) : "올린 날", { size: 14, weight: 700, fill: C.muted }));
   }
   let yy = top + 52;
-  for (let i = 0; i < SITE_DB_DRAFT_ROWS.list; i++) {
+  for (let i = 0; i < SITE_DATA_DRAFT_ROWS.list; i++) {
     const row = rows?.[i];
     if (row) {
       const title = cell(c, row, 0);
@@ -1085,7 +1088,7 @@ function listBoard(ctx: Ctx, top: number, c: Collection, rows: CollectionRow[] |
 
 /** 카드형: 사진 자리 + 제목 + 한 줄 (사진은 그림에 넣지 않고 자리만 보여 준다) */
 function listCards(ctx: Ctx, top: number, c: Collection, rows: CollectionRow[] | null): number {
-  const n = SITE_DB_DRAFT_ROWS.cards;
+  const n = SITE_DATA_DRAFT_ROWS.cards;
   const cols = ctx.mob ? 1 : ctx.desk ? 3 : 2;
   const gap = ctx.s.gap;
   const w = colWidth(ctx, cols, gap);

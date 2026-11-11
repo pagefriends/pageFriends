@@ -34,12 +34,15 @@ export default async function SolutionPage({ params }: PageProps<"/solutions/[sl
   if (!solution) notFound();
 
   const plan = PLAN_BY_CODE[solution.recommendedPlan];
+  // 상담으로 정하는 솔루션(모바일 앱 등)은 플랜 가격 대신 "별도 상담"
+  const consult = Boolean(solution.consult || plan.hidden);
+  const startHref = consult ? "/consultation" : `/signup?plan=${solution.recommendedPlan}`;
   const faq = [...solution.faq, ...GENERIC_FAQ];
   const deliverablePhoto = ph("photo", SOLUTIONS.findIndex((s) => s.slug === solution.slug) + 1);
 
   return (
     <>
-      <Hero eyebrow={solution.eyebrow} title={solution.headline} lead={solution.intro} primary={{ href: `/signup?plan=${solution.recommendedPlan}`, label: "시작하기" }} secondary={{ href: "/demo", label: "편집 화면 체험" }} image={solution.image} size="lg" />
+      <Hero eyebrow={solution.eyebrow} title={solution.headline} lead={solution.intro} primary={{ href: startHref, label: consult ? "상담 신청" : "시작하기" }} secondary={{ href: "/demo", label: "편집 화면 체험" }} image={solution.image} size="lg" />
 
       {/* 제공 항목 태그 줄 (가로 스크롤) + 신뢰 띠 */}
       <section className="bg-night-950 pb-16 text-white sm:pb-24">
@@ -100,8 +103,8 @@ export default async function SolutionPage({ params }: PageProps<"/solutions/[sl
               ))}
             </ul>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Pill href={`/signup?plan=${solution.recommendedPlan}`} size="md">
-                시작하기
+              <Pill href={startHref} size="md">
+                {consult ? "상담 신청" : "시작하기"}
               </Pill>
               <Pill href="/templates" variant="outline" size="md">
                 템플릿 보기
@@ -133,10 +136,9 @@ export default async function SolutionPage({ params }: PageProps<"/solutions/[sl
           <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:gap-16">
             <div>
               <Eyebrow>추천 플랜</Eyebrow>
-              <Display className="mt-3">{solution.name}에는 {plan.hidden ? "별도 상담" : plan.name}</Display>
+              <Display className="mt-3">{solution.name}에는 {consult ? "별도 상담" : plan.name}</Display>
               <Lead className="mt-5">
-                {plan.tagline}.{" "}
-                {plan.hidden ? "규모와 기능에 맞춰 상담 후 견적을 드립니다." : "월간 또는 연간(2개월 무료)으로 결제하고, 언제든 상위 플랜으로 바꿀 수 있습니다."}
+                {consult ? `${solution.short}. 규모와 기능에 맞춰 상담 후 견적을 드립니다.` : `${plan.tagline}. 월간 또는 연간(2개월 무료)으로 결제하고, 언제든 상위 플랜으로 바꿀 수 있습니다.`}
               </Lead>
             </div>
             <LightCard className="text-ink-900">
@@ -144,7 +146,7 @@ export default async function SolutionPage({ params }: PageProps<"/solutions/[sl
                 <p className="text-2xl font-extrabold">{plan.name}</p>
                 <p className="text-sm text-ink-500">{plan.tagline}</p>
               </div>
-              {plan.hidden ? (
+              {consult ? (
                 <p className="mt-5 text-4xl font-extrabold tracking-tight text-brand-600">상담 후 견적</p>
               ) : (
                 <>
@@ -167,7 +169,7 @@ export default async function SolutionPage({ params }: PageProps<"/solutions/[sl
                 <Pill href="/pricing" size="md">
                   요금제 자세히 <ArrowRightIcon className="size-4" />
                 </Pill>
-                {plan.hidden ? (
+                {consult ? (
                   <Pill href="/consultation" variant="outline" size="md">
                     상담 신청
                   </Pill>

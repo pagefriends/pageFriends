@@ -35,11 +35,11 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
       <div className="mx-auto w-full max-w-4xl px-4 py-8">
         <h1 className="text-2xl font-bold tracking-tight">새 사이트</h1>
         <Alert tone="gray" className="mt-6">
-          {effective.name} 플랜은 사이트를 {effective.maxSites}개까지 만들 수 있고, 지금 {count}개를 보유 중입니다. 더 만들려면 상위 플랜으로 올려주세요.
+          {effective.name} 플랜은 사이트 {effective.maxSites}개 기준이고, 지금 {count}개를 운영 중이에요. 사이트를 더 운영하려면 상담으로 알려 주세요.
         </Alert>
         <div className="mt-4 flex gap-2">
-          <Link href="/billing" className={buttonClass("primary", "md")}>
-            플랜 올리기
+          <Link href="/consultation" className={buttonClass("primary", "md")}>
+            상담 신청
           </Link>
           <Link href="/dashboard" className={buttonClass("outline", "md")}>
             내 사이트로

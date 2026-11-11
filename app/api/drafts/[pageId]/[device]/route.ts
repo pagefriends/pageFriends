@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-import { SITE_DB_DRAFT_ROWS } from "@/config/site-db";
+import { SITE_DATA_DRAFT_ROWS } from "@/config/site-data";
 import { apiError } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
 import type { CollectionRow } from "@/lib/collections";
 import { designOf } from "@/lib/design-doc";
 import { renderDraft } from "@/lib/draft-render";
 import { draftVersion } from "@/lib/projects";
-import { draftRows } from "@/lib/site-db/data";
+import { draftRows } from "@/lib/site-data";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectBrief, ProjectPageRow } from "@/lib/types/db";
 
@@ -18,7 +18,7 @@ const paramsSchema = z.object({ pageId: z.uuid(), device: z.enum(["mobile", "tab
  *   GET /api/drafts/{pageId}/{device}
  * 읽기 권한은 RLS 가 정한다 — 사이트 주인과 관리자만 페이지·프로젝트를 읽을 수 있다.
  * 그림은 저장된 위저드 입력(brief.site)으로 매번 다시 그리고, 높이는 프로젝트를 만들 때 저장한 캡처 크기를 따른다.
- * 관리자 목록이 붙은 페이지면 사이트 DB 에서 공개된 글을 읽어 함께 그린다 (읽기 권한은 위에서 RLS 로 확인한 뒤 서버가 읽는다).
+ * 관리자 목록이 붙은 페이지면 공용 DB(site_records)에서 공개된 글을 읽어 함께 그린다 (같은 로그인 클라이언트 — RLS 가 사이트 주인 · 관리자만 허락).
  */
 export async function GET(_request: Request, ctx: RouteContext<"/api/drafts/[pageId]/[device]">) {
   const parsed = paramsSchema.safeParse(await ctx.params);
@@ -42,7 +42,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/drafts/[pag
   const design = designOf(brief);
   const current = !stored || draftVersion(stored.url) === design.version;
   const listed = (design.collections ?? []).find((c) => c.page === page.path);
-  const listRows = listed ? await draftRows(page.project_id, listed, SITE_DB_DRAFT_ROWS[listed.layout]) : null;
+  const listRows = listed ? await draftRows(supabase, page.project_id, listed, SITE_DATA_DRAFT_ROWS[listed.layout]) : null;
   const rows: Record<string, CollectionRow[]> | undefined = listed && listRows ? { [listed.key]: listRows } : undefined;
   const { svg } = renderDraft(
     {

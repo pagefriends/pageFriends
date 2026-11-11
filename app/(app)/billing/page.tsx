@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
 export default async function BillingPage({ searchParams }: PageProps<"/billing">) {
   const user = await requireUser("/billing");
   const sp = await searchParams;
-  // 새로 고를 수 있는 플랜만 (엔터프라이즈는 별도 상담)
+  // 새로 고를 수 있는 플랜만 (숨긴 플랜은 제외)
   const selected = typeof sp.plan === "string" && sp.plan in PLAN_BY_CODE && !PLAN_BY_CODE[sp.plan as PlanCode].hidden ? (sp.plan as PlanCode) : null;
 
   const [{ subscription, plan, state, graceUntil }, payments] = await Promise.all([getSubscription(user.id), listPayments(user.id)]);

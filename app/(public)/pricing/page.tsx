@@ -59,7 +59,7 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
       { title: "실시간 채팅", body: "평일 10:00~18:00 사람이 답합니다." },
       { title: "오류 신고 무료", body: "우리 쪽 실수는 토큰 · 횟수 어디에서도 차감하지 않습니다." },
       { title: "도움말 센터", body: "시작하기 · 수정 요청 · 요금 FAQ 를 언제든." },
-      { title: "별도 상담", body: "사이트 10개 이상 · 앱 제작은 상담으로 맞춤 견적." },
+      { title: "별도 상담", body: "여러 사이트 · 앱 제작은 상담으로 맞춤 견적." },
     ],
   },
 ];

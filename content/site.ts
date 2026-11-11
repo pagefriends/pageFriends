@@ -5,7 +5,7 @@
  * 규칙
  * - 사진은 전부 임시(/placeholders). 실제 이미지가 오면 파일만 교체한다.
  * - 고객 후기·사례·글은 `sample: true` 인 샘플 콘텐츠다. 화면에 "샘플" 표시가 붙고, 실제 콘텐츠로 교체해야 한다.
- * - 숫자는 서비스 사실(3~7일, 3개 플랜, 19,800원부터 등)만 쓴다. 고객 수·매출 같은 지어낸 실적 수치는 넣지 않는다. 가격은 config/plans.ts 에서 읽는다.
+ * - 숫자는 서비스 사실(플랜 수 · 최저 가격 등 — config/plans.ts 에서 읽는다)만 쓴다. 고객 수·매출 같은 지어낸 실적 수치는 넣지 않는다. 가격은 config/plans.ts 에서 읽는다.
  */
 import placeholders from "@/config/placeholders.json";
 import { APPROX_TOKENS_PER_IMAGE, DELIVERY_DAYS, PAYMENT_SETUP_FEE_KRW, PLANS, WORK_TOKENS, formatKrw, formatTokens } from "@/config/plans";
@@ -31,6 +31,8 @@ export type Solution = {
   features: { title: string; body: string }[];
   faq: { q: string; a: string }[];
   recommendedPlan: "starter" | "business" | "pro" | "enterprise";
+  /** 플랜으로 바로 시작하지 않고 상담으로 정하는 솔루션 (예: 모바일 앱). 추천 플랜 대신 "별도 상담" 을 보여 준다 */
+  consult?: boolean;
   image: Img;
 };
 
@@ -241,7 +243,7 @@ export const SOLUTIONS: Solution[] = [
     hashtags: ["#게시판", "#회원", "#블로그"],
     deliverables: ["게시판 · 블로그 · 회원 페이지", "관리자 페이지(CMS)", "검색"],
     features: COMMON_FEATURES,
-    faq: [{ q: "회원 데이터는 어디에?", a: "사이트 전용 데이터베이스에 저장되고, 관리자 페이지에서 관리합니다." }],
+    faq: [{ q: "회원 데이터는 어디에?", a: "사이트별로 나뉜 공간에 저장되어 다른 사이트에서는 볼 수 없고, 관리자 페이지에서 관리합니다." }],
     recommendedPlan: "pro",
     image: ph("wide", 1),
   },
@@ -258,6 +260,7 @@ export const SOLUTIONS: Solution[] = [
     features: COMMON_FEATURES,
     faq: [{ q: "앱은 얼마나 걸리나요?", a: "범위에 따라 다릅니다. 상담에서 일정과 범위를 먼저 정합니다." }],
     recommendedPlan: "enterprise",
+    consult: true,
     image: ph("wide", 2),
   },
 ];
@@ -411,7 +414,7 @@ export const TESTIMONIALS: Testimonial[] = [
   { quote: "결제 시스템까지 한 번에 붙여서 오픈 첫 주에 주문을 받았습니다.", name: "이OO", role: "핸드메이드 샵 운영", metric: "1주", metricLabel: "오픈 후 첫 주문", avatar: ph("avatar", 2), logo: ph("logo", 2), sample: true, storySlug: "handmade-shop" },
   { quote: "문구 수정은 AI 로 바로, 사진 교체는 전문가에게. 나눠서 요청하니 빠르고 정확했어요.", name: "박OO", role: "피부과 실장", metric: "3종", metricLabel: "모바일 · 태블릿 · 웹", avatar: ph("avatar", 3), logo: ph("logo", 3), sample: true, storySlug: "clinic-care" },
   { quote: "에이전시 견적의 1/10 로 시작했고, 규모가 커지면서 플랜만 올렸습니다.", name: "최OO", role: "스타트업 마케팅 리드", metric: "4개", metricLabel: "플랜 중 선택", avatar: ph("avatar", 4), logo: ph("logo", 4), sample: true, storySlug: "startup-landing" },
-  { quote: "고객사 사이트를 여러 개 동시에 관리하는데 대시보드 하나로 끝납니다.", name: "정OO", role: "에이전시 대표", metric: "5개", metricLabel: "프로 플랜 사이트", avatar: ph("avatar", 5), logo: ph("logo", 5), sample: true, storySlug: "agency-multi" },
+  { quote: "회사 소개 사이트 수정은 거의 다 AI 로 끝나고, 큰 작업만 전문가에게 맡깁니다.", name: "정OO", role: "에이전시 대표", metric: "월 5회", metricLabel: "프로 플랜 전문가 요청", avatar: ph("avatar", 5), logo: ph("logo", 5), sample: true, storySlug: "agency-multi" },
   { quote: "오류 신고는 차감이 없어서 마음 놓고 알려줄 수 있어요.", name: "한OO", role: "학원 원장", metric: "무료", metricLabel: "오류 신고", avatar: ph("avatar", 6), logo: ph("logo", 6), sample: true, storySlug: "academy-plus" },
 ];
 
@@ -436,7 +439,7 @@ export const STORIES: Story[] = [
   { slug: "handmade-shop", company: "핸드메이드 샵", industry: "small-business", solution: "shop", headline: "결제까지 붙인 쇼핑몰을 한 번에", summary: "비즈니스 플랜 + 결제 시스템 옵션으로 상품 등록부터 결제까지.", metrics: [{ value: "1주", label: "오픈 후 첫 주문" }, { value: "12", label: "페이지" }, { value: "비즈니스", label: "플랜" }], quote: "결제 시스템까지 한 번에 붙여서 오픈 첫 주에 주문을 받았습니다.", quoteBy: "이OO, 핸드메이드 샵 운영", body: ["수제 소품을 SNS 로 팔던 운영자는 주문 · 입금 확인을 손으로 하고 있었습니다.", "비즈니스 플랜에서 결제 시스템 옵션을 켜고 상품 · 장바구니 · 결제 · 주문 관리자 페이지까지 한 번에 만들었습니다.", "오픈 첫 주에 사이트에서 첫 주문이 들어왔습니다."], image: ph("photo", 2), logo: ph("logo", 2), sample: true },
   { slug: "clinic-care", company: "케어 피부과", industry: "small-business", solution: "clinic", headline: "진료 안내와 예약을 세 가지 화면에서", summary: "모바일 · 태블릿 · 웹 화면을 각각 확인하고 수정 요청.", metrics: [{ value: "3종", label: "디바이스 화면" }, { value: "8", label: "페이지" }, { value: "비즈니스", label: "플랜" }], quote: "문구 수정은 AI 로 바로, 사진 교체는 전문가에게.", quoteBy: "박OO, 케어 피부과 실장", body: ["진료 과목 · 의료진 · 예약 페이지를 만들고, 태블릿 화면에서 표가 깨지는 것을 네모로 표시해 전문가에게 요청했습니다.", "문구 수정은 AI 반영으로 몇 시간 안에 처리됐습니다."], image: ph("photo", 3), logo: ph("logo", 3), sample: true },
   { slug: "startup-landing", company: "런치 스타트업", industry: "startup", solution: "landing", headline: "사전예약 랜딩페이지를 이틀 만에", summary: "광고 집행 전 랜딩페이지와 신청 폼을 빠르게.", metrics: [{ value: "2일", label: "랜딩 완성" }, { value: "1", label: "페이지" }, { value: "스타터", label: "플랜" }], quote: "에이전시 견적의 1/10 로 시작했습니다.", quoteBy: "최OO, 마케팅 리드", body: ["광고 집행 일정이 정해진 상태에서 랜딩페이지가 필요했습니다.", "프롬프트만으로 시작해 이틀 만에 신청 폼이 붙은 랜딩페이지가 나왔습니다."], image: ph("photo", 4), logo: ph("logo", 4), sample: true },
-  { slug: "agency-multi", company: "브릿지 에이전시", industry: "agency", solution: "company", headline: "고객사 사이트 5개를 대시보드 하나로", summary: "프로 플랜으로 여러 고객사 사이트를 동시에 제작 · 운영.", metrics: [{ value: "5개", label: "사이트" }, { value: "월 4회", label: "전문가 요청" }, { value: "프로", label: "플랜" }], quote: "대시보드 하나로 끝납니다.", quoteBy: "정OO, 에이전시 대표", body: ["소규모 에이전시가 고객사별로 외주를 돌리던 구조를 페이지프렌즈로 바꿨습니다.", "프로 플랜의 사이트 5개 슬롯에 고객사 사이트를 넣고, 수정 요청은 고객사가 직접 네모로 보냅니다."], image: ph("photo", 5), logo: ph("logo", 5), sample: true },
+  { slug: "agency-multi", company: "브릿지 에이전시", industry: "agency", solution: "company", headline: "에이전시 회사 소개 사이트를 전문가와 함께", summary: "프로 플랜으로 문구는 AI, 큰 작업은 전문가에게 나눠 맡겨 운영.", metrics: [{ value: "1개", label: "사이트" }, { value: "월 5회", label: "전문가 요청" }, { value: "프로", label: "플랜" }], quote: "큰 작업만 전문가에게 맡깁니다.", quoteBy: "정OO, 에이전시 대표", body: ["소규모 에이전시가 외주로 관리하던 회사 소개 사이트를 페이지프렌즈로 옮겼습니다.", "문구 · 색 수정은 AI 반영으로 바로 하고, 포트폴리오 구역을 새로 만드는 일은 프로 플랜의 전문가 요청으로 맡깁니다."], image: ph("photo", 5), logo: ph("logo", 5), sample: true },
   { slug: "academy-plus", company: "플러스 학원", industry: "small-business", solution: "academy", headline: "공지와 수강 신청이 되는 학원 사이트", summary: "게시판(CMS)과 수강 신청 폼을 비즈니스 플랜으로.", metrics: [{ value: "6", label: "페이지" }, { value: "무료", label: "오류 신고" }, { value: "비즈니스", label: "플랜" }], quote: "오류 신고는 차감이 없어서 마음 놓고 알려줄 수 있어요.", quoteBy: "한OO, 학원 원장", body: ["공지사항을 카카오톡으로만 보내던 학원이 게시판과 시간표 페이지를 만들었습니다.", "수강 신청 폼의 오류를 오류 신고로 알렸고, 토큰 차감 없이 고쳐졌습니다."], image: ph("photo", 6), logo: ph("logo", 6), sample: true },
 ];
 export const STORY_BY_SLUG: Record<string, Story> = Object.fromEntries(STORIES.map((s) => [s.slug, s]));

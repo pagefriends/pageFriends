@@ -6,7 +6,7 @@ import { getSubscription, requireUser } from "@/lib/auth/session";
 import { coerceRow, type Collection } from "@/lib/collections";
 import { designOf } from "@/lib/design-doc";
 import { getProject } from "@/lib/projects";
-import { deleteRow, saveRow } from "@/lib/site-db/data";
+import { deleteRow, saveRow } from "@/lib/site-data";
 
 export type RowActionState = { error?: string; saved?: boolean } | null;
 
@@ -35,8 +35,8 @@ export async function saveRowAction(projectId: string, collectionKey: string, ro
     sort: Number(formData.get("sort") ?? 0),
   });
   if (!res.ok) {
-    console.error("[site-admin] save", res.error);
-    return { error: "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요." };
+    if (!res.userMessage) console.error("[site-admin] save", res.error);
+    return { error: res.userMessage ?? "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요." };
   }
   revalidatePath(`/projects/${projectId}/admin`);
   return { saved: true };
@@ -47,8 +47,8 @@ export async function deleteRowAction(projectId: string, collectionKey: string, 
   if ("error" in g) return { error: g.error };
   const res = await deleteRow(projectId, g.collection, rowId);
   if (!res.ok) {
-    console.error("[site-admin] delete", res.error);
-    return { error: "지우지 못했어요. 잠시 뒤 다시 시도해 주세요." };
+    if (!res.userMessage) console.error("[site-admin] delete", res.error);
+    return { error: res.userMessage ?? "지우지 못했어요. 잠시 뒤 다시 시도해 주세요." };
   }
   revalidatePath(`/projects/${projectId}/admin`);
   return {};

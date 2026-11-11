@@ -27,13 +27,12 @@ import {
   type WorkSize,
 } from "@/config/plans";
 import { isImageRequest } from "@/config/requests";
-import { SITE_DB_AI_WAIT_MS } from "@/config/site-db";
 import { templateDesign } from "@/config/template-designs";
 import { aiConfigured, callStructured, type CallResult } from "@/lib/ai/claude";
 import { bugPrompt, buildPrompt, editPrompt, tagNames, type BatchPeer, type EditRequest, type HarnessSite, type RecentChange } from "@/lib/ai/harness";
 import { copyLimits, copySlots, plannedOf, renderPage, rerender, type LayoutPage } from "@/lib/ai/layout";
 import { BugOutput, BuildOutput, EditOutput } from "@/lib/ai/schemas";
-import { applyCollectionChanges, type SchemaSnapshot } from "@/lib/collections";
+import { applyCollectionChanges } from "@/lib/collections";
 import {
   THEME_KEYS,
   applyChanges,
@@ -48,7 +47,6 @@ import {
 } from "@/lib/design-doc";
 import { getServerEnv } from "@/lib/env";
 import { isMissingSchema } from "@/lib/messages";
-import { getSiteDatabase, syncSiteSchema } from "@/lib/site-db/provision";
 import { planOfUser, tokenBalance } from "@/lib/quota";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ProjectBrief, Region, RequestOptions } from "@/lib/types/db";
@@ -744,7 +742,7 @@ export async function processBugReport(requestId: string): Promise<ProcessResult
  * 처리 중 진행 단계 (편집기 "AI 작업 중" 화면). 처리 중인 실행의 output 칸에 { live } 로 적어 두고, 끝나면 진짜 출력으로 덮어쓴다.
  * thinking AI 가 고칠 방법을 정하는 중 · writing 답을 쓰는 중(앞쪽 decision · summary 가 오면 같이) · rendering 새 화면을 그리는 중
  */
-type LiveStage = { stage: "thinking" | "writing" | "rendering" | "database"; decision?: string; summary?: string };
+type LiveStage = { stage: "thinking" | "writing" | "rendering"; decision?: string; summary?: string };
 
 async function setLive(admin: Admin, runId: string | null, live: LiveStage): Promise<void> {
   if (!runId) return;
@@ -971,16 +969,6 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       await finishRun(admin, runId, { status: "asked", output: out, ...callFields(res) });
       return { ok: true, message: "플랜에 관리자 페이지가 없어 사용자에게 알렸습니다.", outcome: "asked" };
     }
-    // 이미 사이트 DB 에 있는 표 · 칸 (칸 종류는 바꿀 수 없다)
-    let known: SchemaSnapshot = {};
-    if (wantsData) {
-      try {
-        known = (await getSiteDatabase(site.projectId, admin)).schema;
-      } catch (e) {
-        console.error("[ai] site db", e);
-      }
-    }
-
     // 반영: 그 사이 다른 수정이 먼저 반영됐으면(버전 충돌) 최신 디자인에 같은 변경을 다시 얹는다 (한 번)
     let current = site;
     let before = from;
@@ -995,7 +983,8 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
         pagePaths,
         copyLimits(current.brief),
       );
-      const data = wantsData ? applyCollectionChanges(doc.collections ?? [], out.collectionChanges, pagePaths, known) : null;
+      // 관리자 목록은 디자인 문서의 정의만 바뀐다 (글은 공용 DB 의 site_records — 표를 만들 일이 없어 바로 끝난다)
+      const data = wantsData ? applyCollectionChanges(doc.collections ?? [], out.collectionChanges, pagePaths) : null;
       const changes: AppliedChange[] = [
         ...visibleChanges(current.brief, before, applied, page.path),
         ...(data?.applied ?? []).map((d) => ({ kind: "data" as const, key: d.key, before: d.before, after: d.after })),
@@ -1016,21 +1005,6 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
         aiPending: false,
         updatedAt: new Date().toISOString(),
       };
-      // 관리자 목록이 바뀌면 사이트 데이터 저장소에 표 · 칸부터 만든다 (실패하면 디자인도 바꾸지 않고 담당자에게)
-      if (data?.applied.length) {
-        await setLive(admin, runId, { stage: "database", decision: out.decision, summary });
-        const synced = await syncSiteSchema(site.projectId, to.collections ?? [], { source: "ai", requestId, runId, waitMs: SITE_DB_AI_WAIT_MS });
-        if (!synced.ok) {
-          await handOff(`${summary ? `${summary} ` : ""}관리자 페이지를 만드는 중에 문제가 생겼어요. ${HUMAN_LATER}`, {
-            status: "error",
-            error: synced.reason,
-            output: out,
-            applied: { changes, rejected: allRejected },
-            ...callFields(res),
-          });
-          return { ok: false, message: synced.reason, outcome: "error" };
-        }
-      }
       await setLive(admin, runId, { stage: "rendering", decision: out.decision, summary });
       const saved = await saveDesign(admin, current, before, to);
       if (saved === "conflict" && attempt === 0) {

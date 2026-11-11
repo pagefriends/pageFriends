@@ -17,7 +17,7 @@ const TYPE_ORDER = ["페이지", "솔루션", "도움말", "블로그", "고객 
 
 const FIXED_PAGES: { title: string; excerpt: string; href: string }[] = [
   { title: "플랫폼", excerpt: "대시보드 · 편집기 · 네모 수정 요청. 페이지프렌즈가 돌아가는 방식", href: "/platform" },
-  { title: "요금제", excerpt: "스타터 · 비즈니스 · 프로 · 엔터프라이즈 4개 플랜과 크레딧, 템플릿 가격", href: "/pricing" },
+  { title: "요금제", excerpt: "스타터 · 비즈니스 · 프로 · 프리미엄 4개 플랜과 크레딧, 템플릿 가격", href: "/pricing" },
   { title: "템플릿", excerpt: "완성 디자인 데모 사이트와 운영 중인 사이트 템플릿", href: "/templates" },
   { title: "이용 방법", excerpt: "필수 정보 입력 → 제작 → 네모로 수정 요청 → 운영", href: "/how-it-works" },
   { title: "회사 소개", excerpt: "페이지프렌즈는 누구이고 무엇을 약속하는가", href: "/about" },

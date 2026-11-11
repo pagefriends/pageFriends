@@ -67,7 +67,7 @@ export function PlanGrid({
         ))}
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {PLANS.map((plan) => {
           const isCurrent = plan.code === currentPlan && (currentCycle ?? "month") === cycle;
           const href = `${ctaBase}?plan=${plan.code}${cycle === "year" ? "&cycle=year" : ""}`;
@@ -122,7 +122,7 @@ export function PlanGrid({
       </div>
 
       <p className={cn("mt-4 text-xs leading-relaxed", dark ? "text-white/50" : "text-ink-500")}>
-        금액은 부가세 포함입니다. 연간 결제는 월 요금의 {ANNUAL_MONTHS}배이고, 토큰과 전문가 요청 한도는 연간 결제도 매달 다시 채워집니다. 사이트 10개 이상이나 앱 제작이 필요하면{" "}
+        금액은 부가세 포함입니다. 연간 결제는 월 요금의 {ANNUAL_MONTHS}배이고, 토큰과 전문가 요청 한도는 연간 결제도 매달 다시 채워집니다. 모든 플랜은 사이트 1개 기준이에요. 여러 사이트나 앱 제작이 필요하면{" "}
         <Link href="/consultation" className={cn("font-medium underline", dark ? "text-white/80" : "text-ink-700")}>
           별도 상담
         </Link>

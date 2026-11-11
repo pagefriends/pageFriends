@@ -21,7 +21,7 @@ import { cn, formatDate } from "@/lib/utils";
 export const metadata: Metadata = { title: "내 사이트" };
 
 /**
- * 대시보드. 사이트(프로젝트) 목록과 플랜별 사이트 수 한도(스타터 1 · 비즈니스 2 · 프로 5 · 엔터프라이즈 10),
+ * 대시보드. 사이트(프로젝트) 목록과 플랜의 사이트 수 한도(2026-11-11 부터 모든 플랜 1개),
  * 그리고 담당자와 주고받은 것 중 지금 확인할 내용(답을 기다리는 요청 · 새 답변 · 새 메시지).
  */
 export default async function DashboardPage() {
@@ -88,7 +88,11 @@ export default async function DashboardPage() {
       ) : null}
       {full ? (
         <Alert tone="gray" className="mt-6">
-          {effective.name} 플랜은 사이트를 {max}개까지 만들 수 있습니다. 더 만들려면 상위 플랜으로 올려주세요 (비즈니스 2개 · 프로 5개 · 엔터프라이즈 10개).
+          {effective.name} 플랜은 사이트 {max}개 기준이에요. 사이트를 더 운영하려면{" "}
+          <Link href="/consultation" className="font-medium underline">
+            상담
+          </Link>
+          으로 알려 주세요.
         </Alert>
       ) : null}
 

@@ -20,8 +20,7 @@ import type { ProjectBrief, Region } from "@/lib/types/db";
  */
 
 export type LiveState = "queued" | "working" | "done" | "asked" | "handoff";
-/** database = 관리자 목록을 바꾸느라 사이트 데이터 저장소에 표를 만드는 중 (새 화면 그리기 자리에 보인다) */
-export type LiveStage = "thinking" | "writing" | "rendering" | "database";
+export type LiveStage = "thinking" | "writing" | "rendering";
 
 export type LiveItem = {
   id: string;
