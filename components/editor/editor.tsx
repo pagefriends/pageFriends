@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/card";
 import { AI_LIVE_POLL_MS } from "@/config/ai";
 import type { StyleId } from "@/config/design-styles";
 import { DEVICE_LABEL, EXPERT_HOURS, type DeviceKind, type RequestKind } from "@/config/plans";
+import { isImageRequest } from "@/config/requests";
 import type { BatchProgress, LiveItem } from "@/lib/ai/progress";
 import type { ProjectNews } from "@/lib/messages";
 import type { QuotaInfo } from "@/lib/quota";
@@ -380,6 +381,8 @@ export function ProjectEditor({
   const all = useMemo(() => {
     const items: SubmitItem[] = [];
     const counts: Record<RequestKind, number> = { ai: 0, expert: 0, bug: 0 };
+    // AI 이미지 요청 (보내는 순간 장당 토큰이 깎인다)
+    let images = 0;
     for (const p of pages) {
       for (const d of DEVICE_ORDER) {
         const s = p.screenshots[d];
@@ -387,12 +390,13 @@ export function ProjectEditor({
         if (!s || !list) continue;
         list.forEach((b, i) => {
           counts[b.kind] += 1;
+          if (b.kind === "ai" && isImageRequest(b.message.trim())) images += 1;
           const options = b.kind === "ai" && (b.styles !== undefined || b.templateId) ? { styles: b.styles ?? [], templateId: b.templateId ?? null } : undefined;
           items.push({ page_id: p.id, device: d, kind: b.kind, seq: i + 1, region: toRegion(b, s), message: b.message.trim(), version: shotVersion(s.url), ...(options ? { options } : {}) });
         });
       }
     }
-    return { items, counts };
+    return { items, counts, images };
   }, [drafts, pages]);
 
   const draftCountFor = (pid: string, d?: DeviceKind) =>
@@ -451,17 +455,22 @@ export function ProjectEditor({
   // AI 작업 중: 이 화면에 있는 보낸 네모의 라벨을 진행 상황으로 · 방금 반영한 곳.
   // 고치는 네모가 없으면 첫 대기 네모를 엔진이 확인하는 중이다
   const liveNextId = progress && !progress.done && !progress.items.some((i) => i.state === "working") ? progress.items.find((i) => i.state === "queued")?.id : undefined;
+  // 끝난 네모도 화면을 새로 읽기 전까지 지금 상태로 보여 준다 (담당자에게 넘김 · 질문 · 토큰 부족은 화면 버전이 바뀌지 않아 새로 읽지 않는다)
   const liveLabels: Record<string, LiveLabel> | undefined = progress
     ? Object.fromEntries(
         progress.items
-          .filter((i) => i.state === "working" || i.state === "queued")
+          .filter((i) => i.state !== "done")
           .map((i) => [
             i.id,
             i.state === "working"
               ? { text: i.kind === "bug" ? "AI 오류 확인 중" : "AI 고치는 중", tone: "active" as const }
-              : i.id === liveNextId
-                ? { text: "AI 확인 중", tone: "active" as const }
-                : { text: `대기 ${i.order}번째`, tone: "queued" as const },
+              : i.state === "handoff"
+                ? { text: "담당자 확인 중", tone: "queued" as const }
+                : i.state === "asked"
+                  ? { text: i.shortage ? "토큰 부족" : "확인 필요", tone: "queued" as const }
+                  : i.id === liveNextId
+                    ? { text: "AI 확인 중", tone: "active" as const }
+                    : { text: `대기 ${i.order}번째`, tone: "queued" as const },
           ]),
       )
     : undefined;
@@ -718,6 +727,7 @@ export function ProjectEditor({
           }}
           totalCount={all.items.length}
           counts={all.counts}
+          imageCount={all.images}
           quota={quota}
           hasPlan={hasPlan}
           submitting={submitting}

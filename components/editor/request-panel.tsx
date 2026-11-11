@@ -11,7 +11,7 @@ import { Alert, Badge } from "@/components/ui/card";
 import { Select, Textarea } from "@/components/ui/input";
 import type { StyleId } from "@/config/design-styles";
 import { APPROX_TOKENS_PER_IMAGE, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
-import { REQUEST_KIND_PROMISE, isImageRequest, requestStatus } from "@/config/requests";
+import { IMAGE_REQUEST_TOKENS, REQUEST_KIND_PROMISE, isImageRequest, requestStatus } from "@/config/requests";
 import type { QuotaInfo } from "@/lib/quota";
 import { SlotPhotos } from "@/components/photos/slot-photos";
 import { RATIO_SHAPE, RATIO_SIZE } from "@/lib/site-plan";
@@ -62,6 +62,7 @@ export function RequestPanel({
   onRemove,
   totalCount,
   counts,
+  imageCount = 0,
   quota,
   hasPlan,
   submitting,
@@ -92,6 +93,8 @@ export function RequestPanel({
   /** 모든 페이지·디바이스의 초안 합계 */
   totalCount: number;
   counts: Record<RequestKind, number>;
+  /** 보낼 AI 이미지 요청 수 (보내는 순간 장당 토큰이 깎인다) */
+  imageCount?: number;
   quota: QuotaInfo;
   hasPlan: boolean;
   submitting: boolean;
@@ -127,14 +130,17 @@ export function RequestPanel({
     refs.current[selectedId]?.focus({ preventScroll: true });
   }, [selectedId]);
 
-  // AI: 남은 토큰(한도 + 크레딧)이 0 이면 AI 요청 불가. 실제 차감은 처리 후 사용량 기준.
+  // AI: 남은 토큰(한도 + 크레딧)이 0 이면 AI 요청 불가. 차감은 네모마다 처리되는 순간 쓴 만큼.
   const aiLeft = quota.ai.remaining === null ? null : quota.ai.remaining + quota.ai.credits;
   const aiBlocked = counts.ai > 0 && aiLeft !== null && aiLeft <= 0;
+  // AI 이미지 요청은 보내는 순간 장당 토큰이 깎인다 → 남은 토큰보다 많으면 보낼 수 없다
+  const imageNeed = imageCount * IMAGE_REQUEST_TOKENS;
+  const imageShort = imageNeed > 0 && aiLeft !== null && imageNeed > aiLeft;
   // 전문가: 이번 달 한도 초과분은 횟수 크레딧에서 차감
   const overExpert = quota.expert.remaining === null ? 0 : Math.max(0, counts.expert - quota.expert.remaining);
   const shortExpert = Math.max(0, overExpert - quota.expert.credits);
   const missingMessage = drafts.some((d) => !d.message.trim());
-  const canSubmit = totalCount > 0 && !missingMessage && !aiBlocked && shortExpert === 0 && (hasPlan || demo);
+  const canSubmit = totalCount > 0 && !missingMessage && !aiBlocked && !imageShort && shortExpert === 0 && (hasPlan || demo);
 
   return (
     <aside className="flex flex-col border-t border-ink-200 bg-surface lg:h-full lg:border-t-0 lg:border-l">
@@ -341,6 +347,12 @@ export function RequestPanel({
 
       <div className="border-t border-ink-100 px-4 py-3">
         <TokenLine q={quota.ai} pending={counts.ai} />
+        {imageNeed > 0 ? (
+          <p className={cn("mt-1 text-[11px]", imageShort ? "text-mark" : "text-ink-500")}>
+            AI 이미지 {imageCount}장 · 토큰 {formatTokens(imageNeed)}은 보내는 순간 깎여요
+            {imageShort ? ` — 모자라요 (남은 토큰 ${formatTokens(Math.max(0, aiLeft ?? 0))})` : ""}
+          </p>
+        ) : null}
         <div className="mt-1.5 flex items-center justify-between text-xs">
           <span className="text-ink-500">{REQUEST_KIND_LABEL.expert}</span>
           <span className="tabular-nums">

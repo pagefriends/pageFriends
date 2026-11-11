@@ -1,12 +1,13 @@
 import "server-only";
 
 import { AI_STALE_MINUTES } from "@/config/ai";
-import { DEVICE_LABEL, type DeviceKind } from "@/config/plans";
+import { DEVICE_LABEL, type DeviceKind, type WorkSize } from "@/config/plans";
 import { isImageRequest } from "@/config/requests";
 import { queueOrder, reapStaleRuns } from "@/lib/ai/engine";
 import { plannedOf, regionContext, renderPage, sectionLabel } from "@/lib/ai/layout";
 import { describeChange, designOf, fieldDef, type AppliedChange, type DesignDoc } from "@/lib/design-doc";
 import type { DraftResult } from "@/lib/draft-render";
+import { planOfUser, tokenBalance, type TokenBalance } from "@/lib/quota";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { createClient } from "@/lib/supabase/server";
 import type { ProjectBrief, Region } from "@/lib/types/db";
@@ -49,6 +50,12 @@ export type LiveItem = {
   startedAt: string | null;
   finishedAt: string | null;
   versionAfter: number | null;
+  /** 이 요청에서 지금까지 깎인 토큰 (AI 가 쓴 만큼 + 담당자 작업) */
+  tokens: number;
+  /** 담당자에게 넘기며 깎은 일 크기 */
+  work: { size: WorkSize; tokens: number } | null;
+  /** 남은 토큰이 모자라 담당자에게 넘기지 못함 (크레딧을 사고 답글을 달면 이어서) */
+  shortage: { size: WorkSize; tokens: number; left: number } | null;
 };
 
 export type BatchProgress = {
@@ -56,9 +63,14 @@ export type BatchProgress = {
   /** 지금 디자인 버전 (편집기 화면이 이보다 낮으면 새로 읽는다) */
   version: number;
   items: LiveItem[];
-  /** 같은 묶음의 사람 몫 (전문가 요청) · AI 이미지 생성 요청 수 */
+  /** 같은 묶음의 사람 몫 (전문가 요청) · AI 이미지 생성 요청 수 · 이미지 요청에서 깎인 토큰 */
   people: number;
   images: number;
+  imageTokens: number;
+  /** 이 묶음에서 지금까지 깎인 토큰 (AI 반영 · 이미지 요청) */
+  charged: number;
+  /** 사이트 주인의 남은 토큰 (매번 새로 읽는다 — 네모 하나가 끝날 때마다 바로 줄어든다) */
+  balance: TokenBalance | null;
   done: boolean;
   /** 서버 시각 (경과 시간 계산) */
   now: string;
@@ -77,23 +89,31 @@ type RequestRow = {
   message: string;
   region: Region;
   resolution_note: string | null;
+  tokens_used: number;
   created_at: string;
 };
 
 type RunRow = {
   request_id: string;
   status: string;
-  output: { live?: { stage?: LiveStage; summary?: string }; summary?: string; question?: string } | null;
+  output: {
+    live?: { stage?: LiveStage; summary?: string };
+    summary?: string;
+    question?: string;
+    work?: { size: WorkSize; tokens: number };
+    shortage?: { size: WorkSize; tokens: number; left: number };
+  } | null;
   applied: { changes?: AppliedChange[] } | null;
   design_version_after: number | null;
   created_at: string;
   finished_at: string | null;
 };
 
-/** 사용자 화면에서 뺄 담당자 안내 꼬리 ("담당자가 이어서 처리할게요 (24~72시간 …)") */
+/** 사용자 화면에서 뺄 담당자 안내 꼬리 ("담당자가 이어서 처리할게요 (24~72시간 …)") · 토큰 안내 (진행 화면은 따로 보여 준다) */
 const tail = (s: string | null | undefined) =>
   (s ?? "")
     .replace(/\s*담당자가 이어서 처리할게요[\s\S]*$/, "")
+    .replace(/\s*담당자가 맡을 일이에요 \([^)]*\)\.?/, "")
     .replace(/^AI가 확인하고 싶은 게 있어요:\s*/, "")
     .replace(/\n답글을 남겨 주시면[\s\S]*$/, "")
     .trim() || null;
@@ -129,10 +149,10 @@ function targetOf(region: Region, layout: DraftResult | null): string | null {
  */
 export async function loadBatchProgress(supabase: Supabase, projectId: string, batchId: string): Promise<BatchProgress | null> {
   const [{ data: project }, { data: reqData }, { data: pageData }] = await Promise.all([
-    supabase.from("projects").select("brief").eq("id", projectId).maybeSingle(),
+    supabase.from("projects").select("brief, user_id").eq("id", projectId).maybeSingle(),
     supabase
       .from("change_requests")
-      .select("id, page_id, device, kind, seq, status, awaiting_user, message, region, resolution_note, created_at")
+      .select("id, page_id, device, kind, seq, status, awaiting_user, message, region, resolution_note, tokens_used, created_at")
       .eq("project_id", projectId)
       .eq("batch_id", batchId)
       .limit(200),
@@ -152,6 +172,13 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
 
   const admin = createAdminClient();
   const latest = new Map<string, RunRow>();
+  const ownerId = (project as { user_id?: string }).user_id;
+  // 남은 토큰은 사이트 주인 것 (관리자가 열어 봐도). 실패해도 진행 화면은 보여 준다
+  const balanceTask = ownerId
+    ? planOfUser(admin, ownerId)
+        .then((plan) => tokenBalance(admin, ownerId, plan))
+        .catch(() => null)
+    : Promise.resolve(null);
   if (ai.length) {
     const { data: runData } = await admin
       .from("ai_runs")
@@ -184,6 +211,9 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
       versionAfter: run?.design_version_after ?? null,
       changes: [] as string[],
       note: null as string | null,
+      tokens: Number(r.tokens_used ?? 0),
+      work: run?.status === "handoff" ? (run.output?.work ?? null) : null,
+      shortage: null as LiveItem["shortage"],
     };
     if (run?.status === "running") {
       if (now - new Date(run.created_at).getTime() > AI_STALE_MINUTES * 60_000) stale = true;
@@ -195,6 +225,9 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
       return { ...base, state: "done", stage: null, summary: run?.output?.summary ?? tail(r.resolution_note), changes };
     }
     if (r.status === "pending" && r.awaiting_user) {
+      // 토큰이 모자라 담당자에게 넘기지 못한 것도 사용자 답(크레딧을 산 뒤 답글)을 기다린다
+      const shortage = run?.status === "asked" ? (run.output?.shortage ?? null) : null;
+      if (shortage) return { ...base, state: "asked", stage: null, summary: run?.output?.summary?.trim() || null, note: null, shortage };
       return { ...base, state: "asked", stage: null, summary: null, note: run?.output?.question?.trim() || tail(r.resolution_note) };
     }
     if (r.status === "processing" || r.status === "rejected") {
@@ -207,12 +240,16 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
   // 멈춘 처리(서버 재시작 등)는 정리해 두면 다음 확인 때 "담당자에게" 로 보인다
   if (stale) await reapStaleRuns(admin).catch(() => 0);
 
+  const imageRows = rows.filter((r) => r.kind === "ai" && isImageRequest(r.message));
   return {
     batchId,
     version: design.version,
     items,
     people: rows.filter((r) => r.kind === "expert").length,
-    images: rows.filter((r) => r.kind === "ai" && isImageRequest(r.message)).length,
+    images: imageRows.length,
+    imageTokens: imageRows.reduce((n, r) => n + Number(r.tokens_used ?? 0), 0),
+    charged: rows.filter((r) => r.kind === "ai").reduce((n, r) => n + Number(r.tokens_used ?? 0), 0),
+    balance: await balanceTask,
     done: items.every((i) => i.state !== "queued" && i.state !== "working"),
     now: new Date(now).toISOString(),
   };

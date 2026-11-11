@@ -237,7 +237,7 @@ export async function createProjectAction(_prev: CreateProjectState, formData: F
     const items = imageRequestItems(site, result.pages, device);
     if (items.length > 0) {
       const supabase = await createClient();
-      const { error } = await submitChangeRequests(supabase, result.id, items, plan);
+      const { error } = await submitChangeRequests(supabase, user.id, result.id, items, plan);
       imagesFailed = Boolean(error);
     }
   }

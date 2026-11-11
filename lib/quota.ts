@@ -1,8 +1,40 @@
 import "server-only";
 
-import type { Plan } from "@/config/plans";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { getPlan, type Plan, type PlanCode } from "@/config/plans";
+import { effectiveSubscription } from "@/lib/subscriptions";
 import { createClient } from "@/lib/supabase/server";
-import type { CreditRow } from "@/lib/types/db";
+import type { CreditRow, SubscriptionRow } from "@/lib/types/db";
+
+/**
+ * 남은 토큰 한눈에: 이번 달 한도 · 쓴 토큰 · 토큰 크레딧 · 남은 토큰(무제한 플랜이면 null).
+ * 남은 토큰 = 한도에서 남은 것(0 아래로는 내려가지 않는다) + 크레딧. 한도를 넘은 사용은 record_ai_usage 가 그때그때 크레딧에서 이미 뺐으므로
+ * "한도 - 사용 + 크레딧" 으로 계산하면 넘은 만큼을 두 번 빼게 된다.
+ */
+export type TokenBalance = { monthly: number | null; used: number; credits: number; left: number | null };
+
+/** 그 사용자가 지금 쓸 수 있는 플랜 (결제 상태까지 본다). db = service role 또는 본인 세션 */
+export async function planOfUser(db: SupabaseClient, userId: string): Promise<Plan | null> {
+  const { data } = await db.from("subscriptions").select("*").eq("user_id", userId).maybeSingle();
+  const sub = (data as SubscriptionRow | null) ?? null;
+  return effectiveSubscription(sub).usable ? getPlan(sub?.plan_code as PlanCode | undefined) : null;
+}
+
+/**
+ * 남은 토큰. AI 엔진(담당자에게 넘기기 전 확인) · 편집기 "AI 작업 중" 화면(바로 줄어드는 토큰)이 쓴다.
+ * db = service role 또는 본인 세션 (ai_token_usage 가 본인 · 관리자 · service role 만 허락한다). 플랜이 없으면 한도 0.
+ */
+export async function tokenBalance(db: SupabaseClient, userId: string, plan: Plan | null): Promise<TokenBalance> {
+  const [{ data: usage }, { data: credit }] = await Promise.all([
+    db.rpc("ai_token_usage", { p_user_id: userId }),
+    db.from("credits").select("balance").eq("user_id", userId).eq("kind", "ai").maybeSingle(),
+  ]);
+  const used = Number((usage as { used: number | string }[] | null)?.[0]?.used ?? 0);
+  const credits = Number((credit as { balance: number } | null)?.balance ?? 0);
+  const monthly = plan ? plan.monthlyAiTokens : 0;
+  return { monthly, used, credits, left: monthly === null ? null : Math.max(0, monthly - used) + credits };
+}
 
 /**
  * 사용량 요약. 편집기 오른쪽 패널과 결제 페이지가 쓴다.

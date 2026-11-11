@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { getPlan } from "@/config/plans";
+import { formatTokens, getPlan } from "@/config/plans";
 import { PROJECT_STATUS } from "@/config/requests";
 import { getSubscription, requireAdmin } from "@/lib/auth/session";
 import { isMissingSchema } from "@/lib/messages";
+import { refundRejectedRequests } from "@/lib/request-tokens";
 import { josa } from "@/lib/site-plan";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/lib/types/db";
@@ -17,10 +18,10 @@ const statusSchema = z.enum(["pending", "processing", "done", "rejected"]);
 export type AdminActionState = { ok?: boolean; error?: string; message?: string } | null;
 
 /**
- * 요청 1건: 상태 변경 + 사용자에게 보낼 글 + "확인 필요" 표시 (+ AI 반영이면 사용 토큰 기록).
+ * 요청 1건: 상태 변경 + 사용자에게 보낼 글 + "확인 필요" 표시 (+ AI 반영이면 사용 토큰 고치기).
  * 글과 상태 변경은 그 요청의 대화에 쌓이고 사용자에게 알림으로 보인다 (DB 함수 admin_reply_request).
- * 사용 토큰은 record_ai_usage RPC 가 소유자 플랜 한도와 비교해 초과분을 토큰 크레딧에서 차감한다.
- * AI 파이프라인이 붙으면 같은 RPC 를 service role 로 호출하면 된다.
+ * 토큰은 AI 엔진 · 이미지 요청이 그 자리에서 바로 기록한다. 여기서는 예외로 고칠 때만 record_ai_usage 로 바꾸고
+ * (소유자 플랜 한도와 비교해 초과분을 토큰 크레딧에서 차감), "반영 불가" 로 저장하면 그 요청에서 깎은 토큰을 모두 돌려준다.
  */
 export async function updateRequestAction(_prev: AdminActionState, formData: FormData): Promise<AdminActionState> {
   await requireAdmin();
@@ -68,7 +69,12 @@ export async function updateRequestAction(_prev: AdminActionState, formData: For
   }
 
   let tokenMessage = "";
-  if (parsed.data.tokensUsed !== null) {
+  if (parsed.data.status === "rejected") {
+    // 해 드리지 못한 요청: 깎은 토큰을 모두 돌려준다 (입력한 사용 토큰은 쓰지 않는다)
+    const refund = await refundRejectedRequests(supabase, [parsed.data.requestId]);
+    if (refund.failed) return { error: "상태는 저장했지만 토큰을 돌려주지 못했습니다. 다시 저장해 주세요." };
+    if (refund.refunded) tokenMessage = ` 깎았던 토큰을 돌려줬습니다 (${formatTokens(refund.tokens)}).`;
+  } else if (parsed.data.tokensUsed !== null) {
     const { data: req } = await supabase.from("change_requests").select("kind, tokens_used, project:projects(user_id)").eq("id", parsed.data.requestId).maybeSingle();
     const r = req as unknown as { kind: string; tokens_used: number; project: { user_id: string } | null } | null;
     if (r?.kind === "ai" && r.project && r.tokens_used !== parsed.data.tokensUsed) {
@@ -133,10 +139,18 @@ export async function updateBatchAction(batchId: string, status: string): Promis
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_update_batch", { p_batch_id: batchId, p_status: s.data });
   if (error) return { error: error.message };
+  let tokenMessage = "";
+  if (s.data === "rejected") {
+    // 묶음 전체를 반영 불가로: AI 반영 요청마다 깎은 토큰을 돌려준다
+    const { data: ids } = await supabase.from("change_requests").select("id").eq("batch_id", batchId).eq("kind", "ai").gt("tokens_used", 0);
+    const refund = await refundRejectedRequests(supabase, ((ids as { id: string }[] | null) ?? []).map((r) => r.id));
+    if (refund.refunded) tokenMessage = ` ${refund.refunded}건의 토큰을 돌려줬습니다 (${formatTokens(refund.tokens)}).`;
+    if (refund.failed) tokenMessage += ` ${refund.failed}건은 토큰을 돌려주지 못했습니다 (다시 눌러 주세요).`;
+  }
   const { data: one } = await supabase.from("change_requests").select("project_id").eq("batch_id", batchId).limit(1).maybeSingle();
   if (one?.project_id) await syncProjectAfterRequests(supabase, one.project_id as string);
   revalidatePath("/admin");
-  return { ok: true, message: `${data as number}건을 변경했습니다.` };
+  return { ok: true, message: `${data as number}건을 변경했습니다.${tokenMessage}` };
 }
 
 /**

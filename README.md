@@ -23,7 +23,7 @@ Supabase 없이도 볼 수 있는 화면: `/` 메인, `/pricing` 요금제, `/de
 ## 2. Supabase 설정
 
 1. 프로젝트 생성 → Settings > API 에서 URL, anon key, service_role key 를 `.env.local` 에 넣는다.
-2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` → `0005_inquiries.sql` → `0006_messages.sql` → `0007_releases.sql` → `0008_ai.sql` → `0009_billing_cycle.sql` → `0010_bug_ai.sql` → `0011_site_db.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
+2. SQL Editor 에서 `supabase/migrations/0001_init.sql` → `0002_admin.sql` → `0003_subscription_lifecycle.sql` → `0004_tokens_sites.sql` → `0005_inquiries.sql` → `0006_messages.sql` → `0007_releases.sql` → `0008_ai.sql` → `0009_billing_cycle.sql` → `0010_bug_ai.sql` → `0011_site_db.sql` → `0012_token_guard.sql` 순서로 실행 → 이어서 `supabase/seed.sql` 실행(템플릿 10개).
 3. Authentication > Providers
    - Email: 켜기. 로컬 테스트는 "Confirm email" 을 꺼야 가입 즉시 로그인된다.
    - Google: Client ID/Secret 입력. Google Cloud 콘솔의 승인된 리디렉션 URI 에 `https://<ref>.supabase.co/auth/v1/callback` 추가.
@@ -108,13 +108,22 @@ scripts/gen-samples.mjs 샘플 캡처 SVG 생성 (public/samples, config/samples
 - 연간 결제 중도 해지 환불(약관): 결제 금액 − 이용한 개월 수 × 월간 요금. 지금은 담당자가 포트원 관리 화면에서 직접 부분 취소한다.
 - 0009 전 DB 에서도 월간은 그대로 동작한다 (`activate_subscription` · `submit_change_requests` 를 예전 인자로 다시 부름). 연간 · 예약 변경은 0009 이후.
 
-## 사용량 모델 (0004_tokens_sites.sql → 0009)
+## 사용량 모델 (0004_tokens_sites.sql → 0009 → 0012)
 
 - **사이트 수**: 플랜별 동시 보유 사이트 수 (스타터 1 · 비즈니스 2 · 프로 5, `Plan.maxSites`). `createProjectAction` 이 검사하고 대시보드가 남은 슬롯을 보여준다.
 - **사용 기간** (`usage_window(user_id)`, 0009): 결제 기간 시작일부터 한 달씩 센 "지금이 속한 달". 월간이면 결제 기간과 같고, 연간이면 1년 안에서 매달 다시 채워진다.
-- **AI 반영 = 토큰**: 플랜별 월 토큰 한도 (`Plan.monthlyAiTokens`, 사용 기간 기준). 제출 시점에는 남은 토큰(한도 − 사용 + 크레딧)이 0 이면 막기만 하고,
-  처리 시점에 `record_ai_usage(request_id, tokens, monthly_limit)` 로 실제 사용 토큰을 기록하면서 한도 초과분을 토큰 크레딧에서 차감한다.
-  지금은 관리자 요청 상세의 "사용 토큰" 칸으로 기록하고, AI 파이프라인이 붙으면 같은 RPC 를 service role 로 호출한다. 사용량 조회는 `ai_token_usage(user_id)`.
+- **AI 반영 = 토큰, 쓴 만큼 바로 차감** (2026-11-11): 플랜별 월 토큰 한도 (`Plan.monthlyAiTokens`, 사용 기간 기준). 제출 시점에는 남은 토큰(한도 − 사용 + 크레딧)이 0 이면 막고,
+  요청마다 그 자리에서 `record_ai_usage(request_id, 누적 토큰, monthly_limit)` 로 기록하면서 한도 초과분을 토큰 크레딧에서 차감한다 (`change_requests.tokens_used` = 그 요청의 누적).
+  - AI 가 반영 · 질문하면: 실제 쓴 토큰 (`billableTokens`, 실행마다 `ai_runs.tokens_billed`).
+  - AI 가 맡지 못해 담당자에게 넘기면: AI 가 고른 일 크기만큼 (`EditOutput.workSize` → `WORK_TOKENS` 작은 일 5만 · 보통 10만 · 큰 일 20만). 남은 토큰이 모자라면
+    깎지도 넘기지도 않고 "토큰 부족" 으로 알린다 (`ai_runs.output.shortage`, 크레딧을 사고 답글을 달면 AI 가 다시 보고 넘긴다). 관리자의 "AI로 다시 처리" 는 새로 받지 않는다.
+    AI 를 부르지 못했거나 실패해서(키 · 하루 상한 · 오류 · 시간 초과) 넘기는 것은 우리 쪽 사정이라 깎지 않는다.
+  - AI 이미지 요청: 보내는 순간 장당 `APPROX_TOKENS_PER_IMAGE`(2만) (`lib/submit-requests.ts`, 남은 토큰보다 많으면 받지 않는다).
+  - 담당자가 **반영 불가** 로 처리하면(요청 1건 · 묶음 전체) 그 요청에서 깎은 토큰을 모두 돌려주고 대화에 남긴다 (`lib/request-tokens.ts`).
+  - 관리자 요청 상세의 "사용 토큰" 칸은 예외로 고칠 때만 쓴다. 편집기 "AI 작업 중" 화면이 네모마다 깎인 토큰과 남은 토큰을 1초마다 보여 준다.
+  - 사용량 조회는 `ai_token_usage(user_id)`, 남은 토큰 계산은 `lib/quota.ts` `tokenBalance`.
+- **0012**: `submit_change_requests` 를 service role 만 부를 수 있게 했다 (예전에는 로그인한 사용자가 한도 인자에 null 을 넣어 직접 부르면 한도를 건너뛸 수 있었다).
+  서버가 로그인 · 플랜을 확인하고 `p_user_id` 와 한도를 넘긴다. 0012 전 DB 에서는 예전 인자로 부른다.
 - **전문가 요청 = 월 횟수** (`Plan.monthlyExpert`: 1 · 2 · 4, 사용 기간 기준 `request_usage(user_id)`). 초과분은 횟수 크레딧에서 제출 시 차감.
 - **오류 신고 (`kind = 'bug'`)**: 무료. 한도·크레딧·토큰 어디에서도 차감하지 않는다.
 - 크레딧 팩: AI 는 토큰(1만 토큰 180원 · 10만 토큰 1,400원), 전문가는 횟수(1회 8,900원 · 10회 64,900원). `credits.kind='ai'` 의 balance 는 토큰 수.

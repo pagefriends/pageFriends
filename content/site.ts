@@ -8,7 +8,7 @@
  * - 숫자는 서비스 사실(3~7일, 3개 플랜, 19,800원부터 등)만 쓴다. 고객 수·매출 같은 지어낸 실적 수치는 넣지 않는다. 가격은 config/plans.ts 에서 읽는다.
  */
 import placeholders from "@/config/placeholders.json";
-import { DELIVERY_DAYS, PAYMENT_SETUP_FEE_KRW, PLANS, formatKrw } from "@/config/plans";
+import { APPROX_TOKENS_PER_IMAGE, DELIVERY_DAYS, PAYMENT_SETUP_FEE_KRW, PLANS, WORK_TOKENS, formatKrw, formatTokens } from "@/config/plans";
 
 export type Img = { src: string; width: number; height: number };
 const P = placeholders as Record<"wide" | "photo" | "square" | "tall" | "banner" | "avatar" | "logo", Img[]>;
@@ -527,7 +527,10 @@ export const HELP_FAQ: { group: string; items: { q: string; a: string }[] }[] = 
   {
     group: "수정 요청",
     items: [
-      { q: "AI 반영과 전문가 요청의 차이는?", a: "문구 · 색 · 간격처럼 바로 고칠 수 있는 것은 AI 반영(토큰 차감), 사진 교체 · 구조 변경처럼 사람이 필요한 것은 전문가 요청(월 횟수)입니다." },
+      {
+        q: "AI 반영과 전문가 요청의 차이는?",
+        a: "문구 · 색 · 간격처럼 바로 고칠 수 있는 것은 AI 반영(쓴 만큼 토큰 차감), 사진 교체 · 구조 변경처럼 사람이 필요한 것은 전문가 요청(월 횟수)입니다. AI 반영으로 보냈는데 AI가 할 수 없는 일이면 담당자가 이어서 맡고, 일 크기만큼 토큰이 차감됩니다.",
+      },
       { q: "오류 신고는 무엇인가요?", a: "우리 쪽 실수로 생긴 오류를 알리는 요청입니다. 토큰 · 횟수 어디에서도 차감하지 않습니다." },
       { q: "네모 여러 개를 한 번에 보낼 수 있나요?", a: "네. 페이지 · 디바이스에 상관없이 그린 네모를 '요청하기' 로 한 묶음으로 보냅니다." },
       { q: "담당자의 답변에 다시 답할 수 있나요?", a: "네. 요청 내역에서 요청마다 답글을 달 수 있습니다. 답글은 토큰이나 횟수를 쓰지 않습니다. 담당자가 질문을 남기면 '확인 필요' 로 표시되고, 답글을 보내면 작업이 이어집니다." },
@@ -538,7 +541,10 @@ export const HELP_FAQ: { group: string; items: { q: string; a: string }[] }[] = 
   {
     group: "요금 · 결제",
     items: [
-      { q: "토큰은 어떻게 차감되나요?", a: "요청이 처리될 때 실제 사용량만큼 차감되고, 결제일부터 한 달마다 다시 채워집니다 (연간 결제도 매달). 한도를 넘으면 토큰 크레딧에서 차감됩니다." },
+      {
+        q: "토큰은 어떻게 차감되나요?",
+        a: `요청마다 쓴 만큼 그 자리에서 바로 차감됩니다. AI가 처리하면 실제 사용량만큼, AI가 할 수 없어 담당자가 맡으면 일 크기만큼(작은 일 ${formatTokens(WORK_TOKENS.small)} · 보통 ${formatTokens(WORK_TOKENS.medium)} · 큰 일 ${formatTokens(WORK_TOKENS.large)}), AI 이미지는 요청할 때 1장에 ${formatTokens(APPROX_TOKENS_PER_IMAGE)}입니다. 반영할 수 없는 요청은 차감한 토큰을 돌려드립니다. 토큰은 결제일부터 한 달마다 다시 채워지고(연간 결제도 매달), 한도를 넘으면 토큰 크레딧에서 차감됩니다.`,
+      },
       { q: "월간과 연간 결제는 무엇이 다른가요?", a: "연간 결제는 월 요금의 10배라 두 달 치를 아낍니다. 한도는 똑같이 매달 채워지고, 사람이 처음부터 만드는 '전문가에게 맡기기' 첫 제작이 들어 있습니다." },
       { q: "해지하면 어떻게 되나요?", a: "현재 결제 기간이 끝날 때까지 이용하고 그 뒤로 결제되지 않습니다. 기간 안에는 해지를 취소할 수 있습니다. 연간 결제를 중간에 해지하고 환불을 원하면, 쓴 달 수만큼 월간 요금으로 계산해 뺀 나머지를 돌려드립니다." },
       { q: "결제 수단은?", a: "포트원(토스페이먼츠) 카드 자동 결제입니다. 카드 정보는 저장되지 않습니다." },

@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowRightIcon, CheckIcon, CircleHelpIcon, LoaderCircleIcon, SparklesIcon, TriangleAlertIcon, UserRoundIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon, CircleHelpIcon, CoinsIcon, LoaderCircleIcon, SparklesIcon, TriangleAlertIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { BUG_HOURS, EXPERT_HOURS } from "@/config/plans";
+import { BUG_HOURS, EXPERT_HOURS, WORK_SIZE_LABEL, formatTokens } from "@/config/plans";
 import type { BatchProgress, LiveItem, LiveStage } from "@/lib/ai/progress";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
  * 네모마다: 순서 · 어디(페이지 · 화면 · 네모 번호) · 가리키는 곳 · 요청 글 · 상태
  * 고치는 중이면 단계(확인 → 고칠 방법 정하기 → 바꿀 내용 쓰기 → 새 화면 그리기)와 걸린 시간, AI 가 쓰는 설명을 바로 보여 주고,
  * 끝나면 실제로 바뀐 것(전 → 후)을 남긴다. 질문 · 담당자에게 넘김은 이유와 함께.
+ * 토큰은 네모 하나가 끝날 때마다 바로 깎이므로, 네모마다 깎인 토큰과 위쪽의 "남은 토큰" 이 그때그때 바뀐다.
  */
 
 /** 단계 이름 (AI 반영 / 오류 확인) */
@@ -69,9 +70,24 @@ export function AiLivePanel({
   const count = {
     applied: items.filter((i) => i.kind === "ai" && i.state === "done").length,
     fixed: items.filter((i) => i.kind === "bug" && i.state === "done").length,
-    asked: items.filter((i) => i.state === "asked").length,
+    asked: items.filter((i) => i.state === "asked" && !i.shortage).length,
+    shortage: items.filter((i) => i.shortage).length,
     handoff: items.filter((i) => i.state === "handoff").length,
   };
+
+  // 토큰이 깎이면 잠깐 눈에 띄게 (네모 하나가 끝날 때마다)
+  const charged = progress?.charged ?? 0;
+  const lastCharged = useRef<number | null>(null);
+  const [bump, setBump] = useState(false);
+  useEffect(() => {
+    const before = lastCharged.current;
+    lastCharged.current = charged;
+    if (before === null || charged <= before) return;
+    setBump(true);
+    const t = window.setTimeout(() => setBump(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [charged]);
+  const balance = progress?.balance ?? null;
 
   return (
     <div className="flex h-full flex-col border-t border-ink-200 bg-surface lg:border-t-0 lg:border-l">
@@ -98,11 +114,30 @@ export function AiLivePanel({
                   count.fixed ? `오류 고침 ${count.fixed}건` : null,
                   count.asked ? `질문 ${count.asked}건` : null,
                   count.handoff ? `담당자에게 ${count.handoff}건` : null,
+                  count.shortage ? `토큰이 모자라 멈춘 요청 ${count.shortage}건` : null,
                 ]
                   .filter(Boolean)
                   .join(" · ") + ". 바뀐 화면은 왼쪽에서 바로 볼 수 있어요. 결과가 이상하면 '이상해요'를 눌러 오류 신고해 주세요."
               : `요청 ${items.length}개를 확인했어요. 하나씩 순서대로 처리하고, 끝날 때마다 화면이 바로 바뀌어요. 그동안은 새 네모를 그릴 수 없어요.`}
         </p>
+        {progress ? (
+          <div
+            className={cn(
+              "mt-2 flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors duration-500",
+              bump ? "bg-red-50 text-mark" : "bg-surface text-ink-900",
+            )}
+            aria-live="polite"
+          >
+            <span className="inline-flex items-center gap-1">
+              <CoinsIcon className="size-3.5 shrink-0" />이번 요청에 쓴 토큰 <b className="tabular-nums">{formatTokens(charged)}</b>
+            </span>
+            {balance ? (
+              <span className="tabular-nums whitespace-nowrap">
+                남은 토큰 <b>{balance.left === null ? "무제한" : formatTokens(Math.max(0, balance.left))}</b>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* 네모별 진행 */}
@@ -156,7 +191,7 @@ export function AiLivePanel({
                       ))}
                     </ul>
                   ) : null}
-                  {it.state === "asked" ? (
+                  {it.state === "asked" && !it.shortage ? (
                     <p className="mt-2 flex gap-1.5 text-[12px] leading-relaxed text-ink-800">
                       <CircleHelpIcon className="mt-0.5 size-3.5 shrink-0 text-brand-700" />
                       <span>{it.note ?? "AI가 확인하고 싶은 게 있어요."}</span>
@@ -168,10 +203,29 @@ export function AiLivePanel({
                       <span>{it.note ?? "담당자가 이어서 처리해요."}</span>
                     </p>
                   ) : null}
+                  {it.shortage ? (
+                    <div className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-[12px] leading-relaxed text-ink-800">
+                      {it.summary ? <p className="mb-1">{it.summary}</p> : null}
+                      <p>
+                        담당자가 맡을 일({WORK_SIZE_LABEL[it.shortage.size]})이라 토큰이 더 필요해요. 필요 <b>{formatTokens(it.shortage.tokens)}</b> · 남은 토큰{" "}
+                        <b>{formatTokens(it.shortage.left)}</b>. 아직 깎지 않았어요.
+                      </p>
+                    </div>
+                  ) : null}
+                  <TokenNote item={it} />
                 </div>
               </div>
             </button>
-            {it.state === "asked" ? (
+            {it.shortage ? (
+              <div className="mt-1 ml-7 flex flex-wrap gap-x-3 gap-y-1">
+                <Link href="/billing#credits" className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:underline">
+                  토큰 크레딧 사기 <ArrowRightIcon className="size-3" />
+                </Link>
+                <Link href={`/projects/${projectId}/requests`} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:underline">
+                  산 뒤 답글로 이어서 하기 <ArrowRightIcon className="size-3" />
+                </Link>
+              </div>
+            ) : it.state === "asked" ? (
               <Link href={`/projects/${projectId}/requests`} className="mt-1 ml-7 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:underline">
                 답하러 가기 <ArrowRightIcon className="size-3" />
               </Link>
@@ -197,7 +251,9 @@ export function AiLivePanel({
           <p className="mb-2 text-[11px] leading-relaxed text-ink-500">
             {[
               progress.people > 0 ? `함께 보낸 전문가 요청 ${progress.people}건은 담당자가 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 답해요.` : null,
-              progress.images > 0 ? `AI 이미지 요청 ${progress.images}건은 따로 처리돼요.` : null,
+              progress.images > 0
+                ? `AI 이미지 요청 ${progress.images}건은 따로 처리돼요${progress.imageTokens > 0 ? ` (요청할 때 토큰 ${formatTokens(progress.imageTokens)} 사용)` : ""}.`
+                : null,
             ]
               .filter(Boolean)
               .join(" ")}
@@ -217,6 +273,26 @@ export function AiLivePanel({
   );
 }
 
+/**
+ * 네모마다 깎인 토큰. AI 가 처리하면 쓴 만큼, 담당자에게 넘어가면 일 크기만큼 — 끝나는 순간 바로 깎인다.
+ * 오류 신고는 무료, AI 가 처리하지 못해(우리 쪽 사정) 넘긴 것은 깎지 않는다.
+ */
+function TokenNote({ item }: { item: LiveItem }) {
+  if (item.state === "queued" || item.state === "working" || item.shortage) return null;
+  let text: string;
+  if (item.kind === "bug") text = "무료 · 토큰 차감 없음";
+  else if (item.state === "handoff" && item.work) text = `담당자 작업 · ${WORK_SIZE_LABEL[item.work.size]} · 토큰 −${formatTokens(item.tokens)}`;
+  else if (item.tokens > 0) text = `토큰 −${formatTokens(item.tokens)}${item.state === "asked" ? " (질문하느라 쓴 만큼)" : ""}`;
+  else if (item.state === "handoff") text = "토큰 차감 없음";
+  else return null;
+  return (
+    <p className={cn("mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium tabular-nums", item.tokens > 0 ? "text-ink-700" : "text-ink-400")}>
+      <CoinsIcon className="size-3 shrink-0" />
+      {text}
+    </p>
+  );
+}
+
 function elapsedOf(it: LiveItem, serverNow: number): number | null {
   if (!it.startedAt) return null;
   const end = it.finishedAt ? Date.parse(it.finishedAt) : it.state === "working" ? serverNow : null;
@@ -230,7 +306,7 @@ function StateChip({ item, isNext, elapsed }: { item: LiveItem; isNext: boolean;
     queued: isNext ? { text: "확인 중", cls: "bg-sky-100 text-sky-800" } : { text: "대기", cls: "bg-ink-100 text-ink-600" },
     working: { text: `${bug ? "확인하는 중" : "고치는 중"}${time}`, cls: "bg-sky-500 text-white" },
     done: { text: `${bug ? "고침 완료" : "반영 완료"}${time}`, cls: "bg-brand-600 text-white" },
-    asked: { text: "질문 남김", cls: "bg-brand-100 text-brand-800" },
+    asked: item.shortage ? { text: "토큰 부족", cls: "bg-red-100 text-mark" } : { text: "질문 남김", cls: "bg-brand-100 text-brand-800" },
     handoff: { text: bug ? `담당자에게 · ${BUG_HOURS}시간 안에` : "담당자에게", cls: "bg-ink-200 text-ink-700" },
   };
   const s = map[item.state];

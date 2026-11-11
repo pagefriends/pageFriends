@@ -14,7 +14,18 @@ import {
   PROMPT_VERSION,
 } from "@/config/ai";
 import { normalizeStyles, styleLabels } from "@/config/design-styles";
-import { BUG_HOURS, DEVICE_LABEL, EXPERT_HOURS, getPlan, type DeviceKind, type Plan, type PlanCode } from "@/config/plans";
+import {
+  BUG_HOURS,
+  DEVICE_LABEL,
+  EXPERT_HOURS,
+  WORK_SIZE_LABEL,
+  WORK_SIZES,
+  WORK_TOKENS,
+  formatTokens,
+  type DeviceKind,
+  type Plan,
+  type WorkSize,
+} from "@/config/plans";
 import { isImageRequest } from "@/config/requests";
 import { SITE_DB_AI_WAIT_MS } from "@/config/site-db";
 import { templateDesign } from "@/config/template-designs";
@@ -38,9 +49,9 @@ import {
 import { getServerEnv } from "@/lib/env";
 import { isMissingSchema } from "@/lib/messages";
 import { getSiteDatabase, syncSiteSchema } from "@/lib/site-db/provision";
-import { effectiveSubscription } from "@/lib/subscriptions";
+import { planOfUser, tokenBalance } from "@/lib/quota";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ProjectBrief, Region, RequestOptions, SubscriptionRow } from "@/lib/types/db";
+import type { ProjectBrief, Region, RequestOptions } from "@/lib/types/db";
 import { formatDateTime } from "@/lib/utils";
 
 /**
@@ -48,8 +59,9 @@ import { formatDateTime } from "@/lib/utils";
  *
  * 첫 제작   위저드에서 "AI로 바로 만들기" → 응답 뒤 백그라운드(after)로 startSiteBuild. 토큰은 차감하지 않는다(플랜 기본 제공).
  *           사용자마다 하루 AI_BUILDS_PER_USER_PER_DAY 번까지 (사이트를 지웠다 다시 만들어 무료 제작을 반복하지 않게).
- * 수정 요청 "요청하기" 뒤 백그라운드로 processBatch → 네모마다 processAiRequest.
- *           apply 반영 완료(토큰 차감) · ask 사용자에게 질문(차감 없음) · expert 담당자에게 넘김(차감 없음).
+ * 수정 요청 "요청하기" 뒤 백그라운드로 processBatch → 네모마다 processAiRequest. 토큰은 그 자리에서 바로 깎는다 (config/plans.ts 사용량 모델):
+ *           apply 반영 완료(AI 가 쓴 만큼) · ask 사용자에게 질문(AI 가 쓴 만큼) · expert 담당자에게 넘김(AI 가 잰 일 크기만큼, WORK_TOKENS —
+ *           남은 토큰이 모자라면 넘기지 않고 알린다). AI 를 부르지 못했거나 실패해서 넘기는 것(우리 쪽 사정)은 깎지 않는다.
  *           요청 상태: 접수(pending) = AI 차례 (질문해 두고 답을 기다릴 때도 접수 + awaiting_user),
  *           AI 가 맡지 못하면 이유를 남기고 확인 완료(processing) = "담당자 확인 중" 으로 넘긴다 (config/requests.ts).
  *
@@ -85,11 +97,7 @@ async function spentTodayUsd(admin: Admin): Promise<number> {
   return ((data as { cost_usd: number | string }[] | null) ?? []).reduce((n, r) => n + Number(r.cost_usd || 0), 0);
 }
 
-async function ownerPlan(admin: Admin, userId: string): Promise<Plan | null> {
-  const { data } = await admin.from("subscriptions").select("*").eq("user_id", userId).maybeSingle();
-  const sub = (data as SubscriptionRow | null) ?? null;
-  return effectiveSubscription(sub).usable ? getPlan(sub?.plan_code as PlanCode | undefined) : null;
-}
+const ownerPlan = (admin: Admin, userId: string): Promise<Plan | null> => planOfUser(admin, userId);
 
 type Site = {
   projectId: string;
@@ -225,10 +233,32 @@ function withoutDefaults(copy: DesignDoc["copy"], defaults: Map<string, string>)
 
 const HUMAN_LATER = `담당자가 이어서 처리할게요 (${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 답변).`;
 
-/** AI 가 맡지 못한 요청을 담당자에게 넘긴다: 이유를 대화에 남기고 "담당자 확인 중"(processing)으로 */
-async function handToPerson(admin: Admin, requestId: string, body: string): Promise<void> {
-  const { error } = await admin.rpc("ai_finish_request", { p_request_id: requestId, p_status: "processing", p_body: body, p_awaiting_user: false, p_tokens: 0, p_monthly_ai_tokens: null });
-  if (error) console.error("[ai] hand to person", error.message);
+/**
+ * AI 가 맡지 못한 요청을 담당자에게 넘긴다: 이유를 대화에 남기고 "담당자 확인 중"(processing)으로.
+ * charge 가 있으면 같은 트랜잭션에서 그 요청의 누적 토큰을 기록한다 (담당자 작업 토큰, ai_finish_request → record_ai_usage).
+ */
+async function handToPerson(admin: Admin, requestId: string, body: string, charge?: { total: number; monthly: number | null }): Promise<boolean> {
+  const { error } = await admin.rpc("ai_finish_request", {
+    p_request_id: requestId,
+    p_status: "processing",
+    p_body: body,
+    p_awaiting_user: false,
+    p_tokens: charge?.total ?? 0,
+    p_monthly_ai_tokens: charge?.monthly ?? null,
+  });
+  if (!error) return true;
+  console.error("[ai] hand to person", error.message);
+  // 토큰 기록 때문에 실패했으면 넘기기라도 한다 (요청이 "AI 진행 중" 에 멈추지 않게. 토큰은 담당자가 고칠 수 있다)
+  if (charge) {
+    const { error: again } = await admin.rpc("ai_finish_request", { p_request_id: requestId, p_status: "processing", p_body: body, p_awaiting_user: false, p_tokens: 0, p_monthly_ai_tokens: null });
+    if (again) console.error("[ai] hand to person (retry)", again.message);
+  }
+  return false;
+}
+
+/** AI 가 고른 일 크기 (none · 모르는 값이면 fallback) */
+function workSizeOf(v: string | undefined, fallback: WorkSize): WorkSize {
+  return (WORK_SIZES as string[]).includes(v ?? "") ? (v as WorkSize) : fallback;
 }
 
 /**
@@ -772,7 +802,13 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
   if (!plan) return leave("지금 플랜으로는 AI가 처리할 수 없어요.", "사이트 주인의 플랜이 없습니다.");
   if ((await spentTodayUsd(admin)) >= dailyBudgetUsd()) return leave("지금은 AI 요청이 많아 바로 처리하지 못했어요.", "오늘 AI 비용 상한에 도달했습니다 (AI_DAILY_BUDGET_USD).");
 
-  const { count: asked } = await admin.from("ai_runs").select("id", { count: "exact", head: true }).eq("request_id", requestId).eq("status", "asked");
+  // AI 가 실제로 물어본 횟수 (토큰이 모자라 넘기지 못했다고 알린 것은 질문이 아니다)
+  const { count: asked } = await admin
+    .from("ai_runs")
+    .select("id", { count: "exact", head: true })
+    .eq("request_id", requestId)
+    .eq("status", "asked")
+    .is("output->shortage", null);
   const tooManyQuestions = (asked ?? 0) >= AI_MAX_QUESTIONS;
 
   // 네모별 옵션: 디자인 유형 · 참고 템플릿 (템플릿은 지금도 구매한 것만)
@@ -835,6 +871,39 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
     await finishRun(admin, runId, { status: "handoff", ...patch });
   };
 
+  /**
+   * AI 가 맡을 수 없다고 본 일을 담당자에게 넘기며 일 크기만큼 토큰을 바로 깎는다 (WORK_TOKENS, AI 가 이 일을 보느라 쓴 토큰은 따로 받지 않는다).
+   * 남은 토큰이 모자라면 깎지도 넘기지도 않고 사용자에게 알린다 — 크레딧을 사고 답글을 달면 AI 가 다시 보고 이어서 넘긴다 (resumeAfterAnswer).
+   * 관리자의 "AI로 다시 처리"(force)는 이미 처리된 요청을 다시 보는 일이라 담당자 작업 토큰을 새로 받지 않는다.
+   */
+  const handOffWork = async (size: WorkSize, reason: string, output: Record<string, unknown>, extra: Record<string, unknown>): Promise<ProcessResult> => {
+    const work = WORK_TOKENS[size];
+    const label = `${WORK_SIZE_LABEL[size]} · 토큰 ${formatTokens(work)}`;
+    if (opts.force) {
+      await handOff(`${reason} ${HUMAN_LATER}`, { output, ...extra });
+      return { ok: true, message: "담당자에게 넘겼습니다 (다시 처리라 토큰은 새로 받지 않았습니다).", outcome: "handoff", summary: reason };
+    }
+    const { left } = await tokenBalance(admin, site.userId, plan);
+    if (left !== null && left < work) {
+      await admin.rpc("ai_finish_request", {
+        p_request_id: requestId,
+        p_status: "pending",
+        p_body: `${reason}\n담당자가 맡을 일이라 토큰이 더 필요해요 (필요 ${formatTokens(work)} · 남은 토큰 ${formatTokens(Math.max(0, left))}). 토큰 크레딧을 산 뒤 답글을 남겨 주시면 이어서 담당자에게 넘길게요. 전문가 요청으로 다시 보내셔도 돼요.`.slice(0, 2000),
+        p_awaiting_user: true,
+        p_tokens: 0,
+        p_monthly_ai_tokens: null,
+      });
+      await finishRun(admin, runId, { status: "asked", output: { ...output, shortage: { size, tokens: work, left: Math.max(0, left) } }, ...extra });
+      return { ok: true, message: `토큰이 모자라 담당자에게 넘기지 않고 알렸습니다 (필요 ${formatTokens(work)} · 남음 ${formatTokens(Math.max(0, left))}).`, outcome: "asked", summary: reason };
+    }
+    const charged = await handToPerson(admin, requestId, `${reason} 담당자가 맡을 일이에요 (${label} 사용). ${HUMAN_LATER} 처리할 수 없으면 토큰을 돌려드려요.`, {
+      total: (req.tokens_used ?? 0) + work,
+      monthly: plan.monthlyAiTokens,
+    });
+    await finishRun(admin, runId, { status: "handoff", output: { ...output, work: { size, tokens: work } }, tokens_billed: charged ? work : 0, ...extra });
+    return { ok: true, message: `담당자에게 넘겼습니다 (${label}).`, outcome: "handoff", summary: reason };
+  };
+
   // 답을 받는 도중의 진행 단계는 순서대로 기록한다 (스트림 이벤트는 기다려 주지 않으므로 이어 붙인다)
   let liveWrites: Promise<void> = Promise.resolve();
   const live = (l: LiveStage) => {
@@ -859,22 +928,29 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
     const out = res.data;
     const summary = out.summary.replace(/[<>]/g, "").trim().slice(0, 600);
 
-    // 질문: 접수(AI 차례) 그대로 두고 사용자 답을 기다린다 — 답글이 오면 resumeAfterAnswer 가 이어서 처리한다
+    // 질문: 접수(AI 차례) 그대로 두고 사용자 답을 기다린다 — 답글이 오면 resumeAfterAnswer 가 이어서 처리한다.
+    // AI 가 요청을 보느라 쓴 토큰은 질문만 하고 끝나도 바로 깎는다 (답을 받고 이어서 반영하면 그때 쓴 만큼 더)
     if (out.decision === "ask" && !tooManyQuestions && out.question.trim()) {
-      await admin.rpc("ai_finish_request", {
+      const askBody = `AI가 확인하고 싶은 게 있어요: ${out.question.replace(/[<>]/g, "").trim().slice(0, 600)}\n답글을 남겨 주시면 이어서 반영할게요.`;
+      const { error: askErr } = await admin.rpc("ai_finish_request", {
         p_request_id: requestId,
         p_status: "pending",
-        p_body: `AI가 확인하고 싶은 게 있어요: ${out.question.replace(/[<>]/g, "").trim().slice(0, 600)}\n답글을 남겨 주시면 이어서 반영할게요.`,
+        p_body: askBody,
         p_awaiting_user: true,
-        p_tokens: 0,
-        p_monthly_ai_tokens: null,
+        p_tokens: (req.tokens_used ?? 0) + res.billed,
+        p_monthly_ai_tokens: plan.monthlyAiTokens,
       });
-      await finishRun(admin, runId, { status: "asked", output: out, ...callFields(res) });
+      if (askErr) {
+        // 토큰 기록 때문에 실패했어도 질문은 보이게 한다
+        console.error("[ai] ask", askErr.message);
+        await admin.rpc("ai_finish_request", { p_request_id: requestId, p_status: "pending", p_body: askBody, p_awaiting_user: true, p_tokens: 0, p_monthly_ai_tokens: null });
+      }
+      await finishRun(admin, runId, { status: "asked", output: out, tokens_billed: askErr ? 0 : res.billed, ...callFields(res) });
       return { ok: true, message: "AI 가 사용자에게 질문했습니다.", outcome: "asked", summary: out.question.trim().slice(0, 300) };
     }
     if (out.decision !== "apply") {
-      await handOff(`${summary || "AI 가 바로 고칠 수 없는 요청이에요."} ${HUMAN_LATER}`, { output: out, ...callFields(res) });
-      return { ok: true, message: "담당자에게 넘겼습니다.", outcome: "handoff", summary };
+      // 담당자 일. 크기를 고르지 않았으면(질문을 더 할 수 없어 넘기는 경우 등) 작은 일로 본다
+      return await handOffWork(workSizeOf(out.workSize, "small"), summary || "AI가 바로 고칠 수 없는 요청이에요.", out, callFields(res));
     }
 
     // 관리자 목록: 플랜이 관리자 페이지를 쓸 수 없으면 만들지 않고 알린다 (AI 가 지시서를 어기고 목록을 보냈을 때의 안전장치)
@@ -926,8 +1002,11 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       ];
       const allRejected = [...rejected, ...(data?.rejected ?? [])];
       if (!changes.length) {
-        await handOff(`${summary ? `${summary} ` : ""}AI 가 바꿀 수 있는 값을 찾지 못했어요. ${HUMAN_LATER}`, { output: out, applied: { changes: [], rejected: allRejected }, ...callFields(res) });
-        return { ok: true, message: "바꿀 값이 없어 담당자에게 넘겼습니다.", outcome: "handoff", summary };
+        // AI 가 할 수 있다고 봤지만 바꿀 값이 없었다 → 담당자가 손으로 하는 작은 일
+        return await handOffWork(workSizeOf(out.workSize, "small"), `${summary ? `${summary} ` : ""}AI가 바꿀 수 있는 값을 찾지 못했어요.`, out, {
+          applied: { changes: [], rejected: allRejected },
+          ...callFields(res),
+        });
       }
       const to: DesignDoc = {
         ...doc,
@@ -1001,8 +1080,26 @@ export async function resumeAfterAnswer(requestId: string): Promise<void> {
   try {
     const admin = createAdminClient();
     if (!(await schemaReady(admin))) return;
-    const { data } = await admin.from("ai_runs").select("status").eq("request_id", requestId).order("created_at", { ascending: false }).limit(1);
-    if ((data as { status: string }[] | null)?.[0]?.status !== "asked") return;
+    const { data } = await admin.from("ai_runs").select("status, user_id, output").eq("request_id", requestId).order("created_at", { ascending: false }).limit(1);
+    const last = (data as { status: string; user_id: string; output: { shortage?: { tokens: number } } | null }[] | null)?.[0];
+    if (last?.status !== "asked") return;
+    // 토큰이 모자라 멈춘 요청: 아직도 모자라면 AI 를 다시 부르지 않고(비용) 다시 알리기만 한다
+    const need = last.output?.shortage?.tokens;
+    if (need) {
+      const plan = await ownerPlan(admin, last.user_id);
+      const { left } = await tokenBalance(admin, last.user_id, plan);
+      if (!plan || (left !== null && left < need)) {
+        await admin.rpc("ai_finish_request", {
+          p_request_id: requestId,
+          p_status: "pending",
+          p_body: `아직 토큰이 모자라요 (필요 ${formatTokens(need)} · 남은 토큰 ${formatTokens(Math.max(0, left ?? 0))}). 토큰 크레딧을 산 뒤 답글을 남겨 주세요.`,
+          p_awaiting_user: true,
+          p_tokens: 0,
+          p_monthly_ai_tokens: null,
+        });
+        return;
+      }
+    }
     await processAiRequest(requestId);
   } catch (e) {
     console.error("[ai] resume", e);

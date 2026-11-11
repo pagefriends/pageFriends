@@ -39,6 +39,7 @@ export const EditOutput = z.object({
   summary: z.string().describe("고객에게 보일 한두 문장: 무엇을 바꿨는지(apply) 또는 왜 질문 · 담당자인지"),
   question: z.string().describe("ask 일 때 고객에게 물을 질문. 아니면 빈 글자"),
   expertNote: z.string().describe("expert 일 때 담당자가 할 일. 아니면 빈 글자"),
+  workSize: z.enum(["none", "small", "medium", "large"]).describe("expert 일 때 담당자가 할 일의 크기 (small 약 10분 · medium 약 30분 · large 1시간 이상). apply · ask 이면 none"),
   themeChanges: z.array(z.object({ key: enumOf(THEME_KEYS), value: z.string() })),
   copyChanges: z.array(z.object({ scope: z.enum(["site", "page"]), path: z.string(), key: z.string(), value: z.string() })),
   collectionChanges: z

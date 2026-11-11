@@ -8,9 +8,14 @@
  * 엔터프라이즈는 요금제에서 빼고 "별도 상담" — 예전 구독을 읽을 수 있게 코드만 남긴다 (hidden).
  *
  * 사용량 모델
- * - AI 반영: 횟수가 아니라 **토큰**. 플랜마다 월 토큰 한도가 있고, 요청이 처리될 때 실제 사용 토큰이 기록된다.
+ * - AI 반영: 횟수가 아니라 **토큰**. 플랜마다 월 토큰 한도가 있고, 요청마다 쓴 만큼 **그 자리에서 바로** 깎인다
+ *   (2026-11-11 사용자 결정: "토큰이 정해져 있고 요구하는 사항만큼 자동으로 재서 바로바로 깎는다").
+ *   · AI 가 처리하면(반영 · 질문) 실제로 쓴 토큰 (config/ai.ts billableTokens)
+ *   · AI 가 맡지 못해 담당자에게 넘기면 AI 가 잰 일의 크기만큼 (WORK_TOKENS). 남은 토큰이 모자라면 깎지 않고 넘기지도 않고 알린다
+ *   · AI 이미지 요청은 요청하는 순간 장당 APPROX_TOKENS_PER_IMAGE
+ *   · 담당자가 "반영 불가" 로 처리하면 그 요청에서 깎은 토큰을 모두 돌려준다
  *   한도를 넘은 만큼은 토큰 크레딧에서 차감된다. 남은 토큰이 0 이면 새 AI 요청을 보낼 수 없다.
- * - 전문가 요청: 월 횟수 한도 + 횟수 크레딧. 사람 손이 드는 일이라 낮은 가격에 맞춰 적게 준다.
+ * - 전문가 요청: 월 횟수 한도 + 횟수 크레딧. 사람 손이 드는 일이라 낮은 가격에 맞춰 적게 준다 (직접 고른 전문가 요청만 — AI 가 넘긴 요청은 토큰).
  * - 한도는 결제일부터 한 달마다 다시 채워진다. 연간 결제도 매달 채워진다 (DB 의 usage_window).
  * - 오류 신고: 무료. 한도·크레딧 어디에서도 차감하지 않는다 (우리 쪽 실수는 우리가 고친다).
  * - 사이트 수: 플랜별 동시 보유 가능한 사이트(프로젝트) 수.
@@ -96,10 +101,23 @@ export const PLAN_RANK: Record<PlanCode, number> = { starter: 1, business: 2, pr
 export const APPROX_TOKENS_PER_AI_REQUEST = 10_000;
 
 /**
- * AI 이미지 1장을 만드는 데 대략 쓰는 토큰. 새 사이트 위저드의 "AI로 이미지 만들기" 예상치와 남은 토큰 검사에 쓴다.
- * 글 수정 요청(약 1만)보다 훨씬 많이 든다는 걸 보여주는 값이다. 실제 차감은 다른 AI 요청처럼 처리 후 기록된 사용량 기준.
+ * AI 이미지 1장의 토큰. 새 사이트 위저드의 "AI로 이미지 만들기" 예상치 · 남은 토큰 검사와 실제 차감에 같이 쓴다.
+ * 이미지 요청은 요청하는 순간 이만큼 깎인다 (lib/submit-requests.ts). 글 수정 요청(약 1만)보다 훨씬 많이 든다.
  */
 export const APPROX_TOKENS_PER_IMAGE = 20_000;
+
+/**
+ * AI 가 맡지 못해 담당자에게 넘긴 AI 반영 요청의 일 크기. AI 가 넘길 때 함께 고른다 (lib/ai/schemas.ts EditOutput.workSize).
+ * 사람 손이 드는 일이라 AI 반영 1건(약 1만)보다 크게 잡았다. 숫자는 여기서만 바꾼다.
+ *   small  약 10분 — 한 곳의 글 · 색 · 크기를 손으로 바꾸기, 링크 · 버튼 하나 연결
+ *   medium 약 30분 — 구역 하나 고치기 · 옮기기, 폼 항목 추가, 메뉴 · 페이지 이름 바꾸기, 사진 여러 장 넣기, 지도 · 영상 같은 외부 화면 하나 넣기
+ *   large  1시간 이상 — 새 구역 · 새 페이지, 예약 · 결제 · 회원가입 같은 기능 연결, 여러 페이지에 걸친 바꾸기
+ * 기준 글은 lib/ai/harness.ts 의 수정 요청 지시문에도 있다 (둘을 같이 고친다).
+ */
+export type WorkSize = "small" | "medium" | "large";
+export const WORK_SIZES: WorkSize[] = ["small", "medium", "large"];
+export const WORK_TOKENS: Record<WorkSize, number> = { small: 50_000, medium: 100_000, large: 200_000 };
+export const WORK_SIZE_LABEL: Record<WorkSize, string> = { small: "작은 일", medium: "보통", large: "큰 일" };
 
 const ALL_PLANS: Plan[] = [
   {

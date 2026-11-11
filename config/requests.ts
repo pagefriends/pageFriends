@@ -1,5 +1,5 @@
 import { AI_QUEUE_MINUTES } from "@/config/ai";
-import { BUG_HOURS, EXPERT_HOURS, type RequestKind } from "@/config/plans";
+import { APPROX_TOKENS_PER_IMAGE, BUG_HOURS, EXPERT_HOURS, type RequestKind } from "@/config/plans";
 import type { ProjectStatus, RequestStatus } from "@/lib/types/db";
 import { formatDateTime } from "@/lib/utils";
 
@@ -50,6 +50,9 @@ export function isImageRequest(message: string): boolean {
   return message.startsWith("[AI 이미지 생성]");
 }
 
+/** AI 이미지 요청 1건의 토큰 (이미지 자리 하나 = 1장). 요청하는 순간 깎는다 (lib/submit-requests.ts) */
+export const IMAGE_REQUEST_TOKENS = APPROX_TOKENS_PER_IMAGE;
+
 /**
  * 지금 AI 가 맡고 있는 요청인지 (편집기의 "AI 처리 중 N건" · "AI 작업 중" 화면 · 새 화면 확인).
  * AI 반영과 오류 신고(AI 가 먼저 확인한다)가 AI 차례(접수 · 사용자 답을 기다리지 않음)이고 요청한 지 AI_QUEUE_MINUTES 안 —
@@ -72,7 +75,7 @@ export const REQUEST_KIND_TONE: Record<RequestKind, "gray" | "sky" | "red"> = { 
 
 /** 요청 종류별 처리 방식 안내 (편집기 요청 카드 · 요청 내역) */
 export const REQUEST_KIND_PROMISE: Record<RequestKind, string> = {
-  ai: "요청하면 AI가 바로 진행해요 · 토큰 사용",
+  ai: "요청하면 AI가 바로 진행해요 · 쓴 만큼 토큰이 바로 깎여요 (담당자가 맡으면 일 크기만큼)",
   expert: `전문가가 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일) 안에 답변해요`,
   bug: `무료 · AI가 바로 확인하고, 사람이 필요하면 담당자가 ${BUG_HOURS}시간 안에 고쳐요`,
 };

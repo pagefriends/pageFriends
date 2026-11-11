@@ -9,10 +9,12 @@ import { PlanGrid } from "@/components/pricing/plan-grid";
 import { Alert } from "@/components/ui/card";
 import {
   APPROX_TOKENS_PER_AI_REQUEST,
+  APPROX_TOKENS_PER_IMAGE,
   BILLING_CYCLE_LABEL,
   CREDIT_PACKS,
   PLAN_BY_CODE,
   REQUEST_KIND_LABEL,
+  WORK_TOKENS,
   creditAmountLabel,
   formatKrw,
   formatTokens,
@@ -133,7 +135,9 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
             </div>
           </div>
           <p className="mt-2 text-xs text-ink-500">
-            토큰은 요청이 처리될 때 실제 사용량만큼 차감됩니다 (요청 1건 ≈ {formatTokens(APPROX_TOKENS_PER_AI_REQUEST)} 토큰). 토큰과 전문가 요청 한도는 결제일부터 한
+            토큰은 요청마다 쓴 만큼 그 자리에서 바로 차감됩니다. AI가 처리하면 실제 사용량(요청 1건 ≈ {formatTokens(APPROX_TOKENS_PER_AI_REQUEST)} 토큰), AI가 할 수 없어
+            담당자가 맡으면 일 크기만큼(작은 일 {formatTokens(WORK_TOKENS.small)} · 보통 {formatTokens(WORK_TOKENS.medium)} · 큰 일 {formatTokens(WORK_TOKENS.large)}), AI 이미지는
+            요청할 때 1장에 {formatTokens(APPROX_TOKENS_PER_IMAGE)}입니다. 반영할 수 없는 요청은 차감한 토큰을 돌려드립니다. 토큰과 전문가 요청 한도는 결제일부터 한
             달마다 다시 채워지고, 연간 결제도 매달 채워집니다{plan ? ` (다음: ${formatDate(quota.ai.periodEnd)})` : ""}. 크레딧은 한도를 넘는 사용에만 차감되며 만료되지 않습니다.
           </p>
         </div>

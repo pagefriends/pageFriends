@@ -5,13 +5,14 @@ import { after } from "next/server";
 import { z } from "zod";
 
 import { MAX_STYLES, normalizeStyles } from "@/config/design-styles";
-import type { RequestKind } from "@/config/plans";
-import { isAiWorking, isImageRequest } from "@/config/requests";
+import { formatTokens, type RequestKind } from "@/config/plans";
+import { IMAGE_REQUEST_TOKENS, isAiWorking, isImageRequest } from "@/config/requests";
 import { aiConfigured } from "@/lib/ai/claude";
 import { processBatch, resumeAfterAnswer } from "@/lib/ai/engine";
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { designOf, isAiPending } from "@/lib/design-doc";
 import { isMissingSchema } from "@/lib/messages";
+import { tokenBalance } from "@/lib/quota";
 import { submitChangeRequests } from "@/lib/submit-requests";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectBrief } from "@/lib/types/db";
@@ -45,7 +46,8 @@ export type SubmitResult = { ok: true; batchId: string; count: number; aiStarted
  * "요청하기". 네모 하나 = 요청 하나 (seq 로 번호가 붙는다). 실제 삽입·한도 검사·크레딧 차감은
  * DB 함수 submit_change_requests 가 한 트랜잭션으로 처리한다.
  * 여기서는 입력 검증, 플랜 존재 확인, 플랜 상수(월 AI 토큰·월 전문가 한도) 전달만 한다.
- * AI 키가 있으면 응답 뒤 백그라운드에서 AI 반영 네모를 처리한다 (lib/ai/engine.ts processBatch).
+ * AI 이미지 요청은 요청하는 순간 장당 토큰을 깎으므로 남은 토큰이 모자라면 받지 않는다.
+ * AI 키가 있으면 응답 뒤 백그라운드에서 AI 반영 네모를 처리한다 (lib/ai/engine.ts processBatch) — 끝나는 대로 쓴 만큼 깎인다.
  */
 export async function submitRequestsAction(projectId: string, rawItems: unknown): Promise<SubmitResult> {
   const user = await requireUser();
@@ -80,7 +82,20 @@ export async function submitRequestsAction(projectId: string, rawItems: unknown)
     message,
     ...(kind === "ai" && options && (options.styles.length || options.templateId) ? { options: { styles: normalizeStyles(options.styles), templateId: options.templateId } } : {}),
   }));
-  const { data, error } = await submitChangeRequests(supabase, projectId, items, plan);
+  // AI 이미지 요청은 보내는 순간 깎인다 → 남은 토큰(한도 + 크레딧)보다 많으면 받지 않는다
+  const images = parsed.data.filter((i) => i.kind === "ai" && isImageRequest(i.message)).length;
+  if (images > 0) {
+    const { left } = await tokenBalance(supabase, user.id, plan);
+    const need = images * IMAGE_REQUEST_TOKENS;
+    if (left !== null && need > left) {
+      return {
+        ok: false,
+        error: `AI 이미지 요청은 보내는 순간 토큰이 깎이는데 남은 토큰이 모자라요 (필요 ${formatTokens(need)} · 남은 토큰 ${formatTokens(Math.max(0, left))}). 토큰 크레딧을 구매하거나 이미지 요청을 줄여 주세요.`,
+      };
+    }
+  }
+
+  const { data, error } = await submitChangeRequests(supabase, user.id, projectId, items, plan);
 
   if (error) {
     const m = error.message;

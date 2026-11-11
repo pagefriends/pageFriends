@@ -15,7 +15,7 @@ const STATUS_OPTIONS: { value: RequestStatus; hint: string; aiHint?: string }[] 
   { value: "pending", hint: "아직 열어 보지 않음", aiHint: "AI 차례 (AI 가 처리 중이거나, 질문하고 답을 기다리는 중)" },
   { value: "processing", hint: "담당자가 확인함 · 질문하고 답을 기다리는 중", aiHint: "담당자가 맡음 (AI 가 넘긴 요청 · 담당자의 질문)" },
   { value: "done", hint: "답변·반영을 마침" },
-  { value: "rejected", hint: "이유를 글로 적어 주세요. 전문가 월 한도에서 제외됨" },
+  { value: "rejected", hint: "이유를 글로 적어 주세요. 전문가 월 한도에서 제외됨", aiHint: "이유를 글로 적어 주세요. 이 요청에서 깎은 토큰을 모두 돌려줌" },
 ];
 
 /** 자주 쓰는 문장. 누르면 입력칸에 들어가고, 고쳐서 보낼 수 있다. */
@@ -103,8 +103,23 @@ export function RequestForm({
       {kind === "ai" ? (
         <div>
           <Label htmlFor="tokensUsed">사용 토큰 (AI 반영)</Label>
-          <Input id="tokensUsed" name="tokensUsed" type="number" min={0} step={1} inputMode="numeric" value={tokens} onChange={(e) => setTokens(e.target.value)} placeholder="예: 8200" />
-          <Hint>처리에 쓴 입력+출력 토큰. 비워 두면 바꾸지 않습니다. 플랜 월 한도를 넘는 만큼 사용자의 토큰 크레딧에서 차감됩니다.</Hint>
+          <Input
+            id="tokensUsed"
+            name="tokensUsed"
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            value={effective === "rejected" ? "0" : tokens}
+            disabled={effective === "rejected"}
+            onChange={(e) => setTokens(e.target.value)}
+            placeholder="예: 8200"
+          />
+          <Hint>
+            {effective === "rejected"
+              ? "반영 불가로 저장하면 이 요청에서 깎은 토큰을 모두 돌려줍니다 (사용자 대화에도 남습니다)."
+              : "AI가 처리한 만큼 · 담당자에게 넘긴 일 크기 · 이미지 요청 토큰은 저절로 기록됩니다. 고칠 때만 바꾸세요. 플랜 월 한도를 넘는 만큼 사용자의 토큰 크레딧에서 차감됩니다."}
+          </Hint>
         </div>
       ) : null}
       <div>
