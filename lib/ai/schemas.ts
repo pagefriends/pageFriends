@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { CONNECT_KINDS, UNABLE_KINDS } from "@/config/unable";
 import { FIELD_TYPES, LIST_LAYOUTS } from "@/lib/collections";
 import { BUTTON_STYLES, CARD_STYLES, DENSITIES, FONT_CLASSES, HERO_LAYOUTS, RADII, SATURATIONS, TEMPERATURES, THEME_KEYS } from "@/lib/design-doc";
 
@@ -35,11 +36,12 @@ export const BuildOutput = z.object({
 export type BuildOutput = z.infer<typeof BuildOutput>;
 
 export const EditOutput = z.object({
-  decision: z.enum(["apply", "ask", "expert"]).describe("apply 바로 반영 · ask 고객에게 질문 · expert 담당자에게 넘김"),
-  summary: z.string().describe("고객에게 보일 한두 문장: 무엇을 바꿨는지(apply) 또는 왜 질문 · 담당자인지"),
+  decision: z.enum(["apply", "ask", "unable"]).describe("apply 바로 반영 · ask 고객에게 질문 · unable AI 가 바로 할 수 없음"),
+  summary: z.string().describe("고객에게 보일 한두 문장: 무엇을 바꿨는지(apply) 또는 왜 질문하는지 · 왜 바로 할 수 없는지"),
   question: z.string().describe("ask 일 때 고객에게 물을 질문. 아니면 빈 글자"),
-  expertNote: z.string().describe("expert 일 때 담당자가 할 일. 아니면 빈 글자"),
-  workSize: z.enum(["none", "small", "medium", "large"]).describe("expert 일 때 담당자가 할 일의 크기 (small 약 10분 · medium 약 30분 · large 1시간 이상). apply · ask 이면 none"),
+  unable: z.enum(["none", ...UNABLE_KINDS]).describe("unable 일 때 갈래: later 아직 AI 기능이 없음 · connect 서류 · 계정이 필요한 연결 · review 사람이 확인할 내용 · consult 서비스 범위 밖. 아니면 none"),
+  connect: z.enum(["none", ...CONNECT_KINDS]).describe("unable=connect 일 때 무엇을 연결하는지. 아니면 none"),
+  staffNote: z.string().describe("unable 일 때 담당자 · 관리자가 볼 메모 (할 일 · 볼 곳). 아니면 빈 글자"),
   themeChanges: z.array(z.object({ key: enumOf(THEME_KEYS), value: z.string() })),
   copyChanges: z.array(z.object({ scope: z.enum(["site", "page"]), path: z.string(), key: z.string(), value: z.string() })),
   collectionChanges: z

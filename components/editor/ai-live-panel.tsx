@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BUG_HOURS, EXPERT_HOURS, WORK_SIZE_LABEL, formatTokens } from "@/config/plans";
+import { UNABLE_LABEL } from "@/config/unable";
 import type { BatchProgress, LiveItem, LiveStage } from "@/lib/ai/progress";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,8 @@ const STEPS: Record<LiveItem["kind"], string[]> = {
   bug: ["신고 확인", "원인 찾기", "고칠 내용 쓰기", "새 화면 그리기"],
 };
 const STAGE_INDEX: Record<LiveStage | "check", number> = { check: 0, thinking: 1, writing: 2, rendering: 3 };
+/** 처리 중인 네모 하나가 어느 단계면 몇 % 끝난 것으로 볼지 */
+const STAGE_SHARE: Record<LiveStage, number> = { thinking: 0.3, writing: 0.6, rendering: 0.85 };
 
 /** 걸린 시간 "7초" · "1분 5초" */
 function secs(ms: number): string {
@@ -63,6 +66,9 @@ export function AiLivePanel({
 
   const items = progress?.items ?? [];
   const finished = items.filter((i) => i.state !== "queued" && i.state !== "working").length;
+  // 전체 진행률: 끝난 네모 + 처리 중인 네모의 단계만큼 (요청 확인 10% · 방법 정하기 30% · 바꿀 내용 쓰기 60% · 새 화면 그리기 85%)
+  const workingShare = items.reduce((a, i) => a + (i.state === "working" ? (STAGE_SHARE[i.stage ?? "thinking"] ?? 0.3) : 0), 0);
+  const percent = progress?.done ? 100 : items.length ? Math.min(99, Math.round(((finished + workingShare) / items.length) * 100)) : 0;
   const done = Boolean(progress?.done);
   const working = items.find((i) => i.state === "working");
   // 처리 중인 것이 없고 아직 남았으면 첫 대기 네모가 "곧 시작"
@@ -72,7 +78,8 @@ export function AiLivePanel({
     fixed: items.filter((i) => i.kind === "bug" && i.state === "done").length,
     asked: items.filter((i) => i.state === "asked" && !i.shortage).length,
     shortage: items.filter((i) => i.shortage).length,
-    handoff: items.filter((i) => i.state === "handoff").length,
+    handoff: items.filter((i) => i.state === "handoff" && (!i.unable || i.unable === "later")).length,
+    guided: items.filter((i) => i.state === "handoff" && i.unable && i.unable !== "later").length,
   };
 
   // 토큰이 깎이면 잠깐 눈에 띄게 (네모 하나가 끝날 때마다)
@@ -99,11 +106,11 @@ export function AiLivePanel({
             {done ? "AI가 다 마쳤어요" : "AI가 고치는 중"}
           </p>
           <span className="text-xs font-semibold tabular-nums text-ink-700">
-            {finished} / {items.length || "-"}
+            {percent}% · {finished} / {items.length || "-"}
           </span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/70" aria-hidden>
-          <div className={cn("h-full rounded-full transition-all duration-500", done ? "bg-brand-600" : "bg-sky-500")} style={{ width: `${items.length ? (finished / items.length) * 100 : 5}%` }} />
+          <div className={cn("h-full rounded-full transition-all duration-500", done ? "bg-brand-600" : "bg-sky-500")} style={{ width: `${Math.max(5, percent)}%` }} />
         </div>
         <p className="mt-2 text-xs leading-relaxed text-ink-700">
           {!progress
@@ -114,6 +121,7 @@ export function AiLivePanel({
                   count.fixed ? `오류 고침 ${count.fixed}건` : null,
                   count.asked ? `질문 ${count.asked}건` : null,
                   count.handoff ? `담당자에게 ${count.handoff}건` : null,
+                  count.guided ? `다른 방법 안내 ${count.guided}건` : null,
                   count.shortage ? `토큰이 모자라 멈춘 요청 ${count.shortage}건` : null,
                 ]
                   .filter(Boolean)
@@ -250,7 +258,7 @@ export function AiLivePanel({
         {progress && (progress.people > 0 || progress.images > 0) ? (
           <p className="mb-2 text-[11px] leading-relaxed text-ink-500">
             {[
-              progress.people > 0 ? `함께 보낸 전문가 요청 ${progress.people}건은 담당자가 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 답해요.` : null,
+              progress.people > 0 ? `함께 보낸 전문가 검수 요청 ${progress.people}건은 담당자가 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 답해요.` : null,
               progress.images > 0
                 ? `AI 이미지 요청 ${progress.images}건은 따로 처리돼요${progress.imageTokens > 0 ? ` (요청할 때 토큰 ${formatTokens(progress.imageTokens)} 사용)` : ""}.`
                 : null,
@@ -307,7 +315,10 @@ function StateChip({ item, isNext, elapsed }: { item: LiveItem; isNext: boolean;
     working: { text: `${bug ? "확인하는 중" : "고치는 중"}${time}`, cls: "bg-sky-500 text-white" },
     done: { text: `${bug ? "고침 완료" : "반영 완료"}${time}`, cls: "bg-brand-600 text-white" },
     asked: item.shortage ? { text: "토큰 부족", cls: "bg-red-100 text-mark" } : { text: "질문 남김", cls: "bg-brand-100 text-brand-800" },
-    handoff: { text: bug ? `담당자에게 · ${BUG_HOURS}시간 안에` : "담당자에게", cls: "bg-ink-200 text-ink-700" },
+    handoff:
+      item.unable && item.unable !== "later"
+        ? { text: UNABLE_LABEL[item.unable], cls: "bg-amber-100 text-amber-800" }
+        : { text: bug ? `담당자에게 · ${BUG_HOURS}시간 안에` : "담당자에게", cls: "bg-ink-200 text-ink-700" },
   };
   const s = map[item.state];
   return <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap tabular-nums", s.cls)}>{s.text}</span>;

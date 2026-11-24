@@ -42,8 +42,8 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
     group: "수정",
     items: [
       { title: "네모 그려서 요청", body: "캡처 위에 빨간 네모를 그리고 번호별로 적습니다." },
-      { title: "AI 반영", body: "문구·색·배치 같은 변경은 AI 가 바로 반영합니다." },
-      { title: "전문가 요청", body: "사진 교체, 구조 변경처럼 사람이 필요한 작업." },
+      { title: "AI 수정", body: "요청은 모두 AI 가 바로 고치고, 끝나면 바뀐 화면을 바로 볼 수 있습니다." },
+      { title: "전문가 검수 요청", body: "사진 교체, 구조 변경처럼 사람이 필요한 작업." },
       { title: "요청 내역 · 답변", body: "접수 · 처리중 · 반영 완료 상태와 답변을 한 화면에서." },
     ],
   },
@@ -69,12 +69,12 @@ const LOADED: { group: string; items: { title: string; body: string }[] }[] = [
 
 const FAQ = [
   {
-    q: "토큰이나 전문가 요청 횟수를 다 쓰면 어떻게 되나요?",
+    q: "토큰이나 전문가 검수 요청 횟수를 다 쓰면 어떻게 되나요?",
     a: `추가 크레딧을 구매해 이어갈 수 있습니다. ${REQUEST_KIND_LABEL.ai} ${formatKrw(CREDIT_PACKS[0].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[0])}) · ${formatKrw(CREDIT_PACKS[1].priceKrw)}(${creditAmountLabel(CREDIT_PACKS[1])}), ${REQUEST_KIND_LABEL.expert} ${formatKrw(CREDIT_PACKS[2].priceKrw)}(1회) · ${formatKrw(CREDIT_PACKS[3].priceKrw)}(10회). 크레딧은 만료되지 않습니다. 우리 쪽 오류를 신고하는 '오류 신고'는 무료입니다.`,
   },
   {
     q: "월간과 연간 결제는 무엇이 다른가요?",
-    a: `연간 결제는 월 요금의 ${ANNUAL_MONTHS}배라 두 달 치를 아낍니다 (예: ${PLANS[0].name} 월 ${formatKrw(PLANS[0].priceKrw)} → 연 ${formatKrw(PLANS[0].priceKrw * ANNUAL_MONTHS)}). 토큰과 전문가 요청 한도는 연간 결제도 매달 다시 채워집니다. 사람이 처음부터 만드는 '전문가에게 맡기기' 첫 제작은 연간 결제에 들어 있고, 월간은 AI로 시작합니다.`,
+    a: `연간 결제는 월 요금의 ${ANNUAL_MONTHS}배라 두 달 치를 아낍니다 (예: ${PLANS[0].name} 월 ${formatKrw(PLANS[0].priceKrw)} → 연 ${formatKrw(PLANS[0].priceKrw * ANNUAL_MONTHS)}). 토큰과 전문가 검수 요청 한도는 연간 결제도 매달 다시 채워집니다. 사람이 처음부터 만드는 '전문가에게 맡기기' 첫 제작은 연간 결제에 들어 있고, 월간은 AI로 시작합니다.`,
   },
   {
     q: "결제 시스템 연동은 무엇인가요?",

@@ -55,7 +55,7 @@ export type ExistingRequest = Pick<ChangeRequestRow, "id" | "seq" | "region" | "
   lastReplyByAi?: boolean;
   /** 아직 안 읽은 담당자 글이 있다 */
   unread?: boolean;
-  /** 사람이 답하는 요청(전문가 요청 · 오류 신고)이 아직 열려 있으면 답변 기한 ("10월 18일 오후 03:10까지") */
+  /** 사람이 답하는 요청(전문가 검수 요청 · 오류 신고)이 아직 열려 있으면 답변 기한 ("10월 18일 오후 03:10까지") */
   due?: string | null;
 };
 

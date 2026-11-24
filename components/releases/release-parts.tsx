@@ -15,9 +15,9 @@ import { cn, formatDateTime } from "@/lib/utils";
 export function UserReleaseSteps({ release }: { release: ReleaseRow }) {
   const now = userStep(release);
   const steps = [
-    { n: 1, label: "적용 요청", detail: "요청을 받았어요", at: release.requested_at },
-    { n: 2, label: "점검 중", detail: "확인용 서버에 먼저 올려 점검해요", at: release.staging_at },
-    { n: 3, label: "적용 완료", detail: "실제 웹사이트에 올라가요", at: release.live_at },
+    { n: 1, label: "점검 통과", detail: "AI가 수정 확인 · 보안 검사를 마쳤어요", at: release.requested_at },
+    { n: 2, label: "올리는 중", detail: "마지막 확인 뒤 실제 사이트에 올려요", at: release.staging_at },
+    { n: 3, label: "공개 완료", detail: "실제 사이트에 올라가요", at: release.live_at },
   ];
   return (
     <ol className="grid gap-2 sm:grid-cols-3">

@@ -30,10 +30,10 @@ export const RELEASE_STAGE_ADMIN: Record<ReleaseStage, { label: string; tone: To
 
 /** 사용자가 보는 단계. 개발 서버에 올린 뒤로는 문제가 있어 고치는 중이어도 "점검 중" 이다 */
 export const RELEASE_STAGE_USER: Record<ReleaseStage, { label: string; tone: Tone }> = {
-  new: { label: "적용 요청됨", tone: "blue" },
+  new: { label: "올리는 중", tone: "blue" },
   fixing: { label: "점검 중", tone: "sky" },
   staging: { label: "점검 중", tone: "sky" },
-  live: { label: "적용 완료", tone: "dark" },
+  live: { label: "공개 완료", tone: "dark" },
   cancelled: { label: "취소됨", tone: "gray" },
 };
 
@@ -48,7 +48,7 @@ export function userStep(r: Pick<ReleaseRow, "status" | "staging_rounds">): 1 | 
   return s === "live" ? 3 : s === "new" || s === "cancelled" ? 1 : 2;
 }
 
-/** 사람이 맡는 일이라 전문가 요청과 같은 약속 시간 (EXPERT_HOURS) 안에 적용한다 */
+/** 사람이 맡는 일이라 전문가 검수 요청과 같은 약속 시간 (EXPERT_HOURS) 안에 적용한다 */
 export function releaseDueLabel(requestedAt: string): string {
   return `${formatDateTime(expertDueAt(requestedAt).toISOString())}까지`;
 }
@@ -59,7 +59,7 @@ export function releaseRemaining(requestedAt: string, now: number = Date.now()):
   return hours >= 0 ? { text: `적용 기한 ${hours}시간 남음`, late: false } : { text: `적용 기한 ${-hours}시간 지남`, late: true };
 }
 
-export const RELEASE_PROMISE = `담당자가 확인용 서버에서 먼저 점검한 뒤 실제 웹사이트에 적용해요 · ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에`;
+export const RELEASE_PROMISE = `AI가 수정 확인 · 보안 검사를 한 뒤 올려요 · 공개까지 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에`;
 
 // ----- 개발 서버 확인 목록 -----
 
@@ -101,10 +101,10 @@ export function looksLikeDataChange(message: string): boolean {
 export type ApplyState = "waiting" | "requested" | "checking" | "applied";
 
 export const APPLY_STATE: Record<ApplyState, { label: string; tone: Tone }> = {
-  waiting: { label: "웹사이트 적용 대기", tone: "gray" },
-  requested: { label: "적용 요청됨", tone: "blue" },
+  waiting: { label: "올리기 전", tone: "gray" },
+  requested: { label: "올리는 중", tone: "blue" },
   checking: { label: "적용 점검 중", tone: "sky" },
-  applied: { label: "웹사이트 적용 완료", tone: "dark" },
+  applied: { label: "사이트에 올라감", tone: "dark" },
 };
 
 /** 끝난 수정만 적용 상태가 있다. 진행 중 · 반영 불가면 null */

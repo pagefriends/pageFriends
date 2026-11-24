@@ -23,6 +23,8 @@ import { aiStatusAction, submitRequestsAction } from "@/app/(app)/projects/[id]/
 import { AiLivePanel } from "@/components/editor/ai-live-panel";
 import { EditorCanvas, type CanvasHandle, type Flash, type LiveLabel } from "@/components/editor/canvas";
 import { RequestPanel } from "@/components/editor/request-panel";
+import { ReviewRequestButton } from "@/components/editor/review-request";
+import { UNABLE_LABEL } from "@/config/unable";
 import { draftKey, requestsBySlot, shotVersion, toRegion, type DraftBox, type EditorPage, type EditorTemplate, type ExistingRequest, type SubmitItem } from "@/components/editor/types";
 import { CountChip } from "@/components/messages/count-chip";
 import { Badge } from "@/components/ui/card";
@@ -434,8 +436,8 @@ export function ProjectEditor({
     // 사람이 보는 요청(전문가 · 오류 신고)은 답변 기한을 알려 준다
     const person = sentCounts.expert + sentCounts.bug;
     const parts = [
-      sentCounts.ai > 0 ? `AI 반영 ${sentCounts.ai}건은 담당자가 처리해요` : null,
-      person > 0 ? `전문가 요청 ${person}건은 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 답변드려요` : null,
+      sentCounts.ai > 0 ? `요청 ${sentCounts.ai}건은 담당자가 처리해요` : null,
+      person > 0 ? `전문가 검수 요청 ${person}건은 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 답변드려요` : null,
     ].filter(Boolean);
     setNotice(`${res.count}건을 접수했어요. ${parts.join(" · ")}.`);
   }
@@ -465,7 +467,7 @@ export function ProjectEditor({
             i.state === "working"
               ? { text: i.kind === "bug" ? "AI 오류 확인 중" : "AI 고치는 중", tone: "active" as const }
               : i.state === "handoff"
-                ? { text: "담당자 확인 중", tone: "queued" as const }
+                ? { text: i.unable && i.unable !== "later" ? UNABLE_LABEL[i.unable] : "담당자 확인 중", tone: "queued" as const }
                 : i.state === "asked"
                   ? { text: i.shortage ? "토큰 부족" : "확인 필요", tone: "queued" as const }
                   : i.id === liveNextId
@@ -510,8 +512,8 @@ export function ProjectEditor({
               {progress?.done ? "AI 작업 끝" : "AI 작업 중"} {progress ? `${liveDone}/${progress.items.length}` : ""}
             </span>
           ) : !demo && ai?.enabled && live && live.open > 0 && !newer ? (
-            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-brand-700" title="AI 반영 네모를 AI 가 처리하고 있어요">
-              <LoaderCircleIcon className="size-3.5 animate-spin" /> AI 반영 중 {live.open}건
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-brand-700" title="AI가 요청을 고치고 있어요">
+              <LoaderCircleIcon className="size-3.5 animate-spin" /> AI가 고치는 중 {live.open}건
             </span>
           ) : null}
           {!demo && website ? (
@@ -524,12 +526,23 @@ export function ProjectEditor({
                   ? "rounded-full bg-sky-400 px-2.5 py-1 font-semibold text-night-950 hover:bg-sky-300"
                   : "hover:text-ink-900",
               )}
-              title="끝난 수정을 실제 웹사이트에 올려 달라고 요청해요. 담당자가 확인용 서버에서 먼저 점검한 뒤 적용해요."
+              title="고친 내용을 실제 사이트에 올려요. AI가 수정 확인 · 보안 검사를 먼저 해요."
             >
               <RocketIcon className="size-3.5" />
-              {website.active ?? (website.ready && website.waiting > 0 ? "웹사이트에 적용" : website.ready && !website.published ? "웹사이트 공개 요청" : "웹사이트 적용")}
+              {website.active ?? (website.ready && !website.published ? "사이트 공개하기" : "사이트에 올리기")}
               {!website.active && website.waiting > 0 ? <CountChip strong>{website.waiting}</CountChip> : null}
             </Link>
+          ) : null}
+          {!demo && page && shot ? (
+            <ReviewRequestButton
+              projectId={projectId}
+              pageId={page.id}
+              pageName={page.name}
+              device={device}
+              version={shotVersion(shot.url)}
+              quota={hasPlan ? quota.expert : null}
+              disabled={Boolean(liveBatch && !progress?.done)}
+            />
           ) : null}
           {!demo && siteAdmin ? (
             <Link

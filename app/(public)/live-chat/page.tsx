@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "실시간 채팅" };
 const CARDS = [
   { icon: MessageCircleIcon, title: "평균 응답 10분 이내 목표", body: "운영 시간 안에는 담당자가 채팅으로 바로 답합니다. 사이트 이름을 함께 적으면 더 빨리 찾을 수 있습니다." },
   { icon: BookOpenIcon, title: "도움말 센터", body: "시작하기 · 수정 요청 · 요금 · 결제에 대한 자주 묻는 질문을 먼저 확인해 보세요. 대부분은 채팅 없이 해결됩니다.", href: "/help", label: "도움말 보기" },
-  { icon: UserCheckIcon, title: "전문가 요청", body: "사진 교체 · 구조 변경처럼 사람이 필요한 작업은 채팅이 아니라 편집기에서 네모를 그려 전문가 요청으로 보내세요.", href: "/demo", label: "편집기 체험" },
+  { icon: UserCheckIcon, title: "전문가 검수 요청", body: "사진 교체 · 구조 변경처럼 사람이 필요한 작업은 채팅이 아니라 편집기에서 네모를 그려 전문가 검수 요청으로 보내세요.", href: "/demo", label: "편집기 체험" },
 ];
 
 const FAQ = [

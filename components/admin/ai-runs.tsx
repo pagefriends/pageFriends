@@ -38,7 +38,7 @@ export function AiRunList({ runs, path }: { runs: AiRunRow[]; path: string }) {
         {runs.map((run) => {
           const st = RUN_STATUS[run.status];
           const cost = Number(run.cost_usd || 0);
-          const out = run.output as { summary?: string; question?: string; expertNote?: string; notes?: string; decision?: string } | null;
+          const out = run.output as { summary?: string; question?: string; expertNote?: string; staffNote?: string; unable?: string; notes?: string; decision?: string } | null;
           const changes = run.applied?.changes ?? [];
           return (
             <li key={run.id} className="px-3 py-2.5 text-xs">
@@ -67,7 +67,7 @@ export function AiRunList({ runs, path }: { runs: AiRunRow[]; path: string }) {
                   {out?.summary ? <p>AI 설명: {out.summary}</p> : null}
                   {out?.notes ? <p>디자인 설명: {out.notes}</p> : null}
                   {out?.question ? <p>질문: {out.question}</p> : null}
-                  {out?.expertNote ? <p className="font-medium">담당자가 할 일: {out.expertNote}</p> : null}
+                  {out?.staffNote || out?.expertNote ? <p className="font-medium">담당자 메모{out.unable ? ` (${out.unable})` : ""}: {out.staffNote || out.expertNote}</p> : null}
                   {changes.length ? (
                     <ul className="list-disc pl-4">
                       {changes.map((c, i) => (

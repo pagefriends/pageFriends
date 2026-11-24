@@ -185,7 +185,7 @@ export type ChangeRequestRow = {
   region: Region;
   message: string;
   resolution_note: string | null;
-  /** 처리 시 기록된 실제 사용 토큰 (AI 반영만). 오류 신고·전문가 요청은 0 */
+  /** 처리 시 기록된 실제 사용 토큰 (AI 반영만). 오류 신고·전문가 검수 요청은 0 */
   tokens_used: number;
   /** 관리자가 질문했고 사용자의 답을 기다리는 중 ("확인 필요"). 0006 적용 전 DB 에는 컬럼이 없다 */
   awaiting_user?: boolean;

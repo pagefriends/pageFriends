@@ -77,7 +77,7 @@ export function CancelReleaseButton({ projectId, releaseId }: { projectId: strin
         size="sm"
         disabled={pending}
         onClick={() => {
-          if (!window.confirm("웹사이트 적용 요청을 취소할까요? 실렸던 수정은 다시 '적용 대기' 로 돌아가요.")) return;
+          if (!window.confirm("사이트 올리기를 취소할까요? 실렸던 수정은 다시 '올릴 수정' 으로 돌아가요.")) return;
           setError(null);
           start(async () => {
             const res = await cancelReleaseAction(projectId, releaseId);
@@ -87,7 +87,7 @@ export function CancelReleaseButton({ projectId, releaseId }: { projectId: strin
         }}
       >
         {pending ? <LoaderCircleIcon className="size-3.5 animate-spin" /> : null}
-        적용 요청 취소
+        올리기 취소
       </Button>
       {error ? <span className="text-xs text-mark">{error}</span> : null}
     </span>

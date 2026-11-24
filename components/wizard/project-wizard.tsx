@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, GraduationCapIcon, LoaderCircleIcon, PlusIcon, RotateCcwIcon, SparklesIcon, Trash2Icon, UserRoundCheckIcon, WrenchIcon } from "lucide-react";
+import { CheckIcon, GraduationCapIcon, LoaderCircleIcon, PlusIcon, RotateCcwIcon, SparklesIcon, Trash2Icon, WrenchIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { startTransition, useActionState, useEffect, useState, useSyncExternalStore } from "react";
@@ -242,7 +242,6 @@ export function ProjectWizard({
   maxPages,
   paymentAllowed,
   tokenBudget,
-  expertBuildAllowed,
 }: {
   purchasedTemplates: TemplateRow[];
   preselectSlug: string | null;
@@ -253,7 +252,6 @@ export function ProjectWizard({
   /** 이번 달 남은 토큰 (한도 + 크레딧). null = 무제한 */
   tokenBudget: number | null;
   /** "전문가에게 맡기기" 를 고를 수 있는가 (연간 결제 플랜만) */
-  expertBuildAllowed: boolean;
 }) {
   const preselected = purchasedTemplates.find((t) => t.slug === preselectSlug) ?? null;
   const [s, setS] = useState<Draft>(() => (preselected ? { ...EMPTY, start: "template", templateId: preselected.id, ...templateStart(preselected.slug) } : EMPTY));
@@ -266,8 +264,8 @@ export function ProjectWizard({
     setTouched(true);
     setS((prev) => ({ ...prev, ...p }));
   };
-  // 저장해 둔 초안에 "전문가에게 맡기기" 가 있어도 연간 결제가 아니면 AI 로 만든다 (서버도 같은 규칙으로 막는다)
-  const builder: Builder = expertBuildAllowed ? s.builder : "ai";
+  // 사이트는 모두 AI 가 만든다 (2026-11-24 — "전문가에게 맡기기" 를 없앴다. 저장해 둔 예전 초안의 값은 무시)
+  const builder: Builder = "ai";
 
   // 손댄 뒤부터 브라우저에 임시 저장. 제출하면 지우고, 서버가 오류를 돌려주면(state 바뀜) 다시 저장한다
   useEffect(() => {
@@ -521,35 +519,10 @@ export function ProjectWizard({
               />
             </div>
 
-            <div>
-              <p className="text-sm font-semibold">누가 만들까요?</p>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <ModeCard
-                  active={builder === "ai"}
-                  onClick={() => patch({ builder: "ai" })}
-                  icon={<SparklesIcon className="size-5" />}
-                  title="AI로 바로 만들기"
-                  desc="제작 시작을 누르면 AI가 바로 구성 초안을 만들어요. 고칠 곳도 빨간 네모로 요청하면 AI가 바로 진행해요."
-                />
-                <ModeCard
-                  active={builder === "expert"}
-                  onClick={() => patch({ builder: "expert" })}
-                  disabled={!expertBuildAllowed}
-                  icon={<UserRoundCheckIcon className="size-5" />}
-                  title="전문가에게 맡기기"
-                  desc={`전문 디자이너가 직접 만들어 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일) 안에 첫 완성본을 올려 드려요. 그동안 구성 초안으로 미리 의견을 줄 수 있어요.`}
-                  note={expertBuildAllowed ? undefined : "연간 결제 플랜에 들어 있어요"}
-                />
-              </div>
-              {!expertBuildAllowed ? (
-                <p className="mt-2 text-xs text-ink-500">
-                  사람이 처음부터 만드는 제작은 연간 결제에만 들어 있어요. 월간은 AI로 시작하고, 고칠 곳은 전문가 요청으로 맡길 수 있어요.{" "}
-                  <Link href="/billing?cycle=year" className="font-medium text-brand-700 underline">
-                    연간 결제 보기
-                  </Link>
-                </p>
-              ) : null}
-            </div>
+            <p className="flex items-start gap-2 rounded-md bg-ink-50 px-3 py-2 text-xs leading-relaxed text-ink-700">
+              <SparklesIcon className="mt-0.5 size-3.5 shrink-0 text-brand-600" />
+              제작 시작을 누르면 AI가 바로 사이트를 만들어요. 고칠 곳도 빨간 네모로 요청하면 AI가 바로 고치고, 사람이 확인했으면 하는 건 전문가 검수 요청으로 보내요.
+            </p>
 
             <div>
               <p className="text-sm font-semibold">무엇으로 시작할까요?</p>

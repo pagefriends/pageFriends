@@ -8,7 +8,7 @@ import { AiOptions } from "@/components/editor/ai-options";
 import type { DraftBox, EditorSlot, EditorTemplate, ExistingRequest } from "@/components/editor/types";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge } from "@/components/ui/card";
-import { Select, Textarea } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/input";
 import type { StyleId } from "@/config/design-styles";
 import { APPROX_TOKENS_PER_IMAGE, REQUEST_KIND_LABEL, formatTokens, type RequestKind } from "@/config/plans";
 import { IMAGE_REQUEST_TOKENS, REQUEST_KIND_PROMISE, isImageRequest, requestStatus } from "@/config/requests";
@@ -249,17 +249,6 @@ export function RequestPanel({
                       {d.kind === "bug" ? <span className="text-[11px] font-medium text-sky-600">무료</span> : null}
                     </span>
                     <div className="flex items-center gap-1">
-                      <Select
-                        value={d.kind}
-                        onChange={(e) => onChange(d.id, { kind: e.target.value as RequestKind })}
-                        className="h-7 w-auto py-0 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`${i + 1}번 네모 요청 종류`}
-                      >
-                        <option value="ai">{REQUEST_KIND_LABEL.ai}</option>
-                        <option value="expert">{REQUEST_KIND_LABEL.expert}</option>
-                        <option value="bug">{REQUEST_KIND_LABEL.bug}</option>
-                      </Select>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -383,7 +372,7 @@ export function RequestPanel({
         ) : null}
         {aiBlocked ? (
           <Alert tone="red" className="mt-3 text-xs">
-            이번 달 토큰을 모두 썼습니다. AI 반영 {counts.ai}건을 보내려면{" "}
+            이번 달 토큰을 모두 썼습니다. 요청 {counts.ai}건을 보내려면{" "}
             <Link href="/billing#credits" className="font-medium underline">
               토큰 크레딧
             </Link>
@@ -392,7 +381,7 @@ export function RequestPanel({
         ) : null}
         {overExpert > 0 ? (
           <Alert tone={shortExpert > 0 ? "red" : "gray"} className="mt-3 text-xs">
-            이번 달 한도를 넘는 전문가 요청 {overExpert}건은 크레딧에서 차감됩니다.
+            이번 달 한도를 넘는 전문가 검수 요청 {overExpert}건은 크레딧에서 차감됩니다.
             {shortExpert > 0 ? (
               <>
                 {" "}

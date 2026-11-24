@@ -18,7 +18,7 @@
  *   · AI 이미지 요청은 요청하는 순간 장당 APPROX_TOKENS_PER_IMAGE
  *   · 담당자가 "반영 불가" 로 처리하면 그 요청에서 깎은 토큰을 모두 돌려준다
  *   한도를 넘은 만큼은 토큰 크레딧에서 차감된다. 남은 토큰이 0 이면 새 AI 요청을 보낼 수 없다.
- * - 전문가 요청: 월 횟수 한도 + 횟수 크레딧. 사람 손이 드는 일이라 낮은 가격에 맞춰 적게 준다 (직접 고른 전문가 요청만 — AI 가 넘긴 요청은 토큰).
+ * - 전문가 검수 요청: 월 횟수 한도 + 횟수 크레딧. 사람 손이 드는 일이라 낮은 가격에 맞춰 적게 준다 (직접 고른 전문가 검수 요청만 — AI 가 넘긴 요청은 토큰).
  * - 한도는 결제일부터 한 달마다 다시 채워진다. 연간 결제도 매달 채워진다 (DB 의 usage_window).
  * - 오류 신고: 무료. 한도·크레딧 어디에서도 차감하지 않는다 (우리 쪽 실수는 우리가 고친다).
  * - 사이트 수: 플랜별 동시 보유 가능한 사이트(프로젝트) 수. 지금은 모든 플랜이 1개.
@@ -53,7 +53,7 @@ export type Plan = {
   pageRange: { min: number; max: number } | null;
   /** 월 AI 토큰 한도. null = 무제한 */
   monthlyAiTokens: number | null;
-  /** 월 전문가 요청 한도. null = 무제한 */
+  /** 월 전문가 검수 요청 한도. null = 무제한 */
   monthlyExpert: number | null;
   devices: DeviceKind[];
   /** 결제 시스템(쇼핑몰 결제) 연동: none 불가 · addon 연동비를 한 번 내고 켬 · included 포함 */
@@ -116,7 +116,7 @@ export const APPROX_TOKENS_PER_IMAGE = 20_000;
  *
  * 크기 정한 근거 (2026-11-11): 사람 시간은 30분 ≈ 1만 원으로 본다. 토큰 1개의 AI 원가는 약 0.0056원이라 원가대로 바꾸면
  * 30분 일이 180만 토큰이 되어 쓸 수가 없다. 그래서 토큰 크레딧 값(1만 토큰 180원 · 10만 토큰 1,400원)으로 쳐서
- * 보통 일이 전문가 요청 1회 크레딧(8,900원)과 비슷하게 50만 (= 7,000 ~ 9,000원), 작은 일은 그 절반 아래 20만, 큰 일은 두 배 100만.
+ * 보통 일이 전문가 검수 요청 1회 크레딧(8,900원)과 비슷하게 50만 (= 7,000 ~ 9,000원), 작은 일은 그 절반 아래 20만, 큰 일은 두 배 100만.
  * (예전 5만 · 10만 · 20만이면 크레딧 1,400원으로 사람 30분 일을 맡길 수 있었다.)
  */
 export type WorkSize = "small" | "medium" | "large";
@@ -136,7 +136,7 @@ export const WORK_SIZE_LABEL: Record<WorkSize, string> = { small: "작은 일", 
  * 시장 (2026 하반기, AI 만 파는 서비스): Lovable Pro $25 = 요청 100번, Bolt Pro $25 = 1천만 토큰, v0 $30 = $30 어치 크레딧.
  *
  * 남는 돈 (2026-11-11 계산, 공용 DB 기준 · 부가세 · 카드 수수료 · AI · 사람 작업 30분 1만 원 · 서버비 1곳 3천 원을 뺀 값)
- *   전문가 요청을 절반 쓰면  스타터 약 1.7만 · 비즈니스 2.3만 · 프로 6.6만 · 프리미엄 12.6만 원
+ *   전문가 검수 요청을 절반 쓰면  스타터 약 1.7만 · 비즈니스 2.3만 · 프로 6.6만 · 프리미엄 12.6만 원
  *   다 쓰면                  스타터 약 1.2만 · 비즈니스 1.3만 · 프로 4.1만 · 프리미엄 7.6만 원 (모든 플랜이 남는다)
  *   100곳이면 (절반 사용) 스타터 30 · 비즈니스 40 · 프로 20 · 프리미엄 10 → 월 약 400만, 10 · 30 · 40 · 20 → 약 600만, 0 · 20 · 50 · 30 → 약 750만 원
  *   2026-11-11 관리자 목록의 글을 공용 DB 로 옮겼다 (사이트마다 Supabase 프로젝트를 만들면 비즈니스 이상에서 1곳당 약 1.4만 원씩 더 빠졌다).
@@ -158,7 +158,7 @@ const ALL_PLANS: Plan[] = [
     devices: ["mobile", "desktop"],
     paymentSystem: "none",
     cms: false,
-    features: ["사이트 1개", "3~5 페이지", "모바일 · 웹 대응", `토큰 월 ${formatTokens(MONTHLY_TOKENS.starter)}`, "전문가 수정 요청 월 1회", "결제 시스템 · 관리자 페이지 미포함"],
+    features: ["사이트 1개", "3~5 페이지", "모바일 · 웹 대응", `토큰 월 ${formatTokens(MONTHLY_TOKENS.starter)}`, "전문가 검수 요청 월 1회", "결제 시스템 · 관리자 페이지 미포함"],
   },
   {
     code: "business",
@@ -177,7 +177,7 @@ const ALL_PLANS: Plan[] = [
       "5~12 페이지",
       "모바일 · 태블릿 · 웹 반응형",
       `토큰 월 ${formatTokens(MONTHLY_TOKENS.business)}`,
-      "전문가 수정 요청 월 2회",
+      "전문가 검수 요청 월 2회",
       `관리자 페이지 포함 · 결제 시스템 연동 시 1회 ${SETUP_FEE_MAN}만 원`,
     ],
   },
@@ -198,7 +198,7 @@ const ALL_PLANS: Plan[] = [
       "5~30 페이지",
       "모바일 · 태블릿 · 웹 반응형",
       `토큰 월 ${formatTokens(MONTHLY_TOKENS.pro)}`,
-      "전문가 수정 요청 월 5회",
+      "전문가 검수 요청 월 5회",
       "관리자 페이지 · 결제 시스템 연동 포함",
     ],
     recommended: true,
@@ -221,7 +221,7 @@ const ALL_PLANS: Plan[] = [
       "5~50 페이지",
       "모바일 · 태블릿 · 웹 반응형",
       `토큰 월 ${formatTokens(MONTHLY_TOKENS.premium)}`,
-      "전문가 수정 요청 월 10회",
+      "전문가 검수 요청 월 10회",
       "관리자 페이지 · 결제 시스템 연동 포함 · 전담 매니저",
     ],
   },
@@ -264,14 +264,14 @@ export function creditAmountLabel(pack: Pick<CreditPack, "kind" | "amount">): st
 export const TEMPLATE_PRICE_KRW: Record<"demo" | "live", number> = { demo: 1_000, live: 8_900 };
 
 /**
- * 사람(전문가)이 맡는 일의 약속 시간. 전문가 수정 요청의 답변과 "전문가에게 맡기기" 로 만든 사이트의 첫 완성본에 같이 쓴다.
+ * 사람(전문가)이 맡는 일의 약속 시간. 전문가 검수 요청의 답변과 "전문가에게 맡기기" 로 만든 사이트의 첫 완성본에 같이 쓴다.
  * AI 가 맡는 일(AI 반영 · AI 로 바로 만들기)은 바로 진행한다.
  */
 export const EXPERT_HOURS = { min: 24, max: 72 };
 
 /**
  * 오류 신고의 약속 시간. AI 가 먼저 확인하고(최근 AI 변경이면 되돌리고 · 고칠 수 있으면 고친다),
- * 사람이 필요하면 담당자에게 메일 · 문자로 알려 이 시간 안에 고친다 (우리 쪽 실수라 전문가 요청보다 빠르게).
+ * 사람이 필요하면 담당자에게 메일 · 문자로 알려 이 시간 안에 고친다 (우리 쪽 실수라 전문가 검수 요청보다 빠르게).
  */
 export const BUG_HOURS = 24;
 
@@ -279,9 +279,9 @@ export const BUG_HOURS = 24;
 export const DELIVERY_DAYS = { min: EXPERT_HOURS.min / 24, max: EXPERT_HOURS.max / 24 };
 
 export const DEVICE_LABEL: Record<DeviceKind, string> = { mobile: "모바일", tablet: "태블릿", desktop: "웹" };
-export const REQUEST_KIND_LABEL: Record<RequestKind, string> = { ai: "AI 반영", expert: "전문가 요청", bug: "오류 신고" };
+export const REQUEST_KIND_LABEL: Record<RequestKind, string> = { ai: "수정 요청", expert: "전문가 검수 요청", bug: "오류 신고" };
 /** 캔버스 네모 라벨처럼 짧게 써야 할 때 */
-export const REQUEST_KIND_SHORT: Record<RequestKind, string> = { ai: "AI", expert: "전문가", bug: "오류" };
+export const REQUEST_KIND_SHORT: Record<RequestKind, string> = { ai: "AI", expert: "검수", bug: "오류" };
 
 export function formatKrw(n: number): string {
   return `${n.toLocaleString("ko-KR")}원`;

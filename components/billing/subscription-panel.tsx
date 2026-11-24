@@ -133,7 +133,7 @@ export function SubscriptionPanel({
       ) : null}
       {cycle === "year" && (state === "active" || state === "cancelling") ? (
         <p className="mt-3 text-xs text-ink-500">
-          토큰 · 전문가 요청 한도는 연간 결제도 매달 다시 채워져요. 연간 결제를 중간에 해지하고 환불받으려면 고객센터로 알려 주세요 — 쓴 달 수만큼 월간 요금으로 계산해 뺀
+          토큰 · 전문가 검수 요청 한도는 연간 결제도 매달 다시 채워져요. 연간 결제를 중간에 해지하고 환불받으려면 고객센터로 알려 주세요 — 쓴 달 수만큼 월간 요금으로 계산해 뺀
           나머지를 돌려드려요.
         </p>
       ) : null}

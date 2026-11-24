@@ -27,7 +27,7 @@ const AI_STATUS: Record<RequestStatus, { label: string; tone: Tone }> = {
   pending: { label: "AI 진행 중", tone: "sky" },
   processing: { label: "담당자 확인 중", tone: "blue" },
   done: { label: "반영 완료", tone: "dark" },
-  rejected: { label: "반영 불가", tone: "red" },
+  rejected: { label: "다른 방법 안내", tone: "gray" },
 };
 
 /**
@@ -75,8 +75,8 @@ export const REQUEST_KIND_TONE: Record<RequestKind, "gray" | "sky" | "red"> = { 
 
 /** 요청 종류별 처리 방식 안내 (편집기 요청 카드 · 요청 내역) */
 export const REQUEST_KIND_PROMISE: Record<RequestKind, string> = {
-  ai: "요청하면 AI가 바로 진행해요 · 쓴 만큼 토큰이 바로 깎여요 (담당자가 맡으면 일 크기만큼)",
-  expert: `전문가가 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일) 안에 답변해요`,
+  ai: "AI가 바로 고쳐요 · 쓴 만큼 토큰이 바로 깎여요 (AI가 못 하는 일이면 다른 방법을 안내하고 깎지 않아요)",
+  expert: `전문가가 ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일) 안에 검수 결과를 남겨요`,
   bug: `무료 · AI가 바로 확인하고, 사람이 필요하면 담당자가 ${BUG_HOURS}시간 안에 고쳐요`,
 };
 
@@ -93,12 +93,12 @@ export function isOpenStatus(status: RequestStatus): boolean {
   return status === "pending" || status === "processing";
 }
 
-/** 사람이 답해야 하는 요청 (전문가 요청 · 오류 신고). 답변 기한이 있다 */
+/** 사람이 답해야 하는 요청 (전문가 검수 요청 · 오류 신고). 답변 기한이 있다 */
 export function needsPerson(kind: RequestKind): boolean {
   return kind !== "ai";
 }
 
-/** 사람이 맡는 일의 답변 기한 (시간): 오류 신고 24 · 그 밖(전문가 요청 · 전문가 첫 제작) 72 */
+/** 사람이 맡는 일의 답변 기한 (시간): 오류 신고 24 · 그 밖(전문가 검수 요청 · 전문가 첫 제작) 72 */
 export function dueHours(kind: RequestKind = "expert"): number {
   return kind === "bug" ? BUG_HOURS : EXPERT_HOURS.max;
 }

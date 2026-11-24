@@ -23,7 +23,7 @@ export function BetaCard({ planName, months, seatsLeft, monthlyExpert, tokens }:
       <ul className="mt-3 space-y-1 text-sm text-ink-700">
         <li>· 결제 정보 없이 바로 시작해요. 기간이 끝나도 자동으로 결제되지 않아요.</li>
         <li>
-          · 토큰 매달 {tokens} · 전문가 수정 요청 매달 {monthlyExpert}회 · 관리자 페이지 포함
+          · 토큰 매달 {tokens} · 전문가 검수 요청 매달 {monthlyExpert}회 · 관리자 페이지 포함
         </li>
         <li>· 선착순이에요. 남은 자리 {seatsLeft}곳</li>
       </ul>

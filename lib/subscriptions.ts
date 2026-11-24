@@ -71,7 +71,7 @@ export function effectiveSubscription(sub: SubscriptionRow | null, now = new Dat
 }
 
 /**
- * 지금 쓸 수 있는 플랜 (만료 · 해지면 null). 무료 베타 구독이면 전문가 요청 한도를 FREE_BETA.monthlyExpert 로 줄인다 (사람 손이 드는 일).
+ * 지금 쓸 수 있는 플랜 (만료 · 해지면 null). 무료 베타 구독이면 전문가 검수 요청 한도를 FREE_BETA.monthlyExpert 로 줄인다 (사람 손이 드는 일).
  * 사용자 화면 · 요청 제출 · AI 엔진이 모두 이것으로 한도를 정한다.
  */
 export function usablePlan(sub: SubscriptionRow | null, now = new Date()): Plan | null {

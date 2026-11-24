@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { BENCHMARK_ASPECTS, BENCHMARK_ATTESTATION, MAX_BENCHMARKS } from "@/config/benchmarks";
 import { MAX_STYLES, normalizeStyles, styleLabels } from "@/config/design-styles";
-import { PLAN_BY_CODE, expertBuildIncluded, formatTokens, type DeviceKind } from "@/config/plans";
+import { PLAN_BY_CODE, formatTokens, type DeviceKind } from "@/config/plans";
 import { templateDesign } from "@/config/template-designs";
 import { aiConfigured } from "@/lib/ai/claude";
 import { startSiteBuild } from "@/lib/ai/engine";
@@ -30,7 +30,6 @@ import {
   type PurposeCode,
 } from "@/lib/site-plan";
 import { submitChangeRequests } from "@/lib/submit-requests";
-import { cycleOf } from "@/lib/subscriptions";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectBrief } from "@/lib/types/db";
 
@@ -126,12 +125,11 @@ export async function createProjectAction(_prev: CreateProjectState, formData: F
     return { error: "입력값을 확인하세요." };
   }
 
-  const { plan, subscription } = await getSubscription(user.id);
+  const { plan } = await getSubscription(user.id);
   const effective = plan ?? PLAN_BY_CODE.starter; // 플랜이 없으면 스타터 기준으로 페이지·디바이스 제한
   // 사람이 처음부터 만드는 첫 제작은 연간 결제에만 들어 있다 (config/plans.ts expertBuildIncluded)
-  if (d.builder === "expert" && !(plan && subscription && expertBuildIncluded(cycleOf(subscription)))) {
-    return { error: "'전문가에게 맡기기'는 연간 결제 플랜에서 쓸 수 있어요. AI로 시작하거나 연간 결제로 바꿔 주세요." };
-  }
+  // 사이트는 모두 AI 가 만든다 (2026-11-24 — "전문가에게 맡기기" 없앰)
+  if (d.builder === "expert") return { error: "사이트는 AI가 만들어요. 다시 시도해 주세요." };
   const maxPages = effective.pageRange?.max ?? 30;
   const pageCount = countPages(d.menu);
   if (pageCount > maxPages) {

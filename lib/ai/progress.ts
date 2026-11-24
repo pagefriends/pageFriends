@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AI_STALE_MINUTES } from "@/config/ai";
+import type { UnableKind } from "@/config/unable";
 import { DEVICE_LABEL, type DeviceKind, type WorkSize } from "@/config/plans";
 import { isImageRequest } from "@/config/requests";
 import { queueOrder, reapStaleRuns } from "@/lib/ai/engine";
@@ -53,8 +54,10 @@ export type LiveItem = {
   tokens: number;
   /** 담당자에게 넘기며 깎은 일 크기 */
   work: { size: WorkSize; tokens: number } | null;
-  /** 남은 토큰이 모자라 담당자에게 넘기지 못함 (크레딧을 사고 답글을 달면 이어서) */
+  /** 남은 토큰이 모자라 담당자에게 넘기지 못함 (예전 방식 — 2026-11-24 부터는 생기지 않는다) */
   shortage: { size: WorkSize; tokens: number; left: number } | null;
+  /** AI 가 바로 할 수 없어 안내한 갈래 (config/unable.ts) */
+  unable: UnableKind | null;
 };
 
 export type BatchProgress = {
@@ -62,7 +65,7 @@ export type BatchProgress = {
   /** 지금 디자인 버전 (편집기 화면이 이보다 낮으면 새로 읽는다) */
   version: number;
   items: LiveItem[];
-  /** 같은 묶음의 사람 몫 (전문가 요청) · AI 이미지 생성 요청 수 · 이미지 요청에서 깎인 토큰 */
+  /** 같은 묶음의 사람 몫 (전문가 검수 요청) · AI 이미지 생성 요청 수 · 이미지 요청에서 깎인 토큰 */
   people: number;
   images: number;
   imageTokens: number;
@@ -101,6 +104,7 @@ type RunRow = {
     question?: string;
     work?: { size: WorkSize; tokens: number };
     shortage?: { size: WorkSize; tokens: number; left: number };
+    unable?: UnableKind;
   } | null;
   applied: { changes?: AppliedChange[] } | null;
   design_version_after: number | null;
@@ -213,6 +217,7 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
       tokens: Number(r.tokens_used ?? 0),
       work: run?.status === "handoff" ? (run.output?.work ?? null) : null,
       shortage: null as LiveItem["shortage"],
+      unable: (run?.output?.unable ?? null) as LiveItem["unable"],
     };
     if (run?.status === "running") {
       if (now - new Date(run.created_at).getTime() > AI_STALE_MINUTES * 60_000) stale = true;

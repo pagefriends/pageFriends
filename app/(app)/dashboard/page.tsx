@@ -134,7 +134,7 @@ export default async function DashboardPage() {
               : w.active
                 ? { text: `웹사이트 ${APPLY_STATE[releaseStage(w.active) === "new" ? "requested" : "checking"].label}`, strong: true }
                 : w.lastLive
-                  ? { text: w.waiting > 0 ? `웹사이트 공개 중 · 적용 대기 수정 ${w.waiting}건` : "웹사이트 공개 중", strong: w.waiting > 0 }
+                  ? { text: w.waiting > 0 ? `사이트 공개 중 · 올릴 수정 ${w.waiting}건` : "사이트 공개 중", strong: w.waiting > 0 }
                   : ready
                     ? { text: "웹사이트 공개 전 · 공개를 요청해 주세요", strong: true }
                     : null;
@@ -184,7 +184,7 @@ export default async function DashboardPage() {
                     ) : null}
                     {releases.available ? (
                       <Link href={`/projects/${p.id}/apply`} className="inline-flex items-center gap-1 hover:text-ink-900" title="끝난 수정을 실제 웹사이트에 올려 달라고 요청해요">
-                        <RocketIcon className="size-3.5" /> 웹사이트 적용
+                        <RocketIcon className="size-3.5" /> 사이트에 올리기
                         {!w.active && ready && w.waiting > 0 ? <CountChip strong>{w.waiting}</CountChip> : null}
                       </Link>
                     ) : null}

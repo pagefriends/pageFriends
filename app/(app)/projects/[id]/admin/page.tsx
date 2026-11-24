@@ -91,7 +91,7 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
           <CardBody className="space-y-3 text-sm leading-relaxed text-ink-700">
             <p className="font-semibold text-ink-900">아직 관리자 목록이 없어요</p>
             <p>
-              편집 화면에서 목록을 둘 곳에 빨간 네모를 그리고 <b>AI 반영</b>으로 이렇게 요청해 보세요. AI가 목록과 이 관리자 페이지를 바로 만들어요.
+              편집 화면에서 목록을 둘 곳에 빨간 네모를 그리고 이렇게 요청해 보세요. AI가 목록과 이 관리자 페이지를 바로 만들어요.
             </p>
             <p className="rounded-md bg-ink-50 px-3 py-2 text-ink-800">&ldquo;이 페이지를 공지사항 목록으로 바꾸고, 관리자 페이지에서 제목 · 내용 · 날짜를 직접 올릴 수 있게 해 주세요.&rdquo;</p>
             <Link href={`/projects/${id}`} className={buttonClass("dark", "sm")}>

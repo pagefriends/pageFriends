@@ -39,7 +39,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
   const ownerPlan = owner.plan ?? getPlan(owner.subscription?.plan_code);
   const awaiting = Boolean(request.awaiting_user) && isOpenStatus(request.status);
   const st = requestStatus(request.kind, request.status);
-  // 사람이 답하는 요청의 기한: 전문가 요청 72시간 · 오류 신고 24시간 (config/requests.ts dueHours)
+  // 사람이 답하는 요청의 기한: 전문가 검수 요청 72시간 · 오류 신고 24시간 (config/requests.ts dueHours)
   const due = needsPerson(request.kind) && isOpenStatus(request.status) ? remainingLabel(request.created_at, request.kind) : null;
   const builder = brief.site?.builder ?? null;
   const unreadIds = thread.messages.filter((m) => m.author_role === "user" && !m.read_at).map((m) => m.id);

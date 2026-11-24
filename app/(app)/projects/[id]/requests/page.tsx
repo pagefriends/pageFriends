@@ -60,7 +60,7 @@ export default async function RequestsPage({ params }: PageProps<"/projects/[id]
       </div>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">{data.project.name} · 요청 내역</h1>
       <p className="mt-1 text-sm text-ink-500">
-        총 {requests.length}건 · 진행 중 {open}건. AI 반영은 요청하면 바로 진행되고, 전문가 요청은{" "}
+        총 {requests.length}건 · 진행 중 {open}건. 요청은 AI가 바로 고치고, 전문가 검수 요청은{" "}
         {`${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일)`} 안에 답변드려요. 오류 신고는 무료입니다.
         {threads.available ? " 담당자의 답변에는 요청마다 바로 답글을 달 수 있고, 답글은 토큰이나 횟수를 쓰지 않습니다." : null}
       </p>
@@ -68,7 +68,7 @@ export default async function RequestsPage({ params }: PageProps<"/projects/[id]
       {rel.active ? (
         <Alert tone="gray" className="mt-5 flex flex-wrap items-center justify-between gap-2">
           <span>
-            웹사이트 적용이 진행 중이에요 · <span className="font-medium">{APPLY_STATE[releaseStage(rel.active) === "new" ? "requested" : "checking"].label}</span>
+            사이트에 올리는 중이에요 · <span className="font-medium">{APPLY_STATE[releaseStage(rel.active) === "new" ? "requested" : "checking"].label}</span>
           </span>
           <Link href={`/projects/${id}/apply`} className="inline-flex items-center gap-1 font-medium underline">
             <RocketIcon className="size-3.5" /> 진행 상황 보기
@@ -76,9 +76,9 @@ export default async function RequestsPage({ params }: PageProps<"/projects/[id]
         </Alert>
       ) : rel.available && ready && waiting > 0 ? (
         <Alert tone="blue" className="mt-5 flex flex-wrap items-center justify-between gap-2">
-          <span>끝난 수정 {waiting}건이 아직 실제 웹사이트에 올라가지 않았어요. 수정이 다 끝났다면 웹사이트에 적용을 요청해 주세요.</span>
+          <span>끝난 수정 {waiting}건이 아직 실제 사이트에 올라가지 않았어요. 다 고쳤으면 사이트에 올려 주세요.</span>
           <Link href={`/projects/${id}/apply`} className="inline-flex items-center gap-1 font-medium underline">
-            <RocketIcon className="size-3.5" /> 웹사이트에 적용 요청
+            <RocketIcon className="size-3.5" /> 사이트에 올리기
           </Link>
         </Alert>
       ) : null}

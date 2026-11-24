@@ -4,7 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AutoRefresh } from "@/components/messages/auto-refresh";
-import { ApplyRequestForm, CancelReleaseButton } from "@/components/releases/apply-request";
+import { CancelReleaseButton } from "@/components/releases/apply-request";
+import { PublishFlow } from "@/components/releases/publish-flow";
 import { ReleaseItemList, UserReleaseSteps } from "@/components/releases/release-parts";
 import { Alert, Badge, Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { isOpenStatus } from "@/config/requests";
@@ -12,9 +13,10 @@ import { RELEASE_PROMISE, RELEASE_STAGE_USER, releaseDueLabel, releaseStage } fr
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { getProject, listProjectRequests } from "@/lib/projects";
 import { listProjectReleases } from "@/lib/releases";
+import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "웹사이트 적용" };
+export const metadata: Metadata = { title: "사이트에 올리기" };
 export const dynamic = "force-dynamic";
 
 /**
@@ -35,17 +37,24 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
   const waiting = requests.filter((r) => r.status === "done" && !r.release_id).sort(byResolved);
   const open = requests.filter((r) => isOpenStatus(r.status)).length;
   const itemsOf = (releaseId: string) => requests.filter((r) => r.release_id === releaseId).sort(byResolved);
-  const ready = project.status === "live" || project.status === "review";
+  // 사이트는 AI 가 만든다: AI 가 첫 디자인을 마친 사이트는 "제작 중" 이어도 올릴 수 있게 상태를 넘긴다 (2026-11-24 전에 만든 사이트)
+  let status = project.status;
+  if ((status === "brief" || status === "building") && project.brief.design && !project.brief.design.aiPending) {
+    const supabase = await createClient();
+    const { error } = await supabase.from("projects").update({ status: "review" }).eq("id", id).in("status", ["brief", "building"]);
+    if (!error) status = "review";
+  }
+  const ready = status === "live" || status === "review";
   const firstPublish = !rel.lastLive;
   const active = rel.active;
   const past = rel.releases.filter((r) => r.status === "live" || r.status === "cancelled");
 
   const disabledReason = !ready
-    ? "사이트 제작이 끝나면(담당자가 '제작 완료' 를 누르면) 웹사이트에 적용할 수 있어요."
+    ? "AI가 사이트를 다 만들면 올릴 수 있어요."
     : !plan
-      ? "플랜이 있어야 웹사이트에 적용할 수 있어요."
+      ? "플랜이 있어야 사이트에 올릴 수 있어요."
       : !firstPublish && waiting.length === 0
-        ? "지금 적용할 수정이 없어요. 수정 요청이 끝나면 여기에서 적용을 요청하세요."
+        ? "지금 올릴 수정이 없어요. 수정이 끝나면 여기에서 올려 주세요."
         : null;
 
   return (
@@ -63,15 +72,15 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
           </Link>
         </div>
       </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">{project.name} · 웹사이트 적용</h1>
+      <h1 className="mt-2 text-2xl font-bold tracking-tight">{project.name} · 사이트에 올리기</h1>
       <p className="mt-1 text-sm leading-relaxed text-ink-500">
-        편집 화면에서 요청한 수정은 끝나도 바로 실제 웹사이트에 나가지 않아요. 수정이 다 끝나면 &lsquo;웹사이트에 적용 요청&rsquo; 을 눌러 주세요.
-        담당자가 확인용 서버에 먼저 올려 잘 동작하는지 점검하고, 문제가 없을 때 실제 웹사이트에 적용해 드려요.
+        편집 화면에서 고친 내용은 먼저 편집 화면에서만 보여요. 다 고쳤으면 &lsquo;사이트에 올리기&rsquo;를 눌러 주세요.
+        AI가 모든 화면을 다시 확인하고 보안 검사를 한 뒤 실제 사이트에 올려요.
       </p>
 
       {!rel.available ? (
         <Alert tone="gray" className="mt-6">
-          웹사이트 적용 기능을 준비하고 있어요. 그동안 적용이 필요하면{" "}
+          사이트 올리기 기능을 준비하고 있어요. 그동안 올려야 하면{" "}
           <Link href={`/projects/${id}/messages`} className="font-medium underline">
             담당자에게 메시지
           </Link>
@@ -91,7 +100,7 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
                   <span className="text-xs text-ink-500">마지막 적용 {formatDateTime(rel.lastLive.live_at ?? rel.lastLive.updated_at)}</span>
                 </>
               ) : (
-                <span className="text-sm text-ink-700">아직 실제 웹사이트에 공개되지 않았어요. 처음 적용하면 사이트 전체가 웹사이트로 공개돼요.</span>
+                <span className="text-sm text-ink-700">아직 공개되지 않았어요. 처음 올리면 사이트 전체가 공개돼요.</span>
               )}
             </CardBody>
           </Card>
@@ -100,7 +109,7 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
             <Card>
               <CardHeader className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle>
-                  {active.first_publish ? "웹사이트 공개" : `${active.seq}번째 적용`} 진행 중
+                  {active.first_publish ? "사이트 공개" : `${active.seq}번째 올리기`} 진행 중
                 </CardTitle>
                 <Badge tone={RELEASE_STAGE_USER[releaseStage(active)].tone}>{RELEASE_STAGE_USER[releaseStage(active)].label}</Badge>
               </CardHeader>
@@ -108,8 +117,8 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
                 <UserReleaseSteps release={active} />
                 <p className="text-sm text-ink-700">
                   {releaseStage(active) === "new"
-                    ? `요청을 받았어요. 담당자가 ${releaseDueLabel(active.requested_at)} 확인용 서버에서 점검한 뒤 실제 웹사이트에 적용해 드려요.`
-                    : "담당자가 확인용 서버에 먼저 올려 점검하고 있어요. 문제가 없으면 실제 웹사이트에 적용하고 메시지로 알려 드려요."}
+                    ? `점검을 마치고 올리는 중이에요. ${releaseDueLabel(active.requested_at)} 공개돼요.`
+                    : "마지막 확인을 하고 있어요. 공개되면 메시지로 알려 드려요."}
                 </p>
                 {active.note ? (
                   <p className="rounded border border-ink-200 bg-ink-50 px-3 py-2 text-[13px] whitespace-pre-wrap text-ink-700">
@@ -142,25 +151,25 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>{firstPublish ? "웹사이트 공개 요청" : "적용할 수정"}</CardTitle>
+                <CardTitle>{firstPublish ? "처음 공개하기" : "올릴 수정"}</CardTitle>
               </CardHeader>
               <CardBody className="flex flex-col gap-4">
                 <p className="text-sm text-ink-700">
                   {firstPublish
                     ? waiting.length > 0
-                      ? `처음 적용하면 지금 사이트 전체가 실제 웹사이트로 공개돼요. 그동안 끝난 수정 ${waiting.length}건도 함께 올라가요.`
-                      : "처음 적용하면 지금 사이트 전체가 실제 웹사이트로 공개돼요."
+                      ? `처음 올리면 지금 사이트 전체가 공개돼요. 그동안 끝난 수정 ${waiting.length}건도 함께 올라가요.`
+                      : "처음 올리면 지금 사이트 전체가 공개돼요."
                     : waiting.length > 0
                       ? `끝났지만 아직 실제 웹사이트에 올라가지 않은 수정이 ${waiting.length}건 있어요.`
-                      : "지금은 적용할 수정이 없어요."}
+                      : "지금은 올릴 수정이 없어요."}
                 </p>
                 <ReleaseItemList items={waiting} pages={pages} />
                 {open > 0 && ready ? (
                   <Alert tone="gray" className="text-[13px]">
-                    아직 진행 중인 수정이 {open}건 있어요. 지금 적용하면 끝난 수정만 올라가고, 나머지는 끝난 뒤 다음 적용 때 올릴 수 있어요.
+                    아직 진행 중인 수정이 {open}건 있어요. 지금 올리면 끝난 수정만 올라가고, 나머지는 끝난 뒤 다음에 올릴 수 있어요.
                   </Alert>
                 ) : null}
-                <ApplyRequestForm projectId={id} label="웹사이트에 적용 요청" disabledReason={disabledReason} />
+                <PublishFlow projectId={id} label={firstPublish ? "사이트 공개하기" : "사이트에 올리기"} disabledReason={disabledReason} />
                 <p className="text-xs text-ink-500">{RELEASE_PROMISE}</p>
               </CardBody>
             </Card>
@@ -169,7 +178,7 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
           {past.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>적용 기록</CardTitle>
+                <CardTitle>올린 기록</CardTitle>
               </CardHeader>
               <ul className="divide-y divide-ink-100">
                 {past.map((r) => {
@@ -177,7 +186,7 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
                   const n = itemsOf(r.id).length;
                   return (
                     <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm">
-                      <span className="font-medium">{r.seq}번째 적용</span>
+                      <span className="font-medium">{r.seq}번째 올리기</span>
                       {r.first_publish ? <Badge tone="blue">첫 공개</Badge> : null}
                       <Badge tone={s.tone}>{s.label}</Badge>
                       <span className="text-xs text-ink-500">

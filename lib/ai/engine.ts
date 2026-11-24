@@ -18,16 +18,13 @@ import {
   BUG_HOURS,
   DEVICE_LABEL,
   EXPERT_HOURS,
-  WORK_SIZE_LABEL,
-  WORK_SIZES,
-  WORK_TOKENS,
   formatTokens,
   type DeviceKind,
   type Plan,
-  type WorkSize,
 } from "@/config/plans";
 import { isImageRequest } from "@/config/requests";
 import { templateDesign } from "@/config/template-designs";
+import { CONNECT_KINDS, UNABLE_KINDS, UNABLE_LABEL, unableGuide, type ConnectKind, type UnableKind } from "@/config/unable";
 import { aiConfigured, callStructured, type CallResult } from "@/lib/ai/claude";
 import { bugPrompt, buildPrompt, editPrompt, tagNames, type BatchPeer, type EditRequest, type HarnessSite, type RecentChange } from "@/lib/ai/harness";
 import { copyLimits, copySlots, plannedOf, renderPage, rerender, type LayoutPage } from "@/lib/ai/layout";
@@ -254,9 +251,12 @@ async function handToPerson(admin: Admin, requestId: string, body: string, charg
   return false;
 }
 
-/** AI 가 고른 일 크기 (none · 모르는 값이면 fallback) */
-function workSizeOf(v: string | undefined, fallback: WorkSize): WorkSize {
-  return (WORK_SIZES as string[]).includes(v ?? "") ? (v as WorkSize) : fallback;
+/** AI 가 고른 "할 수 없음" 갈래 (none · 모르는 값이면 담당자가 이어서) */
+function unableOf(v: string | undefined): UnableKind {
+  return (UNABLE_KINDS as readonly string[]).includes(v ?? "") ? (v as UnableKind) : "later";
+}
+function connectOf(v: string | undefined): ConnectKind | null {
+  return (CONNECT_KINDS as readonly string[]).includes(v ?? "") ? (v as ConnectKind) : null;
 }
 
 /**
@@ -435,6 +435,9 @@ export async function startSiteBuild(projectId: string, opts: { force?: boolean 
       tokens_billed: 0,
       ...callFields(res),
     });
+    // 사이트는 AI 가 만든다 → 첫 디자인이 끝나면 바로 고치고 올릴 수 있게 "제작 중" 을 넘긴다
+    const { error: statusErr } = await admin.from("projects").update({ status: "review" }).eq("id", projectId).in("status", ["brief", "building"]);
+    if (statusErr) console.error("[ai] build status", statusErr.message);
     const tagLine = tags.length ? `고르신 디자인 유형(${tagNames(tags)})에 맞춰` : "업종에 맞춰";
     await postSiteMessage(admin, projectId, `AI가 ${tagLine} 첫 디자인을 만들었어요. ${to.notes ?? ""}\n편집기에서 바로 확인하고, 고칠 곳은 빨간 네모로 요청해 주세요.`.trim());
     return { ok: true, message: "AI 가 첫 디자인을 만들었습니다." };
@@ -874,32 +877,19 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
    * 남은 토큰이 모자라면 깎지도 넘기지도 않고 사용자에게 알린다 — 크레딧을 사고 답글을 달면 AI 가 다시 보고 이어서 넘긴다 (resumeAfterAnswer).
    * 관리자의 "AI로 다시 처리"(force)는 이미 처리된 요청을 다시 보는 일이라 담당자 작업 토큰을 새로 받지 않는다.
    */
-  const handOffWork = async (size: WorkSize, reason: string, output: Record<string, unknown>, extra: Record<string, unknown>): Promise<ProcessResult> => {
-    const work = WORK_TOKENS[size];
-    const label = `${WORK_SIZE_LABEL[size]} · 토큰 ${formatTokens(work)}`;
-    if (opts.force) {
-      await handOff(`${reason} ${HUMAN_LATER}`, { output, ...extra });
-      return { ok: true, message: "담당자에게 넘겼습니다 (다시 처리라 토큰은 새로 받지 않았습니다).", outcome: "handoff", summary: reason };
+  const handOffWork = async (kind: UnableKind, connect: ConnectKind | null, reason: string, output: Record<string, unknown>, extra: Record<string, unknown>): Promise<ProcessResult> => {
+    const body = `${reason} ${unableGuide(kind, connect)}`.trim().slice(0, 2000);
+    const out = { ...output, unable: kind, connect };
+    if (kind === "later") {
+      // 아직 AI 기능이 없는 일: 담당자가 이어서 한다 (토큰 없음)
+      await handOff(`${body} ${HUMAN_LATER}`, { output: out, ...extra });
+      return { ok: true, message: "AI 기능이 아직 없는 일이라 담당자에게 넘겼습니다 (토큰 없음).", outcome: "handoff", summary: reason };
     }
-    const { left } = await tokenBalance(admin, site.userId, plan);
-    if (left !== null && left < work) {
-      await admin.rpc("ai_finish_request", {
-        p_request_id: requestId,
-        p_status: "pending",
-        p_body: `${reason}\n담당자가 맡을 일이라 토큰이 더 필요해요 (필요 ${formatTokens(work)} · 남은 토큰 ${formatTokens(Math.max(0, left))}). 토큰 크레딧을 산 뒤 답글을 남겨 주시면 이어서 담당자에게 넘길게요. 전문가 요청으로 다시 보내셔도 돼요.`.slice(0, 2000),
-        p_awaiting_user: true,
-        p_tokens: 0,
-        p_monthly_ai_tokens: null,
-      });
-      await finishRun(admin, runId, { status: "asked", output: { ...output, shortage: { size, tokens: work, left: Math.max(0, left) } }, ...extra });
-      return { ok: true, message: `토큰이 모자라 담당자에게 넘기지 않고 알렸습니다 (필요 ${formatTokens(work)} · 남음 ${formatTokens(Math.max(0, left))}).`, outcome: "asked", summary: reason };
-    }
-    const charged = await handToPerson(admin, requestId, `${reason} 담당자가 맡을 일이에요 (${label} 사용). ${HUMAN_LATER} 처리할 수 없으면 토큰을 돌려드려요.`, {
-      total: (req.tokens_used ?? 0) + work,
-      monthly: plan.monthlyAiTokens,
-    });
-    await finishRun(admin, runId, { status: "handoff", output: { ...output, work: { size, tokens: work } }, tokens_billed: charged ? work : 0, ...extra });
-    return { ok: true, message: `담당자에게 넘겼습니다 (${label}).`, outcome: "handoff", summary: reason };
+    // 연결 · 검수 · 상담: 안내만 하고 요청은 닫는다 (토큰 없음)
+    const { error } = await admin.rpc("ai_finish_request", { p_request_id: requestId, p_status: "rejected", p_body: body, p_awaiting_user: false, p_tokens: 0, p_monthly_ai_tokens: null });
+    if (error) console.error("[ai] guide", error.message);
+    await finishRun(admin, runId, { status: "skipped", output: out, ...extra });
+    return { ok: true, message: `AI 가 할 수 없는 요청이라 안내했습니다 (${UNABLE_LABEL[kind]}).`, outcome: "asked", summary: reason };
   };
 
   // 답을 받는 도중의 진행 단계는 순서대로 기록한다 (스트림 이벤트는 기다려 주지 않으므로 이어 붙인다)
@@ -947,8 +937,8 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       return { ok: true, message: "AI 가 사용자에게 질문했습니다.", outcome: "asked", summary: out.question.trim().slice(0, 300) };
     }
     if (out.decision !== "apply") {
-      // 담당자 일. 크기를 고르지 않았으면(질문을 더 할 수 없어 넘기는 경우 등) 작은 일로 본다
-      return await handOffWork(workSizeOf(out.workSize, "small"), summary || "AI가 바로 고칠 수 없는 요청이에요.", out, callFields(res));
+      // AI 가 바로 할 수 없는 일 (갈래를 고르지 않았으면 — 질문을 더 할 수 없는 경우 등 — 담당자가 이어서)
+      return await handOffWork(unableOf(out.unable), connectOf(out.connect), summary || "AI가 바로 할 수 없는 요청이에요.", out, callFields(res));
     }
 
     // 관리자 목록: 플랜이 관리자 페이지를 쓸 수 없으면 만들지 않고 알린다 (AI 가 지시서를 어기고 목록을 보냈을 때의 안전장치)
@@ -992,7 +982,7 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       const allRejected = [...rejected, ...(data?.rejected ?? [])];
       if (!changes.length) {
         // AI 가 할 수 있다고 봤지만 바꿀 값이 없었다 → 담당자가 손으로 하는 작은 일
-        return await handOffWork(workSizeOf(out.workSize, "small"), `${summary ? `${summary} ` : ""}AI가 바꿀 수 있는 값을 찾지 못했어요.`, out, {
+        return await handOffWork("later", null, `${summary ? `${summary} ` : ""}AI가 바꿀 수 있는 값을 찾지 못했어요.`, out, {
           applied: { changes: [], rejected: allRejected },
           ...callFields(res),
         });

@@ -51,11 +51,11 @@ export default function HomePage() {
                 <p className="font-semibold">
                   <span className="mr-1.5 inline-block bg-mark px-1 text-[10px] text-white">1</span>제목 문구를 더 짧게
                 </p>
-                <p className="mt-1 text-white/50">AI 반영 · 반영 완료</p>
+                <p className="mt-1 text-white/50">AI 수정 · 반영 완료</p>
                 <p className="mt-3 font-semibold">
                   <span className="mr-1.5 inline-block bg-mark px-1 text-[10px] text-white">2</span>실제 매장 사진으로 교체
                 </p>
-                <p className="mt-1 text-white/50">전문가 요청 · 처리중</p>
+                <p className="mt-1 text-white/50">전문가 검수 요청 · 처리중</p>
               </div>
             </div>
           </div>

@@ -12,6 +12,7 @@ import { processBatch, resumeAfterAnswer } from "@/lib/ai/engine";
 import { getSubscription, requireUser } from "@/lib/auth/session";
 import { designOf, isAiPending } from "@/lib/design-doc";
 import { isMissingSchema } from "@/lib/messages";
+import { securityScan, verifySite, type CheckResult } from "@/lib/publish-check";
 import { tokenBalance } from "@/lib/quota";
 import { submitChangeRequests } from "@/lib/submit-requests";
 import { createClient } from "@/lib/supabase/server";
@@ -100,7 +101,7 @@ export async function submitRequestsAction(projectId: string, rawItems: unknown)
   if (error) {
     const m = error.message;
     if (m.includes("AI_TOKENS_EXHAUSTED")) return { ok: false, error: "이번 달 토큰을 모두 썼습니다. 토큰 크레딧을 구매하거나 한도가 다시 채워진 뒤 요청하세요." };
-    if (m.includes("QUOTA_EXCEEDED_EXPERT")) return { ok: false, error: `이번 달 전문가 요청 한도를 넘었고 크레딧이 ${m.split(":")[1] ?? ""}건 부족합니다.` };
+    if (m.includes("QUOTA_EXCEEDED_EXPERT")) return { ok: false, error: `이번 달 전문가 검수 요청 한도를 넘었고 크레딧이 ${m.split(":")[1] ?? ""}건 부족합니다.` };
     if (m.includes("PROJECT_NOT_FOUND")) return { ok: false, error: "프로젝트를 찾을 수 없습니다." };
     if (m.includes("TEMPLATE_NOT_PURCHASED")) return { ok: false, error: "구매한 템플릿만 참고 템플릿으로 붙일 수 있어요." };
     return { ok: false, error: m };
@@ -194,15 +195,15 @@ export async function requestReleaseAction(projectId: string, note: string): Pro
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "내용을 확인하세요." };
 
   const { plan } = await getSubscription(user.id);
-  if (!plan) return { ok: false, error: "플랜이 있어야 웹사이트에 적용할 수 있습니다. 플랜을 먼저 선택하세요." };
+  if (!plan) return { ok: false, error: "플랜이 있어야 사이트에 올릴 수 있어요. 플랜을 먼저 선택하세요." };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("request_release", { p_project_id: parsed.data.projectId, p_note: parsed.data.note.trim() });
   if (error) {
     const m = error.message;
-    if (isMissingSchema(error)) return { ok: false, error: "웹사이트 적용 기능을 준비하고 있습니다. 잠시 후 다시 시도해 주세요." };
-    if (m.includes("SITE_NOT_READY")) return { ok: false, error: "사이트 제작이 끝나면 웹사이트에 적용할 수 있어요." };
-    if (m.includes("RELEASE_IN_PROGRESS") || m.includes("releases_one_active_idx")) return { ok: false, error: "이미 웹사이트 적용이 진행 중이에요. 끝나면 다시 요청해 주세요." };
+    if (isMissingSchema(error)) return { ok: false, error: "사이트 올리기 기능을 준비하고 있어요. 잠시 후 다시 시도해 주세요." };
+    if (m.includes("SITE_NOT_READY")) return { ok: false, error: "AI가 사이트를 다 만들면 올릴 수 있어요." };
+    if (m.includes("RELEASE_IN_PROGRESS") || m.includes("releases_one_active_idx")) return { ok: false, error: "이미 사이트에 올리는 중이에요. 끝나면 다시 올려 주세요." };
     if (m.includes("NOTHING_TO_APPLY")) return { ok: false, error: "지금 적용할 수정이 없어요. 수정 요청이 끝나면 다시 요청해 주세요." };
     if (m.includes("PROJECT_NOT_FOUND")) return { ok: false, error: "사이트를 찾을 수 없습니다." };
     return { ok: false, error: "요청하지 못했습니다. 잠시 후 다시 시도해 주세요." };
@@ -237,4 +238,24 @@ export async function markMessagesReadAction(ids: string[]): Promise<void> {
   if (!parsed.success) return;
   const supabase = await createClient();
   await supabase.rpc("mark_messages_read", { p_ids: parsed.data });
+}
+
+export type PublishCheckResult = { ok: true; result: CheckResult } | { ok: false; error: string };
+
+/**
+ * "사이트에 올리기" 의 자동 점검 한 단계 (verify 화면 확인 · security 보안 검사). 화면이 단계마다 부르며 진행률을 보여 준다.
+ * 둘 다 통과해야 올리기(requestReleaseAction)를 부른다 — 심각한 문제가 있으면 화면이 멈추고 알려 준다.
+ */
+export async function publishCheckAction(projectId: string, step: "verify" | "security"): Promise<PublishCheckResult> {
+  const user = await requireUser();
+  if (!z.uuid().safeParse(projectId).success) return { ok: false, error: "잘못된 요청입니다." };
+  const supabase = await createClient();
+  const { data: project } = await supabase.from("projects").select("id, user_id, brief").eq("id", projectId).maybeSingle();
+  if (!project || project.user_id !== user.id) return { ok: false, error: "사이트를 찾을 수 없습니다." };
+  const p = { id: project.id as string, brief: project.brief as ProjectBrief };
+  if (step === "verify") {
+    const { data: pages } = await supabase.from("project_pages").select("path, name, screenshots").eq("project_id", projectId);
+    return { ok: true, result: verifySite(p, (pages ?? []) as Parameters<typeof verifySite>[1]) };
+  }
+  return { ok: true, result: await securityScan(supabase, p) };
 }

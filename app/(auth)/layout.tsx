@@ -42,7 +42,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-white/50">
           <span>템플릿 또는 프롬프트</span>
           <span>네모 그려서 수정 요청</span>
-          <span>AI 반영 + 전문가 수정</span>
+          <span>AI가 만들고 고치고 · 전문가가 검수</span>
           <span>월 29,000원부터</span>
         </div>
       </section>

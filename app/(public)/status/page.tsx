@@ -11,7 +11,7 @@ const COMPONENTS = [
   { name: "웹사이트", desc: "pagefriends.kr 공개 페이지" },
   { name: "대시보드 · 편집기", desc: "로그인, 프로젝트, 수정 요청" },
   { name: "결제 (포트원)", desc: "플랜 결제, 정기 결제, 크레딧 · 템플릿 구매" },
-  { name: "AI 처리", desc: "초안 생성, AI 반영 요청" },
+  { name: "AI 처리", desc: "사이트 만들기, 수정 요청" },
   { name: "이메일", desc: "가입 확인, 알림, 문의 답변" },
 ];
 
