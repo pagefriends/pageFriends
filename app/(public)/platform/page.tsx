@@ -52,14 +52,14 @@ const PILLARS: { n: string; title: string; body: string; tiles: Tile[] }[] = [
   {
     n: "01",
     title: "만들기",
-    body: "템플릿 또는 프롬프트로 시작합니다. 위저드가 필수 정보만 묻고, AI 가 초안을 만듭니다.",
+    body: "템플릿 또는 프롬프트로 시작합니다. 위저드가 필수 정보만 묻고, AI 가 시안을 만듭니다.",
     tiles: [
       { icon: LayoutTemplateIcon, label: "템플릿" },
       { icon: SparklesIcon, label: "프롬프트" },
       { icon: PenLineIcon, label: "위저드" },
       { icon: PaletteIcon, label: "디자인 톤" },
       { icon: FileTextIcon, label: "페이지 구성" },
-      { icon: BotIcon, label: "AI 초안" },
+      { icon: BotIcon, label: "AI 시안" },
     ],
   },
   {
@@ -78,9 +78,9 @@ const PILLARS: { n: string; title: string; body: string; tiles: Tile[] }[] = [
   {
     n: "03",
     title: "협업",
-    body: "네모 하나에 요청 하나. 요청은 모두 AI가 바로 고치고, 사람이 볼 일은 전문가 검수 요청으로 보냅니다.",
+    body: "박스 하나에 요청 하나. 요청은 모두 AI가 바로 고치고, 사람이 볼 일은 전문가 검수 요청으로 보냅니다.",
     tiles: [
-      { icon: SquareDashedMousePointerIcon, label: "네모 요청" },
+      { icon: SquareDashedMousePointerIcon, label: "박스 요청" },
       { icon: MonitorSmartphoneIcon, label: "화면별 확인" },
       { icon: MessageSquareIcon, label: "답변" },
       { icon: UsersIcon, label: "전문가" },
@@ -106,14 +106,14 @@ const PILLARS: { n: string; title: string; body: string; tiles: Tile[] }[] = [
 const TAB_CONTENT: { key: string; label: string; image: ReturnType<typeof ph>; points: string[] }[] = [
   { key: "make", label: "만들기", image: ph("wide", 1), points: ["템플릿(데모 · 운영 사이트) 또는 프롬프트만으로 시작", "위저드가 업종 · 목적 · 페이지 구성 · 톤만 묻습니다", `필수 정보 입력 후 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본`] },
   { key: "connect", label: "연결", image: ph("wide", 2), points: ["포트원(토스페이먼츠) 결제 연동 — 비즈니스 플랜 옵션", "예약 폼 · 문의 폼 · 카카오톡 채널 · 지도", "비즈니스 플랜부터 게시판 · 공지 등 CMS"] },
-  { key: "collab", label: "협업", image: ph("wide", 3), points: ["캡처 위에 빨간 네모를 그리고 번호별로 요청", "수정은 AI(토큰) · 전문가 검수(횟수) · 오류 신고(무료)", "접수 · 처리중 · 반영 완료와 답변을 같은 화면에서"] },
+  { key: "collab", label: "협업", image: ph("wide", 3), points: ["캡처 위에 빨간 박스를 그리고 번호별로 요청", "수정은 AI(토큰) · 전문가 검수(횟수) · 오류 신고(무료)", "접수 · 처리중 · 반영 완료와 답변을 같은 화면에서"] },
   { key: "manage", label: "관리", image: ph("wide", 4), points: ["플랜별 사이트 수 1 · 2 · 5 · 10개를 대시보드 하나로", "토큰 사용량과 남은 한도를 실시간으로", "월 단위 결제, 언제든 플랜 변경 · 해지"] },
 ];
 
 const FEATURE_ROWS: { eyebrow: string; title: string; body: string; bullets: string[]; image: ReturnType<typeof ph> }[] = [
   { eyebrow: "템플릿 · 프롬프트", title: "모든 시작 방식", body: "완성 디자인이 적용된 데모 사이트, 소유자 동의를 받은 운영 사이트 템플릿, 또는 글로만 설명하는 프롬프트. 어느 쪽이든 5분 안에 시작합니다.", bullets: ["데모 템플릿 1,000원 · 운영 사이트 8,900원", "템플릿 없이 프롬프트만으로도 가능", "참고 사이트 · 로고 첨부"], image: ph("wide", 5) },
   { eyebrow: "위저드", title: "안내형 입력 위저드", body: "사이트 이름, 업종, 목적, 페이지 구성, 디자인 톤. 제작에 꼭 필요한 것만 순서대로 묻습니다. 디자인 지식이 없어도 됩니다.", bullets: ["필수 항목만 5단계", "중간 저장 · 이어서 입력", "입력이 끝나면 바로 제작 시작"], image: ph("wide", 6) },
-  { eyebrow: "모바일 · 태블릿 · 웹", title: "화면별로 확인", body: "완성본은 디바이스별 캡처로 올라옵니다. 화면마다 따로 보고, 따로 네모를 그려 요청합니다. 페이지도 탭으로 오갑니다.", bullets: ["스타터는 모바일 · 웹, 비즈니스부터 태블릿까지", "드래그 · 줌으로 세부 확인", "페이지 · 디바이스 상관없이 한 번에 요청"], image: ph("wide", 7) },
+  { eyebrow: "모바일 · 태블릿 · 웹", title: "화면별로 확인", body: "완성본은 디바이스별 캡처로 올라옵니다. 화면마다 따로 보고, 따로 박스를 그려 요청합니다. 페이지도 탭으로 오갑니다.", bullets: ["스타터는 모바일 · 웹, 비즈니스부터 태블릿까지", "드래그 · 줌으로 세부 확인", "페이지 · 디바이스 상관없이 한 번에 요청"], image: ph("wide", 7) },
   { eyebrow: "토큰제", title: "토큰으로 투명하게", body: "수정 요청은 횟수가 아니라 AI가 실제 쓴 토큰만큼만 차감됩니다. 한도를 넘으면 크레딧으로 이어가고, 우리 쪽 오류 신고는 어디에서도 차감하지 않습니다.", bullets: ["플랜별 월 토큰 한도, 결제 기간마다 초기화", "크레딧은 만료 없음", "오류 신고 무료"], image: ph("wide", 8) },
 ];
 
@@ -218,7 +218,7 @@ export default function PlatformPage() {
       <Section tone="gray" className="py-12 sm:py-16">
         <Container className="grid gap-4 md:grid-cols-3">
           {[
-            { icon: ShieldCheckIcon, title: "사람이 검수", body: "AI 초안을 전문가가 구조 · 문구 · 반응형까지 확인합니다." },
+            { icon: ShieldCheckIcon, title: "사람이 검수", body: "AI 시안을 전문가가 구조 · 문구 · 반응형까지 확인합니다." },
             { icon: ActivityIcon, title: "24시간 안에", body: "수정 요청은 AI가 보통 1분 안에 바로 반영합니다." },
             { icon: RefreshCwIcon, title: "언제든 변경", body: "규모가 커지면 플랜만 올리면 됩니다. 해지도 언제든." },
             { icon: LayersIcon, title: "사이트 여러 개", body: "플랜별 1 · 2 · 5 · 10개 사이트를 대시보드 하나로." },

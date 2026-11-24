@@ -121,7 +121,7 @@ export default async function AdminRequestsPage({ searchParams }: PageProps<"/ad
                   </Link>
                   {first.ownerEmail ? <span className="text-xs text-ink-500">{first.ownerEmail}</span> : null}
                   <span className="text-xs text-ink-500">{formatDateTime(first.created_at)}</span>
-                  <span className="text-xs text-ink-400">묶음 {batchId.slice(0, 8)} · {list.length}건</span>
+                  <span className="text-xs text-ink-400">함께 보낸 요청 {batchId.slice(0, 8)} · {list.length}건</span>
                 </div>
                 <BatchStatusSelect batchId={batchId} />
               </header>

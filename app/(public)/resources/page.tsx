@@ -66,7 +66,7 @@ export default async function ResourcesPage({ searchParams }: PageProps<"/resour
           <div>
             <Eyebrow>자료보다 빠른 방법</Eyebrow>
             <Display className="mt-3">읽는 대신 바로 만들어 보세요</Display>
-            <Lead className="mt-4 max-w-2xl">편집 화면 체험은 로그인 없이 바로 열립니다. 네모 그려서 요청하는 방식을 1분 안에 익힐 수 있습니다.</Lead>
+            <Lead className="mt-4 max-w-2xl">편집 화면 체험은 로그인 없이 바로 열립니다. 박스 그려서 요청하는 방식을 1분 안에 익힐 수 있습니다.</Lead>
           </div>
           <div className="flex flex-wrap gap-3">
             <Pill href="/demo">편집 화면 체험</Pill>

@@ -25,9 +25,9 @@ const REQUIREMENTS = [
 
 const PERKS = [
   { title: "원격 · 유연 근무", body: "어디서든, 정해진 시간대 안에서 자유롭게 일합니다." },
-  { title: "AI 가 만든 초안에서 시작", body: "빈 화면이 아니라 AI 초안 위에서 판단과 마무리에 집중합니다." },
+  { title: "AI 가 만든 시안에서 시작", body: "빈 화면이 아니라 AI 시안 위에서 판단과 마무리에 집중합니다." },
   { title: "명확한 브리프", body: "업종 · 목적 · 톤 · 페이지 구성이 정리된 브리프로 시작합니다. 추측할 필요가 없습니다." },
-  { title: "네모 단위의 요청", body: "수정 요청은 화면 위 네모 하나에 요청 하나. 무엇을 고칠지 헷갈리지 않습니다." },
+  { title: "박스 단위의 요청", body: "수정 요청은 화면 위 박스 하나에 요청 하나. 무엇을 고칠지 헷갈리지 않습니다." },
   { title: "투명한 정산", body: "처리한 요청과 완성본 기준으로 매월 정산합니다. 기준은 계약 시 문서로 드립니다." },
   { title: "성장하는 커뮤니티", body: "전문가 팀 채널에서 사례와 피드백을 나누고, 팀 리드가 검수 결과를 돌려줍니다." },
   { title: "도구 · 라이선스 제공", body: "Figma 팀 시트와 정식 라이선스의 폰트 · 이미지 · 아이콘을 제공합니다." },
@@ -72,7 +72,7 @@ export default async function CreativeApplicationPage({ searchParams }: PageProp
               여기서 시작됩니다
             </Display>
             <Lead className="mx-auto mt-6 max-w-2xl">
-              페이지프렌즈 전문가 팀은 AI 초안을 검수하고 사장님의 수정 요청에 답하는 디자이너 · 개발자 · 카피라이터 · QA 로 이루어져 있습니다. 어디서든, 포트폴리오만 있으면 지원할 수 있습니다.
+              페이지프렌즈 전문가 팀은 AI 시안을 검수하고 사장님의 수정 요청에 답하는 디자이너 · 개발자 · 카피라이터 · QA 로 이루어져 있습니다. 어디서든, 포트폴리오만 있으면 지원할 수 있습니다.
             </Lead>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Pill href="#apply">지금 지원하기</Pill>

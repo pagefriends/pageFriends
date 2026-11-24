@@ -37,7 +37,7 @@ const AI_STATUS: Record<RequestStatus, { label: string; tone: Tone }> = {
 const BUG_STATUS: Record<RequestStatus, { label: string; tone: Tone }> = {
   pending: { label: "확인 중", tone: "sky" },
   processing: { label: "담당자 확인 중", tone: "blue" },
-  done: { label: "고침 완료", tone: "dark" },
+  done: { label: "수정 완료", tone: "dark" },
   rejected: { label: "반영 불가", tone: "red" },
 };
 

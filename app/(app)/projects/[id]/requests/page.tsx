@@ -100,7 +100,7 @@ export default async function RequestsPage({ params }: PageProps<"/projects/[id]
 
       {requests.length === 0 ? (
         <p className="mt-8 rounded-md border border-dashed border-ink-300 bg-surface p-8 text-center text-sm text-ink-500">
-          아직 보낸 요청이 없습니다. 편집 화면에서 고칠 곳에 네모를 그려 요청해 보세요.
+          아직 보낸 요청이 없습니다. 편집 화면에서 고칠 곳에 박스를 그려 요청해 보세요.
         </p>
       ) : (
         <div className="mt-6">

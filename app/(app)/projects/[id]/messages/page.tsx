@@ -46,7 +46,7 @@ export default async function MessagesPage({ params }: PageProps<"/projects/[id]
         <Link href={`/projects/${id}`} className="font-medium text-brand-600 hover:underline">
           편집 화면
         </Link>
-        에서 네모를 그려 보내야 처리됩니다.
+        에서 박스를 그려 보내야 처리됩니다.
       </p>
 
       {thread.available ? (

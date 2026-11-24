@@ -70,7 +70,7 @@ export function SlotPhotos({
       }
       sent += 1;
     }
-    if (files.length > list.length) setError(`이 자리는 사진 ${count}장까지예요. ${list.length}장만 올렸어요.`);
+    if (files.length > list.length) setError(`이 영역은 사진 ${count}장까지예요. ${list.length}장만 올렸어요.`);
     setBusy(null);
     if (sent > 0) {
       window.dispatchEvent(new Event(COUNTS_EVENT));

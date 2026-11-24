@@ -46,12 +46,12 @@ const HAS_CTA = new Set<PageKind>(["home", "about", "services", "service", "prod
 const HOME = ["hero", "offerings", "strengths", "about", "reviews", "cta"] as const;
 
 export const BUILTIN_LABEL: Record<string, string> = {
-  hero: "첫 화면",
+  hero: "메인 화면",
   offerings: "서비스 소개",
   strengths: "강점",
   about: "회사 소개",
   reviews: "고객 후기",
-  cta: "아래 행동 유도 띠",
+  cta: "하단 배너",
   main: "본문",
 };
 
@@ -206,7 +206,7 @@ export function groupKey(pages: PlannedPage[], group: string): string {
 
 export function describeBlock(b: Block): string {
   const t = b.title ? ` "${b.title}"` : "";
-  return `${BLOCK_LABEL[b.type]} 구역${t}`;
+  return `${BLOCK_LABEL[b.type]} 섹션${t}`;
 }
 
 export function sectionName(id: string, layout: PageLayout | undefined): string {
@@ -299,7 +299,7 @@ export function applyLayoutChanges(
   for (const ch of input.sections) {
     const page = pageOf(ch.page);
     if (!page) {
-      rejected.push(`구역: 없는 페이지 ${ch.page}`);
+      rejected.push(`섹션: 없는 페이지 ${ch.page}`);
       continue;
     }
     const cur = layout[page.path] ?? { order: builtinSections(page.kind), blocks: [] };
@@ -309,11 +309,11 @@ export function applyLayoutChanges(
 
     if (ch.op === "add") {
       if (!(BLOCK_TYPES as readonly string[]).includes(ch.type)) {
-        rejected.push(`구역 종류 ${ch.type}`);
+        rejected.push(`섹션 종류 ${ch.type}`);
         continue;
       }
       if (cur.blocks.length >= LAYOUT_LIMITS.blocks) {
-        rejected.push(`${page.path}: 새 구역은 ${LAYOUT_LIMITS.blocks}개까지`);
+        rejected.push(`${page.path}: 새 섹션은 ${LAYOUT_LIMITS.blocks}개까지`);
         continue;
       }
       const block = sanitizeBlock({ ...ch, id: nextBlockId(layout), type: ch.type });
@@ -336,7 +336,7 @@ export function applyLayoutChanges(
     }
 
     if (!order.includes(ch.id) && !(ch.op === "show" && ch.id in BUILTIN_LABEL && builtinSections(page.kind).includes(ch.id))) {
-      rejected.push(`${page.path}: 없는 구역 ${ch.id}`);
+      rejected.push(`${page.path}: 없는 섹션 ${ch.id}`);
       continue;
     }
     if (ch.op === "remove") {
@@ -353,7 +353,7 @@ export function applyLayoutChanges(
       const rest = order.filter((id) => id !== ch.id);
       const pos = ch.after === "" || ch.after === "top" ? 0 : rest.indexOf(ch.after) + 1;
       if (ch.after && ch.after !== "top" && pos === 0) {
-        rejected.push(`${page.path}: 옮길 기준 구역 ${ch.after} 없음`);
+        rejected.push(`${page.path}: 옮길 기준 섹션 ${ch.after} 없음`);
         continue;
       }
       const nextOrder = [...rest.slice(0, pos), ch.id, ...rest.slice(pos)];
@@ -363,14 +363,14 @@ export function applyLayoutChanges(
     } else if (ch.op === "edit") {
       const b = cur.blocks.find((x) => x.id === ch.id);
       if (!b) {
-        rejected.push(`${ch.id}: 기본 구역의 글은 문구 자리로 바꾼다`);
+        rejected.push(`${ch.id}: 기본 섹션의 글은 문구 영역으로 바꾼다`);
         continue;
       }
       const next = sanitizeBlock({ ...b, ...Object.fromEntries(Object.entries(ch).filter(([k, v]) => k !== "id" && k !== "type" && (Array.isArray(v) ? v.length : v !== ""))) });
       if (!next || JSON.stringify(next) === JSON.stringify(b)) continue;
       layout[page.path] = { order, blocks: cur.blocks.map((x) => (x.id === b.id ? next : x)) };
       applied.push({ kind: "section", key: b.id, path: page.path, before: describeBlock(b), after: `${describeBlock(next)} 내용 바꿈` });
-    } else rejected.push(`구역 작업 ${ch.op}`);
+    } else rejected.push(`섹션 작업 ${ch.op}`);
   }
 
   for (const ch of input.menu) {
@@ -390,7 +390,7 @@ export function applyLayoutChanges(
       const label = clean(ch.label, LAYOUT_LIMITS.label);
       if (!label || !page.group) continue;
       menu.labels[`group:${groupKey(pages, page.group)}`] = label;
-      applied.push({ kind: "menu", key: page.group, before: `메뉴 묶음 ${page.group}`, after: `메뉴 묶음 ${label}` });
+      applied.push({ kind: "menu", key: page.group, before: `상위 메뉴 ${page.group}`, after: `상위 메뉴 ${label}` });
     } else if (ch.op === "hide" || ch.op === "show") {
       const hidden = new Set(menu.hidden);
       if (ch.op === "hide") hidden.add(page.path);

@@ -20,7 +20,7 @@ const TEAM_FACTS = [...FUN_FACTS, { value: "원격", label: "서울 사무실 ·
 /** 샘플 직원 후기 — 실제 인터뷰로 교체 */
 const VOICES = [
   { quote: "요청 하나하나에 사람이 답한다는 원칙이 처음엔 부담이었는데, 지금은 이 일의 가장 좋은 부분입니다. 사장님 사이트가 열리는 걸 같이 봅니다.", name: "OOO", role: "전문가 팀 · 웹 디자이너", avatar: ph("avatar", 8) },
-  { quote: "AI 가 초안을 만들어 주니 반복 작업이 줄고, 판단이 필요한 곳에만 시간을 씁니다. 개발자로서 배우는 속도가 다릅니다.", name: "OOO", role: "제품 팀 · 프론트엔드", avatar: ph("avatar", 9) },
+  { quote: "AI 가 시안을 만들어 주니 반복 작업이 줄고, 판단이 필요한 곳에만 시간을 씁니다. 개발자로서 배우는 속도가 다릅니다.", name: "OOO", role: "제품 팀 · 프론트엔드", avatar: ph("avatar", 9) },
   { quote: "원격으로 일해도 외롭지 않습니다. 브리프 하나를 디자이너 · 개발자 · 카피라이터가 같이 보니까 늘 대화가 있어요.", name: "OOO", role: "고객 팀 · 고객 성공", avatar: ph("avatar", 10) },
 ];
 
@@ -55,7 +55,7 @@ export default function CareersPage() {
           <div>
             <TrustStrip />
             <p className="mt-8 text-[15px] leading-relaxed text-white/70">
-              페이지프렌즈는 서울에 사무실을 두고, 전국의 전문가와 원격으로 일합니다. 제품 팀은 편집기와 AI 파이프라인을 만들고, 전문가 팀은 초안을 검수해 사이트를 완성하고, 고객 팀은 요청 하나하나에 답합니다.
+              페이지프렌즈는 서울에 사무실을 두고, 전국의 전문가와 원격으로 일합니다. 제품 팀은 편집기와 AI 파이프라인을 만들고, 전문가 팀은 시안을 검수해 사이트를 완성하고, 고객 팀은 요청 하나하나에 답합니다.
             </p>
           </div>
           <Photo img={ph("photo", 7)} alt="" className="aspect-[4/3]" />
@@ -148,7 +148,7 @@ export default function CareersPage() {
             <Eyebrow tone="light">우리의 미션</Eyebrow>
             <Display className="mt-3">누구나 설명만으로 제대로 된 웹사이트를 갖게 합니다</Display>
             <Lead tone="light" className="mt-5">
-              견적도, 미팅도, 디자인 지식도 없이. AI 가 초안을 만들고 사람이 마무리하며, 수정은 네모 하나로 끝나는 세상을 만듭니다.
+              견적도, 미팅도, 디자인 지식도 없이. AI 가 시안을 만들고 사람이 마무리하며, 수정은 박스 하나로 끝나는 세상을 만듭니다.
             </Lead>
           </div>
           <div className="mt-16 flex flex-wrap items-end justify-between gap-4">

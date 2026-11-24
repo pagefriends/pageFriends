@@ -14,7 +14,7 @@ import { getAdminConversation } from "@/lib/admin";
 export const dynamic = "force-dynamic";
 
 /** 자주 쓰는 안내. 누르면 입력칸에 들어가고, 고쳐서 보낼 수 있다. */
-const QUICK = ["첫 완성본이 올라왔습니다. 편집 화면에서 확인해 주세요.", "확인 후 다시 안내드리겠습니다.", "고칠 곳은 편집 화면에서 네모를 그려 보내 주시면 바로 처리됩니다."];
+const QUICK = ["첫 완성본이 올라왔습니다. 편집 화면에서 확인해 주세요.", "확인 후 다시 안내드리겠습니다.", "고칠 곳은 편집 화면에서 박스를 그려 보내 주시면 바로 처리됩니다."];
 
 /** 사이트 하나와의 메시지. 사용자의 "메시지" 화면과 같은 대화를 관리자 쪽에서 본다. */
 export default async function AdminConversationPage({ params }: PageProps<"/admin/messages/[projectId]">) {

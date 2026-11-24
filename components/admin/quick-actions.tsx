@@ -33,7 +33,7 @@ export function BatchStatusSelect({ batchId, className }: { batchId: string; cla
           });
         }}
       >
-        <option value="">묶음 전체 직접 고치기…</option>
+        <option value="">함께 보낸 요청 전체 직접 고치기…</option>
         <option value="processing">확인 완료로</option>
         <option value="done">답변 완료로</option>
         <option value="pending">접수로 되돌리기</option>

@@ -49,13 +49,13 @@ export async function POST(request: Request, ctx: RouteContext<"/api/projects/[i
   const slotId = String(form.get("slotId") ?? "");
   const file = form.get("file");
   const slot = a.brief.site?.images.find((s) => s.id === slotId);
-  if (!slot) return apiError(400, "UNKNOWN_SLOT", "이미지 자리를 찾을 수 없습니다. 화면을 새로 고쳐 주세요.");
+  if (!slot) return apiError(400, "UNKNOWN_SLOT", "이미지 영역을 찾을 수 없습니다. 화면을 새로 고쳐 주세요.");
   if (!(file instanceof File) || file.size === 0) return apiError(400, "NO_FILE", "올릴 사진을 골라 주세요.");
   if (file.size > MAX_PHOTO_BYTES) return apiError(413, "TOO_LARGE", "사진이 너무 커요. 8MB 이하로 올려 주세요.");
 
   const already = (await listProjectPhotos(id))[slot.id]?.length ?? 0;
   if (already >= slot.count) {
-    return apiError(409, "SLOT_FULL", `이 자리는 사진 ${slot.count}장까지예요. 바꾸려면 먼저 지워 주세요.`);
+    return apiError(409, "SLOT_FULL", `이 영역은 사진 ${slot.count}장까지예요. 바꾸려면 먼저 지워 주세요.`);
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -76,7 +76,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/projects/[i
     await a.supabase.rpc("post_message", {
       p_project_id: id,
       p_request_id: null,
-      p_body: `[사진 올림] ${slot.label} ${n}장을 올렸어요. 제작 정보의 이미지 자리에서 볼 수 있어요.`,
+      p_body: `[사진 올림] ${slot.label} ${n}장을 올렸어요. 제작 정보의 이미지 영역에서 볼 수 있어요.`,
     });
   }
   return NextResponse.json({ photo }, { headers: noStore });

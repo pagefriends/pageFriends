@@ -521,7 +521,7 @@ export function ProjectWizard({
 
             <p className="flex items-start gap-2 rounded-md bg-ink-50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <SparklesIcon className="mt-0.5 size-3.5 shrink-0 text-brand-600" />
-              제작 시작을 누르면 AI가 바로 사이트를 만들어요. 고칠 곳도 빨간 네모로 요청하면 AI가 바로 고치고, 사람이 확인했으면 하는 건 전문가 검수 요청으로 보내요.
+              제작 시작을 누르면 AI가 바로 사이트를 만들어요. 고칠 곳도 빨간 박스로 요청하면 AI가 바로 고치고, 사람이 확인했으면 하는 건 전문가 검수 요청으로 보내요.
             </p>
 
             <div>
@@ -568,18 +568,18 @@ export function ProjectWizard({
         {/* 1. 회사 · 서비스 */}
         {s.step === 1 ? (
           <div className="flex flex-col gap-5">
-            <StepTitle title="어떤 회사인가요?" desc={guided ? "적어 주신 내용으로 첫 화면 문구와 메뉴를 만들어요. 정확하지 않아도 괜찮아요 — 나중에 언제든 고칠 수 있어요." : "첫 화면 문구 · 서비스 카드 · 푸터 연락처에 그대로 들어갑니다."} />
+            <StepTitle title="어떤 회사인가요?" desc={guided ? "적어 주신 내용으로 메인 화면 문구와 메뉴를 만들어요. 정확하지 않아도 괜찮아요 — 나중에 언제든 고칠 수 있어요." : "메인 화면 문구 · 서비스 카드 · 푸터 연락처에 그대로 들어갑니다."} />
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="회사 · 브랜드 이름" required htmlFor="siteName" hint={guided ? "사이트 맨 위 로고 자리와 맨 아래에 들어가요." : undefined}>
+              <Field label="회사 · 브랜드 이름" required htmlFor="siteName" hint={guided ? "사이트 맨 위 로고 영역과 맨 아래에 들어가요." : undefined}>
                 <Input id="siteName" value={s.siteName} onChange={(e) => patch({ siteName: e.target.value })} placeholder={`예: ${ex.name}`} maxLength={60} />
               </Field>
-              <Field label="한 줄 소개" required htmlFor="tagline" hint={guided ? "우리를 한 문장으로 소개하면? 첫 화면의 큰 제목이 돼요." : "첫 화면 제목"}>
+              <Field label="한 줄 소개" required htmlFor="tagline" hint={guided ? "우리를 한 문장으로 소개하면? 메인 화면의 큰 제목이 돼요." : "메인 화면 제목"}>
                 <Input id="tagline" value={s.tagline} onChange={(e) => patch({ tagline: e.target.value })} placeholder={`예: ${ex.tagline}`} maxLength={80} />
               </Field>
             </div>
 
-            <Field label="업종" required htmlFor="industry" hint={guided ? "업종에 맞춰 메뉴 구성과 이미지 자리를 추천해 드려요. 목록에 없으면 직접 적어 주세요." : undefined}>
+            <Field label="업종" required htmlFor="industry" hint={guided ? "업종에 맞춰 메뉴 구성과 이미지 영역을 추천해 드려요. 목록에 없으면 직접 적어 주세요." : undefined}>
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {INDUSTRIES.filter((i) => i.code !== "etc").map((i) => (
                   <Chip key={i.code} active={s.industry.trim() === i.label} onClick={() => patch({ industry: i.label })} className="px-2.5 py-1 text-xs">
@@ -596,7 +596,7 @@ export function ProjectWizard({
             <Field
               label={`무엇을 제공하나요? (${ind.offeringMenu === "서비스" ? "서비스 · 상품 · 솔루션" : ind.offeringMenu})`}
               required
-              hint={guided ? "하나하나가 첫 화면의 카드가 되고, 페이지가 넉넉하면 각각 소개 페이지도 만들어요. 1개 이상 적어 주세요." : `최대 ${MAX_OFFERINGS}개`}
+              hint={guided ? "하나하나가 메인 화면의 카드가 되고, 페이지가 넉넉하면 각각 소개 페이지도 만들어요. 1개 이상 적어 주세요." : `최대 ${MAX_OFFERINGS}개`}
             >
               <ul className="flex flex-col gap-2">
                 {s.offerings.map((o, i) => (
@@ -656,7 +656,7 @@ export function ProjectWizard({
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="고객이 우리를 고르는 이유" optional hint={guided ? "강점이에요. 첫 화면에 '○○를 선택하는 이유' 로 들어가요." : undefined}>
+              <Field label="고객이 우리를 고르는 이유" optional hint={guided ? "강점이에요. 메인 화면에 '○○를 선택하는 이유' 로 들어가요." : undefined}>
                 <div className="flex flex-col gap-2">
                   {s.strengths.map((v, i) => (
                     <Input
@@ -793,7 +793,7 @@ export function ProjectWizard({
                   cta={cta}
                   menu={s.menu.map((m) => m.label)}
                 />
-                <p className="mt-1.5 text-[11px] text-ink-500">첫 화면 미리보기예요. 실제 초안은 페이지마다 같은 디자인으로 그려져요.</p>
+                <p className="mt-1.5 text-[11px] text-ink-500">메인 화면 미리보기예요. 실제 시안은 페이지마다 같은 디자인으로 그려져요.</p>
               </div>
             </Field>
             <Field label="벤치마킹 사이트" required={!template}>
@@ -813,7 +813,7 @@ export function ProjectWizard({
                 id="prompt"
                 value={s.prompt}
                 onChange={(e) => patch({ prompt: e.target.value })}
-                placeholder={template ? "템플릿에서 바꾸고 싶은 점을 적어주세요." : "예: 첫 화면에 매장 사진을 크게 넣고, 메뉴는 카드 형태로. 하단에 네이버 지도와 인스타그램 링크."}
+                placeholder={template ? "템플릿에서 바꾸고 싶은 점을 적어주세요." : "예: 메인 화면에 매장 사진을 크게 넣고, 메뉴는 카드 형태로. 하단에 네이버 지도와 인스타그램 링크."}
                 className="min-h-28"
                 maxLength={3000}
               />
@@ -845,7 +845,7 @@ export function ProjectWizard({
         {/* 5. 확인 */}
         {s.step === 5 ? (
           <form onSubmit={submit} className="flex flex-col gap-5">
-            <StepTitle title="이대로 만들까요?" desc="제작을 시작하면 바로 구성 초안이 만들어지고 편집 화면으로 이동해요. 시작한 뒤에도 수정 요청으로 바꿀 수 있어요." />
+            <StepTitle title="이대로 만들까요?" desc="제작을 시작하면 바로 디자인 시안이 만들어지고 편집 화면으로 이동해요. 시작한 뒤에도 수정 요청으로 바꿀 수 있어요." />
             <dl className="divide-y divide-ink-100 rounded-md border border-ink-200 px-4">
               <SummaryRow k="만드는 방식">
                 {builder === "ai" ? "AI로 바로 만들기" : `전문가에게 맡기기 · ${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간 안에 첫 완성본`}
@@ -906,19 +906,19 @@ export function ProjectWizard({
                 ) : (
                   <span className="font-medium">비워 두기</span>
                 )}
-                {emptyImageCount(plan.images) > 0 ? <p className="mt-0.5 text-ink-500">비워 둘 사진 {emptyImageCount(plan.images)}장 — 자리마다 어떤 이미지가 필요한지 적어 둬요</p> : null}
+                {emptyImageCount(plan.images) > 0 ? <p className="mt-0.5 text-ink-500">비워 둘 사진 {emptyImageCount(plan.images)}장 — 영역마다 어떤 이미지가 필요한지 적어 둬요</p> : null}
               </SummaryRow>
             </dl>
 
             <Tip title="다음에 일어나는 일">
               <ol className="list-decimal pl-4">
-                <li>지금 바로 메뉴 · 페이지 구성 초안이 만들어져요. 이미지 자리에는 어떤 이미지가 필요한지 적혀 있어요.</li>
+                <li>지금 바로 메뉴 · 페이지 디자인 시안이 만들어져요. 이미지 영역에는 어떤 이미지가 필요한지 적혀 있어요.</li>
                 {imageCount > 0 ? <li>AI 이미지 {imageCount}장 생성 요청이 접수돼요. 진행 상황은 요청 내역에서 볼 수 있어요.</li> : null}
                 {builder === "ai" ? (
-                  <li>고칠 곳은 화면에 빨간 네모를 그려 요청하면 AI가 바로 진행해요. 담당자가 마무리하면 &lsquo;제작 완료&rsquo; 로 바뀌어요.</li>
+                  <li>고칠 곳은 화면에 빨간 박스를 그려 요청하면 AI가 바로 진행해요. 담당자가 마무리하면 &lsquo;제작 완료&rsquo; 로 바뀌어요.</li>
                 ) : (
                   <li>
-                    전문가가 {EXPERT_HOURS.min}~{EXPERT_HOURS.max}시간 안에 첫 완성본을 올려 드려요. 그동안 구성 초안에 빨간 네모로 의견을 미리 남겨도 돼요.
+                    전문가가 {EXPERT_HOURS.min}~{EXPERT_HOURS.max}시간 안에 첫 완성본을 올려 드려요. 그동안 디자인 시안에 빨간 박스로 의견을 미리 남겨도 돼요.
                   </li>
                 )}
               </ol>

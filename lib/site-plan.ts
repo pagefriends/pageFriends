@@ -1189,3 +1189,106 @@ export function josa(word: string, pair: "을/를" | "이/가" | "은/는" | "�
   if (pair === "으로/로") return `${w}${jong === 0 || jong === 8 ? b : a}`;
   return `${w}${jong ? a : b}`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// 만든 뒤에 페이지 더하기 · 빼기 (AI 수정 요청, lib/ai/engine.ts)
+// ---------------------------------------------------------------------------------------------
+
+export type NewPageInput = {
+  /** 메뉴 이름 */
+  label: string;
+  /** 페이지 종류 (SELECTABLE_KINDS 중 하나, 모르면 자유 구성) */
+  kind: string;
+  /** 이 페이지에 넣을 내용 (자유 구성 페이지는 본문으로 보인다) */
+  note: string;
+  /** 바라는 주소 (영어). 비우면 이름 · 종류로 정한다 */
+  path: string;
+  /** 상위 메뉴 이름. 없으면 빈 글자 */
+  group: string;
+  /** 이 페이지 다음에 둔다. 비우면 같은 묶음 끝 · 메뉴 끝 */
+  after: string;
+};
+
+export const NEW_PAGE_LIMITS = { label: 20, note: 500 } as const;
+
+/**
+ * 계획에 페이지 하나를 더한다. 이미지 자리도 위저드와 같은 규칙으로 붙는다.
+ * taken: 쓰면 안 되는 주소 (지금 페이지들). 예전에 지웠던 페이지의 주소는 다시 쓸 수 있다 (같은 페이지 행을 되살린다).
+ */
+export function addPlannedPage(
+  site: SitePlan,
+  input: NewPageInput,
+  info: { business: BusinessInfo; siteName: string },
+): { site: SitePlan; page: PlannedPage } | { error: string } {
+  const label = input.label.replace(/\s+/g, " ").trim().slice(0, NEW_PAGE_LIMITS.label);
+  if (!label) return { error: "새 페이지 이름이 없어요." };
+  const kind: PageKind = (SELECTABLE_KINDS as string[]).includes(input.kind) ? (input.kind as PageKind) : "generic";
+  const group = input.group.replace(/\s+/g, " ").trim().slice(0, NEW_PAGE_LIMITS.label) || null;
+  if (site.pages.some((p) => p.label === label && (p.group ?? null) === group)) return { error: `"${label}" 페이지가 이미 있어요.` };
+
+  const used = new Set(site.pages.map((p) => p.path));
+  // 묶음 주소: 같은 묶음의 페이지가 있으면 그 앞부분을 쓴다 (/about/greeting → /about)
+  let prefix = "";
+  if (group) {
+    const sib = site.pages.find((p) => p.group === group);
+    const seg = sib?.path.split("/").filter(Boolean);
+    prefix = `/${sib && seg && seg.length > 1 ? seg[0] : (slugFor(group) ?? `menu-${site.pages.length + 1}`)}`;
+  }
+  const wanted = input.path.trim().replace(/^\/+/, "").split("/").pop() ?? "";
+  const slug = slugFor(wanted) ?? pageSlug(label, kind, null, site.pages.length + 1, prefix.slice(1) || undefined);
+  let path = `${prefix}/${slug}`;
+  for (let n = 2; used.has(path); n++) path = `${prefix}/${slug}-${n}`;
+
+  const page: PlannedPage = { path, label, group, kind, note: input.note.trim().slice(0, NEW_PAGE_LIMITS.note), offering: null, slotIds: [] };
+  const offerings = info.business.offerings.filter((o) => o.name.trim());
+  const ctx: SlotContext = { ind: industryOf(info.business.category), offerings, siteName: info.siteName, tagline: info.business.tagline.trim() };
+  const images = site.images.map((s) => ({ ...s, pages: [...s.pages] }));
+  for (const slot of pageSlots(page, ctx)) {
+    const existing = images.find((s) => s.id === slot.id);
+    if (existing) {
+      if (!existing.pages.includes(path)) existing.pages.push(path);
+    } else images.push({ ...slot, pages: [path] });
+    if (!page.slotIds.includes(slot.id)) page.slotIds.push(slot.id);
+  }
+  // 로고 자리는 모든 페이지의 머리 메뉴에 있다 (slotIds 에는 넣지 않는다 — 그림은 slotIds[0] 을 본문 사진으로 쓴다)
+  images.find((s) => s.id === "logo")?.pages.push(path);
+
+  // 자리: after 다음 → 같은 묶음 끝 → 맨 끝
+  const pages = [...site.pages];
+  let at = pages.findIndex((p) => p.path === input.after.trim());
+  if (at < 0 && group) {
+    for (let i = pages.length - 1; i >= 0; i--) {
+      if (pages[i].group === group) {
+        at = i;
+        break;
+      }
+    }
+  }
+  pages.splice(at < 0 ? pages.length : at + 1, 0, page);
+  return { site: { ...site, pages, images }, page };
+}
+
+/** 계획에서 페이지를 뺀다 (홈은 뺄 수 없다). 페이지 행 · 그 페이지의 요청 기록은 남는다 */
+export function removePlannedPage(site: SitePlan, path: string): { site: SitePlan; page: PlannedPage } | { error: string } {
+  const page = site.pages.find((p) => p.path === path);
+  if (!page) return { error: `${path} 페이지가 없어요.` };
+  if (page.kind === "home") return { error: "홈 페이지는 지울 수 없어요." };
+  const images = site.images.map((s) => ({ ...s, pages: s.pages.filter((p) => p !== path) }));
+  return { site: { ...site, pages: site.pages.filter((p) => p.path !== path), images }, page };
+}
+
+/** 로고 자리를 더한다 (처음 로고를 만들 때). 편집 화면은 모든 페이지에 이 자리를 보여 준다 */
+export function withLogoSlot(site: SitePlan): SitePlan {
+  if (site.images.some((s) => s.id === "logo")) return site;
+  const logo: ImageSlot = {
+    id: "logo",
+    label: "로고",
+    need: "사이트 로고 — 정사각형, 작게 보여도 알아보기 쉽게 (상단 메뉴 왼쪽에 들어가요)",
+    ratio: "1:1",
+    count: 1,
+    source: "ai",
+    generate: false,
+    pages: site.pages.map((p) => p.path),
+  };
+  return { ...site, images: [logo, ...site.images] };
+}

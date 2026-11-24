@@ -45,15 +45,15 @@ export default async function ProjectBriefPage({ params }: PageProps<"/projects/
         </Link>
       </div>
       <h1 className="mt-2 text-2xl font-bold tracking-tight">{project.name} · 제작 정보</h1>
-      <p className="mt-1 text-sm text-ink-500">새 사이트를 만들 때 적은 내용이에요. 바꾸고 싶은 점은 편집 화면에서 네모를 그려 요청하거나 담당자에게 메시지로 알려 주세요.</p>
+      <p className="mt-1 text-sm text-ink-500">새 사이트를 만들 때 적은 내용이에요. 바꾸고 싶은 점은 편집 화면에서 박스를 그려 요청하거나 담당자에게 메시지로 알려 주세요.</p>
 
       {empty.length > 0 ? (
         <Alert tone="blue" className="mt-5">
-          비어 있는 이미지 자리가 {empty.length}곳(사진 {photos(empty)}장) 있어요.
+          비어 있는 이미지 영역이 {empty.length}곳(사진 {photos(empty)}장) 있어요.
           {emptyReal.length > 0
-            ? ` 그중 실제 사진이 필요한 자리 ${emptyReal.length}곳(사진 ${photos(emptyReal)}장)은 아래 '이미지 자리' 목록에서 바로 올려 주세요.`
+            ? ` 그중 실제 사진이 필요한 영역 ${emptyReal.length}곳(사진 ${photos(emptyReal)}장)은 아래 '이미지 영역' 목록에서 바로 올려 주세요.`
             : ""}
-          {emptyAi.length > 0 ? ` AI로 만들 수 있는 자리 ${emptyAi.length}곳은 편집 화면의 이미지 자리에서 'AI로 만들기' 로 요청할 수 있어요.` : ""}
+          {emptyAi.length > 0 ? ` AI로 만들 수 있는 영역 ${emptyAi.length}곳은 편집 화면의 이미지 영역에서 'AI로 만들기' 로 요청할 수 있어요.` : ""}
         </Alert>
       ) : null}
 

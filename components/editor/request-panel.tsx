@@ -146,7 +146,7 @@ export function RequestPanel({
     <aside className="flex flex-col border-t border-ink-200 bg-surface lg:h-full lg:border-t-0 lg:border-l">
       <div className="border-b border-ink-100 px-4 py-3">
         <h2 className="text-sm font-semibold">수정 요청</h2>
-        <p className="mt-0.5 text-xs text-ink-500">네모 하나에 요청 하나. 번호가 캔버스의 빨간 네모와 같습니다.</p>
+        <p className="mt-0.5 text-xs text-ink-500">박스 하나에 요청 하나. 번호가 캔버스의 빨간 박스와 같습니다.</p>
       </div>
 
       <div className="max-h-[50vh] overflow-y-auto px-4 py-3 lg:max-h-none lg:flex-1">
@@ -154,7 +154,7 @@ export function RequestPanel({
           <section className="mb-4 rounded border border-ink-200">
             <button type="button" onClick={() => setSlotsOpen(!slotsOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold" aria-expanded={slotsOpen}>
               <span className="inline-flex items-center gap-1.5">
-                <ImageIcon className="size-3.5 text-ink-500" /> 이 페이지의 이미지 자리 {slots.length}곳
+                <ImageIcon className="size-3.5 text-ink-500" /> 이 페이지의 이미지 영역 {slots.length}곳
                 {emptySlots > 0 ? <span className="font-normal text-ink-500">· 비어 있음 {emptySlots}</span> : null}
               </span>
               <ChevronDownIcon className={cn("size-3.5 shrink-0 text-ink-500 transition-transform", slotsOpen && "rotate-180")} />
@@ -191,7 +191,7 @@ export function RequestPanel({
                       ) : (s.photos?.length ?? 0) >= s.count ? null : s.source === "real" ? (
                         <p className="mt-1.5 text-ink-500">실제 사진이 필요해요. 아래 &lsquo;사진 올리기&rsquo; 로 올려 주시면 담당자가 이 자리에 넣어 드려요.</p>
                       ) : item.drafted ? (
-                        <p className="mt-1.5 font-medium text-mark">네모를 만들었어요 — 요청 목록에서 글을 확인하고 요청하기를 누르세요.</p>
+                        <p className="mt-1.5 font-medium text-mark">박스를 만들었어요 — 요청 목록에서 글을 확인하고 요청하기를 누르세요.</p>
                       ) : (
                         <button
                           type="button"
@@ -219,9 +219,9 @@ export function RequestPanel({
 
         {drafts.length === 0 ? (
           <div className="rounded border border-dashed border-ink-300 p-4 text-center text-xs text-ink-500">
-            이 화면에 그린 네모가 없습니다.
+            이 화면에 그린 박스가 없습니다.
             <br />
-            캔버스에서 <span className="font-medium text-mark">빨간 네모</span> 도구로 영역을 드래그하세요.
+            캔버스에서 <span className="font-medium text-mark">빨간 박스</span> 도구로 영역을 드래그하세요.
           </div>
         ) : (
           <ol className="flex flex-col gap-3">
@@ -245,7 +245,7 @@ export function RequestPanel({
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-semibold">
                       <span className="grid size-5 place-items-center bg-mark text-[11px] text-white">{i + 1}</span>
-                      {i + 1}번 네모
+                      {i + 1}번 박스
                       {d.kind === "bug" ? <span className="text-[11px] font-medium text-sky-600">무료</span> : null}
                     </span>
                     <div className="flex items-center gap-1">
@@ -271,7 +271,7 @@ export function RequestPanel({
                     onChange={(e) => onChange(d.id, { message: e.target.value })}
                     onFocus={() => onSelect(d.id)}
                     placeholder={PLACEHOLDER[d.kind]}
-                    aria-label={`${i + 1}번 네모 요청사항`}
+                    aria-label={`${i + 1}번 박스 요청사항`}
                     className="mt-2 min-h-16 text-[13px]"
                     maxLength={2000}
                   />
@@ -290,7 +290,7 @@ export function RequestPanel({
         {sent.length > 0 ? (
           <div className="mt-4">
             <p className="mb-1.5 flex items-center justify-between text-[11px] font-semibold text-ink-400">
-              <span>보낸 요청 · 파란 네모 {sent.length}건</span>
+              <span>보낸 요청 · 파란 박스 {sent.length}건</span>
               {requestsHref ? (
                 <Link href={requestsHref} className="font-medium text-brand-600 hover:underline">
                   전체 내역
@@ -393,14 +393,14 @@ export function RequestPanel({
             ) : null}
           </Alert>
         ) : null}
-        {missingMessage ? <p className="mt-2 text-xs text-mark">요청사항이 비어 있는 네모가 있습니다.</p> : null}
+        {missingMessage ? <p className="mt-2 text-xs text-mark">요청사항이 비어 있는 박스가 있습니다.</p> : null}
         {error ? <Alert tone="red" className="mt-3 text-xs">{error}</Alert> : null}
 
         <Button className="mt-3 w-full" size="lg" disabled={!canSubmit || submitting} onClick={onSubmit}>
           {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : <SendIcon className="size-4" />}
           요청하기{totalCount > 0 ? ` (${totalCount}건)` : ""}
         </Button>
-        {totalCount > drafts.length ? <p className="mt-1.5 text-center text-[11px] text-ink-500">다른 페이지·화면의 네모 {totalCount - drafts.length}건도 함께 보냅니다.</p> : null}
+        {totalCount > drafts.length ? <p className="mt-1.5 text-center text-[11px] text-ink-500">다른 페이지·화면의 박스 {totalCount - drafts.length}건도 함께 보냅니다.</p> : null}
       </div>
     </aside>
   );

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { MAX_STYLES, normalizeStyles } from "@/config/design-styles";
 import { formatTokens, type RequestKind } from "@/config/plans";
 import { IMAGE_REQUEST_TOKENS, isAiWorking, isImageRequest } from "@/config/requests";
+import { aiTakes } from "@/lib/ai/image";
 import { aiConfigured } from "@/lib/ai/claude";
 import { processBatch, resumeAfterAnswer } from "@/lib/ai/engine";
 import { getSubscription, requireUser } from "@/lib/auth/session";
@@ -69,7 +70,7 @@ export async function submitRequestsAction(projectId: string, rawItems: unknown)
   if (project?.brief) {
     const version = designOf(project.brief as ProjectBrief).version;
     if (parsed.data.some((i) => i.version !== version)) {
-      return { ok: false, stale: true, error: "그사이 AI 가 화면을 새로 바꿨어요. 위의 '새 화면 보기' 를 누른 뒤 네모를 다시 그려 주세요." };
+      return { ok: false, stale: true, error: "그사이 AI 가 화면을 새로 바꿨어요. 위의 '새 화면 보기' 를 누른 뒤 박스를 다시 그려 주세요." };
     }
   }
 
@@ -109,7 +110,7 @@ export async function submitRequestsAction(projectId: string, rawItems: unknown)
 
   const batchId = data as string;
   // AI 가 바로 맡는 것: AI 반영(이미지 생성 요청 제외) · 오류 신고(AI 가 먼저 확인). 편집기는 "AI 작업 중" 화면으로 지켜본다
-  const aiStarted = aiConfigured() && parsed.data.some((i) => (i.kind === "ai" && !isImageRequest(i.message)) || i.kind === "bug");
+  const aiStarted = aiConfigured() && parsed.data.some((i) => aiTakes(i));
   if (aiStarted) after(() => processBatch(batchId));
 
   revalidatePath(`/projects/${projectId}`);

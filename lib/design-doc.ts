@@ -465,23 +465,23 @@ export type CopyFieldDef = {
  * max 는 가장 좁은 화면 · 가장 큰 제목 배율에서도 "…" 로 잘리지 않는 글자 수(공백 포함)다.
  */
 export const COPY_FIELDS: CopyFieldDef[] = [
-  { key: "site.cta", label: "헤더 · 첫 화면 버튼", scope: "site", max: 10 },
+  { key: "site.cta", label: "헤더 · 메인 화면 버튼", scope: "site", max: 10 },
   { key: "footer.tagline", label: "푸터 한 줄 소개", scope: "site", max: 50 },
-  { key: "offerings.title", label: "서비스 구역 제목", scope: "site", max: 20 },
-  { key: "offerings.subtitle", label: "서비스 구역 설명", scope: "site", max: 44 },
+  { key: "offerings.title", label: "서비스 섹션 제목", scope: "site", max: 20 },
+  { key: "offerings.subtitle", label: "서비스 섹션 설명", scope: "site", max: 44 },
   { key: "offering.*.description", label: "서비스 한 줄 설명", scope: "site", max: 60 },
-  { key: "strengths.title", label: "강점 구역 제목", scope: "site", max: 22 },
+  { key: "strengths.title", label: "강점 섹션 제목", scope: "site", max: 22 },
   { key: "strength.*", label: "강점 한 줄", scope: "site", max: 34 },
-  { key: "reviews.title", label: "후기 구역 제목", scope: "site", max: 16 },
-  { key: "cta.title", label: "아래 행동 유도 띠 제목", scope: "site", max: 22 },
-  { key: "cta.subtitle", label: "아래 행동 유도 띠 설명", scope: "site", max: 44 },
-  { key: "hero.eyebrow", label: "첫 화면 작은 머리글", scope: "page", max: 20, kinds: ["home"] },
-  { key: "hero.title", label: "첫 화면 큰 제목", scope: "page", max: 26, kinds: ["home"] },
-  { key: "hero.subtitle", label: "첫 화면 설명", scope: "page", max: 50, kinds: ["home"] },
-  { key: "hero.secondary", label: "첫 화면 두 번째 버튼", scope: "page", max: 10, kinds: ["home"] },
-  { key: "about.title", label: "소개 구역 제목", scope: "page", max: 22, kinds: ["home", "about"] },
+  { key: "reviews.title", label: "후기 섹션 제목", scope: "site", max: 16 },
+  { key: "cta.title", label: "하단 배너 제목", scope: "site", max: 22 },
+  { key: "cta.subtitle", label: "하단 배너 설명", scope: "site", max: 44 },
+  { key: "hero.eyebrow", label: "메인 화면 작은 제목", scope: "page", max: 20, kinds: ["home"] },
+  { key: "hero.title", label: "메인 화면 큰 제목", scope: "page", max: 26, kinds: ["home"] },
+  { key: "hero.subtitle", label: "메인 화면 설명", scope: "page", max: 50, kinds: ["home"] },
+  { key: "hero.secondary", label: "메인 화면 두 번째 버튼", scope: "page", max: 10, kinds: ["home"] },
+  { key: "about.title", label: "소개 섹션 제목", scope: "page", max: 22, kinds: ["home", "about"] },
   { key: "about.body", label: "소개 글", scope: "page", max: 220, kinds: ["home", "about"] },
-  { key: "about.button", label: "소개 구역 버튼", scope: "page", max: 10, kinds: ["home"] },
+  { key: "about.button", label: "소개 섹션 버튼", scope: "page", max: 10, kinds: ["home"] },
   { key: "page.subtitle", label: "페이지 제목 아래 설명", scope: "page", max: 44 },
   { key: "contact.button", label: "문의 폼 버튼", scope: "page", max: 10, kinds: ["contact"] },
   { key: "reservation.button", label: "예약 폼 버튼", scope: "page", max: 10, kinds: ["reservation"] },
@@ -559,7 +559,7 @@ export const THEME_KEYS: (keyof Theme)[] = [
 ];
 
 /** data = 관리자 목록 (key 는 목록 키, before · after 는 목록 요약. 만들었으면 before 가, 숨겼으면 after 가 빈 글자) */
-export type AppliedChange = { kind: "theme" | "copy" | "data" | "section" | "menu" | "form"; key: string; path?: string; before: string; after: string };
+export type AppliedChange = { kind: "theme" | "copy" | "data" | "section" | "menu" | "form" | "page" | "image"; key: string; path?: string; before: string; after: string };
 
 /**
  * 바꿀 값을 검사해 새 문서를 만든다. 범위를 벗어난 값 · 모르는 키 · 없는 페이지는 버리고(rejected 에 이유), 실제로 바뀐 것만 applied 에 남긴다.
@@ -633,8 +633,9 @@ export function applyChanges(
 /** 바뀐 값 한 줄 (관리자 화면 · 대화) */
 export function describeChange(c: AppliedChange): string {
   if (c.kind === "copy") return `${fieldDef(c.key)?.label ?? c.key}: "${c.before || "기본 문구"}" → "${c.after}"`;
+  if (c.kind === "page" || c.kind === "image") return c.after;
   if (c.kind === "section" && c.key === "revert") return c.after;
-  if (c.kind === "section") return c.after.endsWith("추가") || c.after.endsWith("숨김") || c.after.includes("내용 바꿈") || c.after.includes("다시 보이기") ? c.after : `구역 순서: ${c.after}`;
+  if (c.kind === "section") return c.after.endsWith("추가") || c.after.endsWith("숨김") || c.after.includes("내용 바꿈") || c.after.includes("다시 보이기") ? c.after : `섹션 순서: ${c.after}`;
   if (c.kind === "menu") return `${c.before} → ${c.after}`;
   if (c.kind === "form") return `폼 항목: ${c.before} → ${c.after}`;
   if (c.kind === "data") {
@@ -655,7 +656,7 @@ export function describeChange(c: AppliedChange): string {
     radius: "모서리",
     buttonStyle: "버튼 모양",
     density: "여백",
-    heroLayout: "첫 화면 배치",
+    heroLayout: "메인 화면 배치",
     cardStyle: "카드 모양",
   };
   const word = (k: string, v: string): string => {
@@ -683,6 +684,6 @@ export function describeTheme(t: Theme): string[] {
     `${THEME_LABEL.mode[t.mode]} · ${THEME_LABEL.temperature[t.temperature]} · ${THEME_LABEL.saturation[t.saturation]}`,
     `제목 ${THEME_LABEL.font[t.headingFont]} ${t.headingWeight} · 크기 ×${t.headingScale} · 본문 ${THEME_LABEL.font[t.bodyFont]}`,
     `모서리 ${THEME_LABEL.radius[t.radius]} · ${THEME_LABEL.button[t.buttonStyle]} · ${THEME_LABEL.card[t.cardStyle]}`,
-    `여백 ${THEME_LABEL.density[t.density]} · 첫 화면 ${THEME_LABEL.hero[t.heroLayout]}`,
+    `여백 ${THEME_LABEL.density[t.density]} · 메인 화면 ${THEME_LABEL.hero[t.heroLayout]}`,
   ];
 }

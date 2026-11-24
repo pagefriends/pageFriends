@@ -44,8 +44,8 @@ export const STYLE_GROUPS: { code: StyleGroup; label: string; desc: string }[] =
 export type StyleAxis = "space" | "weight" | "shape" | "color" | "temp" | "formal";
 
 export const STYLE_AXES: Record<StyleAxis, { label: string; neg: string; pos: string; mid: string; accent: string }> = {
-  space: { label: "여백", neg: "촘촘하게", pos: "넉넉하게", mid: "보통", accent: "일부 구역의 간격" },
-  weight: { label: "제목 무게", neg: "가볍고 가늘게", pos: "굵고 크게", mid: "보통 굵기", accent: "첫 화면 제목 하나" },
+  space: { label: "여백", neg: "촘촘하게", pos: "넉넉하게", mid: "보통", accent: "일부 섹션의 간격" },
+  weight: { label: "제목 무게", neg: "가볍고 가늘게", pos: "굵고 크게", mid: "보통 굵기", accent: "메인 화면 제목 하나" },
   shape: { label: "모서리", neg: "각지게", pos: "둥글게", mid: "살짝 둥글게", accent: "버튼 모양" },
   color: { label: "색", neg: "무채색 + 포인트 1색", pos: "선명한 색", mid: "차분한 포인트 색", accent: "버튼 · 강조색" },
   temp: { label: "색 온도", neg: "차가운 톤", pos: "따뜻한 톤", mid: "중간 톤", accent: "사진 톤" },
@@ -105,7 +105,7 @@ export const STYLES: DesignStyle[] = [
     flags: { hero: "center", button: "square", card: "line" },
     suggestColors: ["#111827", "#374151", "#64748b"],
     palette: "흰색 · 검정 중심, 강조색은 아주 조금",
-    use: ["구역마다 메시지 하나", "구역 위아래 여백을 크게", "얇은 구분선과 가는 테두리", "버튼은 한 화면에 하나만 강조", "사진은 크게 한 장, 나머지는 글로"],
+    use: ["섹션마다 메시지 하나", "섹션 위아래 여백을 크게", "얇은 구분선과 가는 테두리", "버튼은 한 화면에 하나만 강조", "사진은 크게 한 장, 나머지는 글로"],
     avoid: ["진한 그림자", "색 블록 배경을 여러 개 쓰기", "아이콘 카드 격자", "한 화면에 버튼 3개 이상", "배지 · 스티커 같은 장식"],
     copy: "덜어낸 문장. 형용사를 빼고 사실만.",
   },
@@ -198,7 +198,7 @@ export const STYLES: DesignStyle[] = [
     flags: { button: "pill", card: "flat", scale: 1.1 },
     suggestColors: ["#f97316", "#e11d48", "#7c3aed"],
     palette: "채도 높은 포인트 색 1~2개, 대비 강한 색 블록",
-    use: ["채도 높은 포인트 색 1~2개", "굵고 큰 제목", "색 블록으로 구역 나누기", "움직임이 느껴지는 사진"],
+    use: ["채도 높은 포인트 색 1~2개", "굵고 큰 제목", "색 블록으로 섹션 나누기", "움직임이 느껴지는 사진"],
     avoid: ["회색 위주의 차분한 화면", "작고 가는 제목", "텅 빈 넓은 여백", "길게 늘어지는 문장"],
     copy: "힘 있는 짧은 문장. 버튼은 동사로 시작.",
   },
@@ -214,7 +214,7 @@ export const STYLES: DesignStyle[] = [
     accent: "#7c9a92",
     suggestColors: ["#4d7c6f", "#64748b", "#6b7f99"],
     palette: "세이지 · 스톤 · 뮤트 블루 같은 낮은 채도",
-    use: ["낮은 채도 색(세이지 · 스톤 · 뮤트 블루)", "넉넉한 여백과 느린 리듬", "부드러운 사진", "한 구역에 한 가지 이야기"],
+    use: ["낮은 채도 색(세이지 · 스톤 · 뮤트 블루)", "넉넉한 여백과 느린 리듬", "부드러운 사진", "한 섹션에 한 가지 이야기"],
     avoid: ["형광 · 원색", "빽빽한 카드 격자", "굵은 대문자 같은 강한 강조", "느낌표"],
     copy: "잔잔하고 부드러운 문장.",
   },
@@ -326,7 +326,7 @@ export const STYLES: DesignStyle[] = [
     suggestColors: ["#38bdf8", "#a78bfa", "#f59e0b"],
     palette: "검정 · 차콜 바탕, 밝은 글자, 밝고 선명한 포인트 1색",
     use: ["검정 · 차콜 바탕과 밝은 글자", "포인트 색은 밝고 선명하게", "글자와 바탕 대비를 충분히(4.5:1 이상)"],
-    avoid: ["흰 바탕 구역을 여러 번 끼워 넣기", "어두운 회색 글씨(대비 부족)", "새까만 바탕 위 새하얀 큰 면"],
+    avoid: ["흰 바탕 섹션을 여러 번 끼워 넣기", "어두운 회색 글씨(대비 부족)", "새까만 바탕 위 새하얀 큰 면"],
     copy: "고른 다른 유형의 말투를 따른다.",
   },
   {
@@ -339,7 +339,7 @@ export const STYLES: DesignStyle[] = [
     flags: { hero: "wide", imagery: "photo" },
     suggestColors: ["#111827", "#b45309", "#0f766e"],
     palette: "사진이 주인공, 색은 사진을 방해하지 않게",
-    use: ["첫 화면에 화면 폭을 가득 채우는 큰 사진", "큰 사진 격자", "글은 짧게, 사진 설명은 캡션으로"],
+    use: ["메인 화면에 화면 폭을 가득 채우는 큰 사진", "큰 사진 격자", "글은 짧게, 사진 설명은 캡션으로"],
     avoid: ["사진 대신 아이콘 · 일러스트", "작은 썸네일만 나열", "사진 위에 긴 글"],
     copy: "짧은 캡션 같은 문장.",
   },
@@ -353,7 +353,7 @@ export const STYLES: DesignStyle[] = [
     flags: { imagery: "illustration" },
     suggestColors: ["#7c3aed", "#0ea5e9", "#f97316"],
     palette: "일러스트와 어울리는 밝은 색 2~3개",
-    use: ["꾸밈용 이미지 자리는 일러스트 · 아이콘으로", "선 굵기와 색이 일관된 그림", "여백 있는 배치"],
+    use: ["꾸밈용 이미지 영역은 일러스트 · 아이콘으로", "선 굵기와 색이 일관된 그림", "여백 있는 배치"],
     avoid: ["사람 실사 사진을 AI 로 만들기", "스타일이 제각각인 그림 섞기"],
     copy: "쉽고 친절하게.",
   },
@@ -511,10 +511,10 @@ export function mergeStyles(values: readonly unknown[] | null | undefined): Styl
       summary.push(`${STYLE_AXES[axis].label}: ${axisWord(axis, v)}${by.length ? ` — ${by.join(" · ")}` : ""}`);
     }
     summary.push(`제목 글꼴: ${FONT_WORD[font]}`);
-    summary.push(`첫 화면: ${HERO_WORD[hero]}`);
+    summary.push(`메인 화면: ${HERO_WORD[hero]}`);
     if (dark) summary.push("바탕: 어둡게 (다크)");
     if (imagery === "photo") summary.push("이미지: 사진을 크게");
-    if (imagery === "illustration") summary.push("이미지: 꾸밈 자리는 일러스트로 (실제 사진 자리는 그대로)");
+    if (imagery === "illustration") summary.push("이미지: 꾸밈 영역은 일러스트로 (실제 사진 영역은 그대로)");
   }
 
   // 다크를 고르면 "어두운 바탕을 피한다" 는 태그와 부딪힌다 — 축이 없어 위에서 못 잡으므로 따로 알린다

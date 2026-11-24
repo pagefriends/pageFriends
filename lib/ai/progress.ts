@@ -4,6 +4,7 @@ import { AI_STALE_MINUTES } from "@/config/ai";
 import type { UnableKind } from "@/config/unable";
 import { DEVICE_LABEL, type DeviceKind, type WorkSize } from "@/config/plans";
 import { isImageRequest } from "@/config/requests";
+import { aiTakes } from "@/lib/ai/image";
 import { queueOrder, reapStaleRuns } from "@/lib/ai/engine";
 import { plannedOf, regionContext, renderPage, sectionLabel } from "@/lib/ai/layout";
 import { describeChange, designOf, fieldDef, type AppliedChange, type DesignDoc } from "@/lib/design-doc";
@@ -21,7 +22,7 @@ import type { ProjectBrief, Region } from "@/lib/types/db";
  */
 
 export type LiveState = "queued" | "working" | "done" | "asked" | "handoff";
-export type LiveStage = "thinking" | "writing" | "rendering";
+export type LiveStage = "thinking" | "writing" | "rendering" | "drawing";
 
 export type LiveItem = {
   id: string;
@@ -170,7 +171,7 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
   const pages = new Map(((pageData as { id: string; name: string; path: string; sort_order: number }[] | null) ?? []).map((p) => [p.id, p]));
   // AI 가 맡는 것: AI 반영(이미지 생성 요청 제외) → 오류 신고. 엔진과 같은 순서
   const ai = rows
-    .filter((r) => (r.kind === "ai" && !isImageRequest(r.message)) || r.kind === "bug")
+    .filter((r) => aiTakes(r))
     .sort((a, b) => queueOrder(a, b, (id) => pages.get(id)?.sort_order ?? 0));
 
   const admin = createAdminClient();
@@ -205,7 +206,7 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
       pageId: r.page_id,
       pageName: page?.name ?? "",
       device: r.device,
-      where: `${page?.name ?? "페이지"} · ${DEVICE_LABEL[r.device]} · 네모 ${r.seq}`,
+      where: `${page?.name ?? "페이지"} · ${DEVICE_LABEL[r.device]} · 박스 ${r.seq}`,
       message: r.message,
       region: r.region,
       target: page ? targetOf(r.region, layoutOf(projectId, brief, design, page.path, r.device)) : null,
@@ -244,7 +245,7 @@ export async function loadBatchProgress(supabase: Supabase, projectId: string, b
   // 멈춘 처리(서버 재시작 등)는 정리해 두면 다음 확인 때 "담당자에게" 로 보인다
   if (stale) await reapStaleRuns(admin).catch(() => 0);
 
-  const imageRows = rows.filter((r) => r.kind === "ai" && isImageRequest(r.message));
+  const imageRows = rows.filter((r) => r.kind === "ai" && isImageRequest(r.message) && !aiTakes(r));
   return {
     batchId,
     version: design.version,

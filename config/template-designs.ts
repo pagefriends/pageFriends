@@ -60,7 +60,7 @@ export const TEMPLATE_DESIGNS: TemplateDesign[] = [
     primaryColor: "#1d4ed8",
     theme: { temperature: "cool", radius: "lg", heroLayout: "split", cardStyle: "shadow", buttonStyle: "pill" },
     summary: "네이비와 밝은 포인트의 학원 홈페이지 — 커리큘럼과 상담 신청이 중심",
-    structure: ["홈: 한 줄 소개 + 상담 신청 버튼 → 과정 카드 → 강사 소개 → 수강 후기 → 상담 신청 띠", "안내: 교습비 · 시간표 (교습비는 실제 금액만)", "리뷰: 수강 후기", "문의: 상담 신청 폼"],
+    structure: ["홈: 한 줄 소개 + 상담 신청 버튼 → 과정 카드 → 강사 소개 → 수강 후기 → 상담 신청 배너", "안내: 교습비 · 시간표 (교습비는 실제 금액만)", "리뷰: 수강 후기", "문의: 상담 신청 폼"],
   },
   {
     slug: "space-interior",
@@ -68,7 +68,7 @@ export const TEMPLATE_DESIGNS: TemplateDesign[] = [
     primaryColor: "#57534e",
     theme: { temperature: "warm", saturation: "muted", radius: "none", heroLayout: "wide", cardStyle: "flat", buttonStyle: "outline" },
     summary: "웜 그레이 톤에 시공 사진을 크게 보여 주는 인테리어 업체 홈페이지",
-    structure: ["홈: 시공 사진을 화면 폭 가득 → 시공 분야 → 대표 사례 격자 → 진행 과정 → 견적 문의 띠", "사례: 시공 전후 사진 갤러리", "안내: 진행 과정 · 보증", "문의: 견적 문의 폼"],
+    structure: ["홈: 시공 사진을 화면 폭 가득 → 시공 분야 → 대표 사례 격자 → 진행 과정 → 견적 문의 배너", "사례: 시공 전후 사진 갤러리", "안내: 진행 과정 · 보증", "문의: 견적 문의 폼"],
   },
   {
     slug: "fit-studio",
@@ -84,7 +84,7 @@ export const TEMPLATE_DESIGNS: TemplateDesign[] = [
     primaryColor: "#14532d",
     theme: { temperature: "warm", radius: "none", heroLayout: "wide", cardStyle: "line", buttonStyle: "outline" },
     summary: "딥그린과 명조 제목, 요리 사진을 크게 쓰는 레스토랑 홈페이지",
-    structure: ["홈: 요리 사진을 화면 폭 가득 → 셰프 소개 → 대표 메뉴 → 매장 분위기 사진 → 예약 띠", "메뉴: 코스 · 단품 메뉴판", "안내: 영업시간 · 오시는 길", "예약: 날짜 · 인원 예약 폼"],
+    structure: ["홈: 요리 사진을 화면 폭 가득 → 셰프 소개 → 대표 메뉴 → 매장 분위기 사진 → 예약 배너", "메뉴: 코스 · 단품 메뉴판", "안내: 영업시간 · 오시는 길", "예약: 날짜 · 인원 예약 폼"],
   },
   {
     slug: "law-office-live",
@@ -92,7 +92,7 @@ export const TEMPLATE_DESIGNS: TemplateDesign[] = [
     primaryColor: "#1e3a8a",
     theme: { temperature: "cool", radius: "sm", heroLayout: "split", cardStyle: "line", buttonStyle: "rounded" },
     summary: "네이비와 명조 제목의 정중한 법률사무소 홈페이지 (실제 운영 사이트 구조)",
-    structure: ["홈: 한 줄 소개 + 상담 신청 → 업무 분야 → 구성원 → 상담 절차 → 상담 신청 띠", "업무분야: 분야별 설명", "구성원: 변호사 소개(실제 경력만)", "문의: 상담 신청 폼"],
+    structure: ["홈: 한 줄 소개 + 상담 신청 → 업무 분야 → 구성원 → 상담 절차 → 상담 신청 배너", "업무분야: 분야별 설명", "구성원: 변호사 소개(실제 경력만)", "문의: 상담 신청 폼"],
   },
   {
     slug: "beauty-salon-live",
@@ -100,7 +100,7 @@ export const TEMPLATE_DESIGNS: TemplateDesign[] = [
     primaryColor: "#be7c6d",
     theme: { temperature: "warm", radius: "lg", heroLayout: "split", cardStyle: "shadow", buttonStyle: "pill" },
     summary: "로즈 브라운 톤의 부드러운 뷰티살롱 홈페이지 (실제 운영 사이트 구조)",
-    structure: ["홈: 시술 사진과 예약 버튼 → 시술 메뉴 → 디자이너 → 시술 갤러리 → 예약 띠", "시술: 시술별 가격 · 소요 시간 (실제 가격만)", "리뷰: 고객 후기", "예약: 예약 문의 폼"],
+    structure: ["홈: 시술 사진과 예약 버튼 → 시술 메뉴 → 디자이너 → 시술 갤러리 → 예약 배너", "시술: 시술별 가격 · 소요 시간 (실제 가격만)", "리뷰: 고객 후기", "예약: 예약 문의 폼"],
   },
 ];
 

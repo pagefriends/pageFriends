@@ -28,8 +28,8 @@ export const BuildOutput = z.object({
     heroLayout: enumOf(HERO_LAYOUTS),
     cardStyle: enumOf(CARD_STYLES),
   }),
-  siteCopy: z.array(z.object({ key: z.string(), value: z.string() })).describe("사이트 공통 문구 자리"),
-  pageCopy: z.array(z.object({ path: z.string(), key: z.string(), value: z.string() })).describe("페이지별 문구 자리"),
+  siteCopy: z.array(z.object({ key: z.string(), value: z.string() })).describe("사이트 공통 문구 영역"),
+  pageCopy: z.array(z.object({ path: z.string(), key: z.string(), value: z.string() })).describe("페이지별 문구 영역"),
   appliedTags: z.array(z.object({ tag: z.string(), how: z.string() })).describe("고른 디자인 유형마다 어떻게 적용했는지 한 문장"),
   notes: z.string().describe("디자인 설명 3~5문장 (고객과 담당자가 읽는다)"),
 });
@@ -39,7 +39,7 @@ export const EditOutput = z.object({
   decision: z.enum(["apply", "ask", "unable"]).describe("apply 바로 반영 · ask 고객에게 질문 · unable AI 가 바로 할 수 없음"),
   summary: z.string().describe("고객에게 보일 한두 문장: 무엇을 바꿨는지(apply) 또는 왜 질문하는지 · 왜 바로 할 수 없는지"),
   question: z.string().describe("ask 일 때 고객에게 물을 질문. 아니면 빈 글자"),
-  unable: z.enum(["none", ...UNABLE_KINDS]).describe("unable 일 때 갈래: later 아직 AI 기능이 없음 · connect 서류 · 계정이 필요한 연결 · review 사람이 확인할 내용 · consult 서비스 범위 밖. 아니면 none"),
+  unable: z.enum(["none", ...UNABLE_KINDS]).describe("unable 일 때 종류: later 아직 AI 기능이 없음 · connect 서류 · 계정이 필요한 연결 · review 사람이 확인할 내용 · consult 서비스 범위 밖. 아니면 none"),
   connect: z.enum(["none", ...CONNECT_KINDS]).describe("unable=connect 일 때 무엇을 연결하는지. 아니면 none"),
   staffNote: z.string().describe("unable 일 때 담당자 · 관리자가 볼 메모 (할 일 · 볼 곳). 아니면 빈 글자"),
   themeChanges: z.array(z.object({ key: enumOf(THEME_KEYS), value: z.string() })),
@@ -53,29 +53,29 @@ export const EditOutput = z.object({
         layout: enumOf(LIST_LAYOUTS).describe("list 게시판처럼 한 줄씩 · cards 사진 카드"),
         remove: z.boolean().describe("목록을 사이트 · 관리자 페이지에서 숨길 때만 true (저장된 글은 지워지지 않는다)"),
         fields: z
-          .array(z.object({ key: z.string().describe("칸 키. 영어 소문자 · 숫자 · 밑줄"), label: z.string().describe("칸 이름 (한국어)"), type: enumOf(FIELD_TYPES) }))
-          .describe("칸 전체 목록. 첫 칸이 목록의 제목으로 보인다"),
+          .array(z.object({ key: z.string().describe("항목 키. 영어 소문자 · 숫자 · 밑줄"), label: z.string().describe("항목 이름 (한국어)"), type: enumOf(FIELD_TYPES) }))
+          .describe("항목 전체 목록. 첫 항목이 목록의 제목으로 보인다"),
       }),
     )
     .describe("관리자 목록을 만들거나 바꿀 때만. 아니면 빈 목록"),
   layoutChanges: z
     .array(
       z.object({
-        target: z.enum(["section", "menu", "form"]).describe("section 구역 · menu 메뉴 · form 문의 · 예약 폼"),
-        op: z.string().describe("section: add · move · remove · show · edit / menu: rename · rename_group · move · hide · show / form: set"),
-        page: z.string().describe("페이지 주소 (menu 면 그 메뉴의 페이지 주소)"),
-        id: z.string().describe("section 의 move · remove · show · edit 대상 구역 id. 아니면 빈 글자"),
-        type: z.string().describe("section add 의 새 구역 종류: text · map · video · sns · faq · form · button. 아니면 빈 글자"),
-        after: z.string().describe("이 구역 id(메뉴면 페이지 주소) 다음에. 맨 위는 top. add 에서 빈 글자면 아래 띠 앞"),
-        title: z.string().describe("새 구역 제목 · 메뉴의 새 이름"),
-        body: z.string().describe("글 · 버튼 구역의 설명 글"),
+        target: z.enum(["section", "menu", "form", "page", "image"]).describe("section 섹션 · menu 메뉴 · form 문의 · 예약 폼 · page 페이지 더하기 · 지우기 · image 그림(사진 · 로고) 만들기"),
+        op: z.string().describe("section: add · move · remove · show · edit / menu: rename · rename_group · move · hide · show / form: set / page: add · remove / image: make"),
+        page: z.string().describe("페이지 주소 (menu 면 그 메뉴의 페이지 주소, page add 면 바라는 새 주소)"),
+        id: z.string().describe("section: 대상 섹션 id · page add: 상위 메뉴 이름 · image: 이미지 영역 id (로고는 logo). 아니면 빈 글자"),
+        type: z.string().describe("section add 의 새 섹션 종류: text · map · video · sns · faq · form · button / page add 의 페이지 종류. 아니면 빈 글자"),
+        after: z.string().describe("이 섹션 id(메뉴면 페이지 주소) 다음에. 맨 위는 top. add 에서 빈 글자면 하단 배너 앞"),
+        title: z.string().describe("새 섹션 제목 · 메뉴의 새 이름 · 새 페이지 이름"),
+        body: z.string().describe("글 · 버튼 섹션의 설명 글 · 새 페이지에 넣을 내용 · 그릴 그림 설명"),
         url: z.string().describe("영상: 유튜브 주소 · 버튼: 이동할 주소"),
         address: z.string().describe("지도 주소"),
         lines: z.array(z.string()).describe("sns: '이름|주소' · faq: '질문|답' · 폼 항목: '이름|종류|필수' (종류 text·phone·email·date·time·number·longtext·select·checkbox, 필수 예/아니오) 한 줄에 하나"),
-        button: z.string().describe("폼 · 버튼 구역의 버튼 글"),
+        button: z.string().describe("폼 · 버튼 섹션의 버튼 글"),
       }),
     )
-    .describe("구역 · 메뉴 · 폼을 바꿀 때만. 아니면 빈 목록"),
+    .describe("섹션 · 메뉴 · 폼 · 페이지 · 그림을 바꿀 때만. 아니면 빈 목록"),
 });
 export type EditOutput = z.infer<typeof EditOutput>;
 

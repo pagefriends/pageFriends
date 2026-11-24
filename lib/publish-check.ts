@@ -23,7 +23,7 @@ type PageRow = { path: string; name: string; screenshots: Partial<Record<DeviceK
 /** 모든 페이지 · 화면을 다시 그려 본다 */
 export function verifySite(project: Project, pages: PageRow[]): CheckResult {
   const brief = project.brief;
-  if (!brief.site || !brief.business) return { ok: true, checked: 0, issues: [], summary: "그려서 확인할 구성 초안이 없는 사이트예요 (담당자가 확인해요)." };
+  if (!brief.site || !brief.business) return { ok: true, checked: 0, issues: [], summary: "그려서 확인할 디자인 시안이 없는 사이트예요 (담당자가 확인해요)." };
   const design = designOf(brief);
   const issues: CheckIssue[] = [];
   let checked = 0;

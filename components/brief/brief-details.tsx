@@ -71,7 +71,7 @@ export function BriefDetails({
               {brief.industry}
               {ind && ind.code !== "etc" && ind.label !== brief.industry ? <span className="text-ink-500"> ({ind.label})</span> : null}
             </Item>
-            {b ? <Item k="한 줄 소개 (첫 화면 제목)" wide>{b.tagline}</Item> : null}
+            {b ? <Item k="한 줄 소개 (메인 화면 제목)" wide>{b.tagline}</Item> : null}
             {b ? (
               <Item k={ind?.offeringMenu ?? "서비스"} wide>
                 <ul className="flex flex-col gap-1">
@@ -158,7 +158,7 @@ export function BriefDetails({
       {site ? (
         <Card>
           <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle>이미지 자리 {site.images.length}곳</CardTitle>
+            <CardTitle>이미지 영역 {site.images.length}곳</CardTitle>
             <span className="text-xs text-ink-500">
               {slotStatus
                 ? (() => {

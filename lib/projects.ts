@@ -71,7 +71,18 @@ export async function getProject(userId: string, projectId: string): Promise<{ p
     supabase.from("project_pages").select("*").eq("project_id", projectId).order("sort_order", { ascending: true }),
   ]);
   if (!project) return null;
-  return { project: project as ProjectRow, pages: (pages as ProjectPageRow[]) ?? [] };
+  return { project: project as ProjectRow, pages: livePages((project as ProjectRow).brief, (pages as ProjectPageRow[]) ?? []) };
+}
+
+/**
+ * 지금 사이트에 있는 페이지만 (AI 가 지운 페이지는 행 · 요청 기록은 남기고 계획 brief.site 에서만 뺀다 — lib/ai/engine.ts saveSitePlan).
+ * 계획이 없는 예전 사이트는 그대로.
+ */
+export function livePages<T extends { path: string }>(brief: ProjectBrief | null | undefined, pages: T[]): T[] {
+  const planned = brief?.site?.pages;
+  if (!planned) return pages;
+  const paths = new Set(planned.map((p) => p.path));
+  return pages.filter((p) => paths.has(p.path));
 }
 
 /**

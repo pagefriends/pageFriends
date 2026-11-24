@@ -151,7 +151,7 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>{firstPublish ? "처음 공개하기" : "올릴 수정"}</CardTitle>
+                <CardTitle>{firstPublish ? "처음 사이트에 올리기" : "올릴 수정"}</CardTitle>
               </CardHeader>
               <CardBody className="flex flex-col gap-4">
                 <p className="text-sm text-ink-700">
@@ -169,7 +169,7 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
                     아직 진행 중인 수정이 {open}건 있어요. 지금 올리면 끝난 수정만 올라가고, 나머지는 끝난 뒤 다음에 올릴 수 있어요.
                   </Alert>
                 ) : null}
-                <PublishFlow projectId={id} label={firstPublish ? "사이트 공개하기" : "사이트에 올리기"} disabledReason={disabledReason} />
+                <PublishFlow projectId={id} label="사이트에 올리기" disabledReason={disabledReason} />
                 <p className="text-xs text-ink-500">{RELEASE_PROMISE}</p>
               </CardBody>
             </Card>

@@ -67,7 +67,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
       ? building
         ? `전문가가 만드는 중이에요 · 첫 완성본 ${dueLabel(data.project.created_at)}`
         : "전문가가 만든 사이트예요"
-      : "AI가 만든 구성 초안이에요. 담당자가 마무리하면 '제작 완료' 로 바뀌어요";
+      : "AI가 만든 디자인 시안이에요. 담당자가 마무리하면 '제작 완료' 로 바뀌어요";
 
   let welcome: { text: string; tone: "blue" | "red" } | null = null;
   if (sp.created === "1" && site) {
@@ -76,14 +76,14 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
     const failed = sp.images === "failed";
     const parts = [
       expertBuild
-        ? `전문가에게 맡겼어요. ${dueLabel(data.project.created_at)} 첫 완성본을 올려 드려요. 그동안 이 구성 초안에 빨간 네모로 의견을 미리 남겨도 돼요.`
-        : "AI가 구성 초안을 바로 만들었어요. 고칠 곳은 빨간 네모로 요청하면 AI가 바로 진행해요.",
+        ? `전문가에게 맡겼어요. ${dueLabel(data.project.created_at)} 첫 완성본을 올려 드려요. 그동안 이 디자인 시안에 빨간 박스로 의견을 미리 남겨도 돼요.`
+        : "AI가 디자인 시안을 바로 만들었어요. 고칠 곳은 빨간 박스로 요청하면 AI가 바로 진행해요.",
     ];
     if (emptySlots > 0) {
-      parts.push(`비어 있는 이미지 자리 ${emptySlots}곳(사진 ${emptyImageCount(site.images)}장)에는 어떤 이미지가 필요한지 적어 두었어요 — 오른쪽 '이미지 자리' 에서 확인하세요.`);
+      parts.push(`비어 있는 이미지 영역 ${emptySlots}곳(사진 ${emptyImageCount(site.images)}장)에는 어떤 이미지가 필요한지 적어 두었어요 — 오른쪽 '이미지 영역' 에서 확인하세요.`);
     }
     if (generated > 0 && !failed) parts.push(`AI 이미지 ${generated}장 생성 요청도 접수했어요. 진행 상황은 요청 내역에서 볼 수 있어요.`);
-    if (generated > 0 && failed) parts.push("AI 이미지 생성 요청은 접수하지 못했어요. 이미지 자리에서 'AI로 만들기' 로 다시 요청해 주세요.");
+    if (generated > 0 && failed) parts.push("AI 이미지 생성 요청은 접수하지 못했어요. 이미지 영역에서 'AI로 만들기' 로 다시 요청해 주세요.");
     welcome = { text: parts.join(" "), tone: failed ? "red" : "blue" };
   }
 
@@ -121,8 +121,9 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
           screenshots: p.screenshots,
           label: pp?.label,
           group: pp?.group ?? null,
-          slots: pp?.slotIds
-            .map((sid) => imageById.get(sid))
+          // 로고 자리(있으면)는 모든 페이지의 머리 메뉴에 있다
+          slots: (pp ? [...(imageById.has("logo") ? ["logo"] : []), ...pp.slotIds] : undefined)
+            ?.map((sid) => imageById.get(sid))
             .filter((s) => s !== undefined)
             .map((s) => ({
               id: s.id,

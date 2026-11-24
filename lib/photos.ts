@@ -109,3 +109,39 @@ export async function signedPhotoUrl(projectId: string, name: string, seconds = 
 export function photoCounts(photos: Record<string, SitePhoto[]>): Record<string, number> {
   return Object.fromEntries(Object.entries(photos).map(([k, v]) => [k, v.length]));
 }
+
+/** 바꾼 사진을 잠깐 넣어 두는 폴더 (되돌리기용). 목록(listProjectPhotos)은 이 폴더를 보지 않는다 */
+const OLD_DIR = "old";
+
+/**
+ * 자리의 사진을 새 사진 한 장으로 바꾼다 (AI 가 만든 사진 · 로고). 있던 사진은 지우지 않고 old 폴더로 옮겨 두어
+ * 오류 신고의 되돌리기가 다시 꺼낼 수 있게 한다. 돌려주는 moved 는 옮긴 사진 이름들.
+ */
+export async function replaceSlotPhoto(projectId: string, slotId: string, bytes: Uint8Array, contentType: string): Promise<{ photo: SitePhoto; moved: string[] }> {
+  const sb = createAdminClient();
+  await ensureBucket(sb);
+  const before = (await listProjectPhotos(projectId))[slotId] ?? [];
+  const moved: string[] = [];
+  for (const p of before) {
+    const { error } = await sb.storage.from(PHOTO_BUCKET).move(`${projectId}/${p.name}`, `${projectId}/${OLD_DIR}/${p.name}`);
+    if (!error) moved.push(p.name);
+    else console.error("[photos] move old", error.message);
+  }
+  const photo = await uploadPhoto(projectId, slotId, bytes, contentType);
+  return { photo, moved };
+}
+
+/** replaceSlotPhoto 되돌리기: 새 사진을 old 로 보내고 옮겨 둔 사진을 제자리로 */
+export async function restoreSlotPhotos(projectId: string, added: string, moved: string[]): Promise<boolean> {
+  const sb = createAdminClient();
+  const store = sb.storage.from(PHOTO_BUCKET);
+  if (added && isPhotoName(added)) {
+    const { error } = await store.move(`${projectId}/${added}`, `${projectId}/${OLD_DIR}/${added}`);
+    if (error) return false;
+  }
+  for (const name of moved.filter(isPhotoName)) {
+    const { error } = await store.move(`${projectId}/${OLD_DIR}/${name}`, `${projectId}/${name}`);
+    if (error) console.error("[photos] restore", error.message);
+  }
+  return true;
+}

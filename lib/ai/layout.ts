@@ -109,7 +109,7 @@ export function regionContext(res: DraftResult, region: Region): RegionContext {
 }
 
 export function sectionLabel(id: string): string {
-  return SECTION_LABEL[id] ?? (id.startsWith("block:") ? `새 구역 ${id.slice(6)}` : id);
+  return SECTION_LABEL[id] ?? (id.startsWith("block:") ? `새 섹션 ${id.slice(6)}` : id);
 }
 
 // ---------------------------------------------------------------------------------------------

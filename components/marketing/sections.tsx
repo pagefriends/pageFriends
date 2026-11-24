@@ -136,7 +136,7 @@ export function SolutionsCarousel({ eyebrow = "만드는 것", title = "필요�
 }
 
 /** 4단계 커맨드 센터 카드 (어두운 바탕) — 디자인 피클의 "Brief. Review. Approve. Repeat." */
-export function StepsGrid({ eyebrow = "브리프. 확인. 네모. 완성.", title = "내 사이트의 컨트롤 타워", cta = { href: "/demo", label: "편집 화면 체험" } }: { eyebrow?: string; title?: string; cta?: { href: string; label: string } | null }) {
+export function StepsGrid({ eyebrow = "브리프. 확인. 박스. 완성.", title = "내 사이트의 컨트롤 타워", cta = { href: "/demo", label: "편집 화면 체험" } }: { eyebrow?: string; title?: string; cta?: { href: string; label: string } | null }) {
   return (
     <Section tone="dark">
       <Container>

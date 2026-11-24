@@ -1,3 +1,4 @@
+import { livePages } from "@/lib/projects";
 import "server-only";
 
 import { cache } from "react";
@@ -286,7 +287,7 @@ export async function getAdminProject(projectId: string): Promise<AdminProjectDe
   return {
     project: p,
     ownerEmail: (owner?.email as string | undefined) ?? null,
-    pages: (pages as AdminProjectDetail["pages"] | null) ?? [],
+    pages: livePages(p.brief, (pages as AdminProjectDetail["pages"] | null) ?? []),
     openRequests: count ?? 0,
     requests: (requests as AdminProjectDetail["requests"] | null) ?? [],
   };

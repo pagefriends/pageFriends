@@ -116,7 +116,7 @@ export function MenuEditor({
         onChange={(e) => onKind((e.target.value || null) as PageKind | null)}
         className="h-9 w-full py-0 text-xs sm:w-44"
         aria-label={`${label} 페이지 종류`}
-        title="페이지 종류에 따라 들어갈 구역과 이미지 자리가 정해집니다"
+        title="페이지 종류에 따라 들어갈 섹션과 이미지 영역이 정해집니다"
       >
         <option value="">자동 · {PAGE_KIND_LABEL[auto]}</option>
         {item.kind === "service" ? <option value="service">{PAGE_KIND_LABEL.service}</option> : null}
@@ -173,7 +173,7 @@ export function MenuEditor({
           <div className="flex items-center gap-2 text-sm">
             <HomeIcon className="size-4 text-ink-400" />
             <span className="font-semibold">홈</span>
-            <span className="text-xs text-ink-500">로고를 누르면 가는 첫 화면 · 항상 있어요</span>
+            <span className="text-xs text-ink-500">로고를 누르면 가는 메인 화면 · 항상 있어요</span>
             {expert ? (
               <button type="button" onClick={() => toggleNote("home")} className="ml-auto inline-flex items-center gap-1 text-xs text-ink-500 hover:text-ink-900">
                 <StickyNoteIcon className="size-3.5" /> 넣을 내용

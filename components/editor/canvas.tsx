@@ -408,17 +408,17 @@ export function EditorCanvas({
         {locked ? (
           <span
             className="inline-flex h-8 items-center gap-1.5 rounded-sm bg-sky-100 px-2 text-[13px] font-medium whitespace-nowrap text-sky-800"
-            title={lockDone ? "결과를 확인한 뒤 '계속 수정하기' 를 누르면 다시 네모를 그릴 수 있어요" : "AI 가 고치는 동안에는 네모를 그릴 수 없어요"}
+            title={lockDone ? "결과를 확인한 뒤 '계속 수정하기' 를 누르면 다시 박스를 그릴 수 있어요" : "AI 가 고치는 동안에는 박스를 그릴 수 없어요"}
           >
-            {lockDone ? <CheckIcon className="size-4" /> : <LoaderCircleIcon className="size-4 animate-spin" />} {lockDone ? "AI 작업 끝" : "AI 작업 중"}
+            {lockDone ? <CheckIcon className="size-4" /> : <LoaderCircleIcon className="size-4 animate-spin" />} {lockDone ? "AI 작업 완료" : "AI 작업 중"}
           </span>
         ) : (
           <>
             <ToolButton active={mode === "move"} onClick={() => setMode("move")} title="이동 (V) — 드래그로 화면 이동">
               <HandIcon className="size-4" /> 이동
             </ToolButton>
-            <ToolButton active={mode === "box"} onClick={() => setMode("box")} title="빨간 네모 (R) — 드래그로 영역 그리기">
-              <SquareIcon className="size-4 text-mark" /> 빨간 네모
+            <ToolButton active={mode === "box"} onClick={() => setMode("box")} title="빨간 박스 (R) — 드래그로 영역 그리기">
+              <SquareIcon className="size-4 text-mark" /> 빨간 박스
             </ToolButton>
           </>
         )}
@@ -438,10 +438,10 @@ export function EditorCanvas({
       <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-surface/90 px-2 py-1 text-[11px] text-ink-500">
         {locked
           ? lockDone
-            ? "결과를 확인하고 '계속 수정하기' 를 누르면 다시 네모를 그릴 수 있어요"
-            : "AI가 고치는 동안에는 네모를 그릴 수 없어요 · 드래그로 화면 이동 · 휠로 확대/축소"
+            ? "결과를 확인하고 '계속 수정하기' 를 누르면 다시 박스를 그릴 수 있어요"
+            : "AI가 고치는 동안에는 박스를 그릴 수 없어요 · 드래그로 화면 이동 · 휠로 확대/축소"
           : mode === "box"
-            ? "드래그해서 고칠 곳에 네모를 그리세요 · 휠로 확대/축소"
+            ? "드래그해서 고칠 곳에 박스를 그리세요 · 휠로 확대/축소"
             : "드래그로 화면 이동 · 휠로 확대/축소"}
       </p>
     </div>

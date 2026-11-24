@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "이용 방법 — 묻지 말고 그�
 const JOURNEYS: { icon: LucideIcon; title: string; body: string; href: string; cta: string }[] = [
   { icon: CompassIcon, title: "처음이에요", body: "사이트를 처음 만듭니다. 무엇부터 해야 하는지, 어떤 플랜이 맞는지 알고 싶어요.", href: "/pricing", cta: "플랜 살펴보기" },
   { icon: LayoutTemplateIcon, title: "템플릿으로", body: "완성된 디자인을 가져와서 내 내용만 넣고 싶어요. 데모 1,000원, 운영 사이트 8,900원.", href: "/templates", cta: "템플릿 보기" },
-  { icon: SparklesIcon, title: "프롬프트로", body: "템플릿 없이 글로만 설명할게요. AI 가 구조 · 문구 · 디자인 초안을 만듭니다.", href: "/solutions/ai-site", cta: "AI 제작 알아보기" },
+  { icon: SparklesIcon, title: "프롬프트로", body: "템플릿 없이 글로만 설명할게요. AI 가 구조 · 문구 · 디자인 시안을 만듭니다.", href: "/solutions/ai-site", cta: "AI 제작 알아보기" },
   { icon: RefreshCwIcon, title: "이미 사이트가 있어요", body: "지금 사이트를 새로 만들거나 옮기고 싶어요. 참고 사이트로 첨부하면 구조를 이어갑니다.", href: "/consultation", cta: "상담 신청" },
 ];
 
@@ -27,7 +27,7 @@ const FAQ = HELP_FAQ.flatMap((g) => g.items).slice(0, 5);
 export default function HowItWorksPage() {
   return (
     <>
-      <Hero center size="lg" eyebrow="제작 솔루션" title="묻지 말고 그냥 시작하세요" lead={`견적 · 미팅 · 계약서 없이 5분 안에 시작합니다. 필수 정보를 입력하면 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본이 올라오고, 고칠 곳은 네모를 그려 요청합니다.`} primary={{ href: "/signup", label: "시작하기" }} secondary={{ href: "/demo", label: "편집 화면 체험" }} />
+      <Hero center size="lg" eyebrow="제작 솔루션" title="묻지 말고 그냥 시작하세요" lead={`견적 · 미팅 · 계약서 없이 5분 안에 시작합니다. 필수 정보를 입력하면 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본이 올라오고, 고칠 곳은 박스를 그려 요청합니다.`} primary={{ href: "/signup", label: "시작하기" }} secondary={{ href: "/demo", label: "편집 화면 체험" }} />
 
       {/* 무엇이 궁금하세요? */}
       <Section tone="dark" className="pt-0 sm:pt-0">
@@ -58,7 +58,7 @@ export default function HowItWorksPage() {
       {/* 4단계 타임라인 */}
       <Section tone="light">
         <Container>
-          <Eyebrow tone="light">브리프. 확인. 네모. 완성.</Eyebrow>
+          <Eyebrow tone="light">브리프. 확인. 박스. 완성.</Eyebrow>
           <Display className="mt-3 max-w-3xl">시작부터 운영까지 네 단계</Display>
           <ol className="mt-12 space-y-12 sm:space-y-16">
             {COMMAND_STEPS.map((s, i) => (

@@ -33,6 +33,10 @@ export const serverEnvSchema = z.object({
   AI_DAILY_BUDGET_USD: optionalString,
   /** "off" 면 키가 있어도 AI 를 부르지 않는다 */
   AI_ENGINE: optionalString,
+  /** 사진 · 로고 그리기 (OpenAI 이미지 API, lib/ai/image.ts). 없으면 이미지 생성 요청은 담당자가 */
+  OPENAI_API_KEY: optionalString,
+  /** 그림 모델. 비우면 gpt-image-2 */
+  OPENAI_IMAGE_MODEL: optionalString,
 
 });
 

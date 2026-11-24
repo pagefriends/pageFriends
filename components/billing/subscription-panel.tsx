@@ -105,7 +105,7 @@ export function SubscriptionPanel({
         <h2 className="text-lg font-semibold">
           {plan.name} 플랜 <span className="text-base font-medium text-ink-500">· {beta ? "무료 베타" : `${BILLING_CYCLE_LABEL[cycle]} 결제`}</span>
         </h2>
-        {beta ? <Badge tone={state === "expired" ? "gray" : "blue"}>{state === "expired" ? "베타 끝" : "무료 베타"}</Badge> : <StateBadge state={state} />}
+        {beta ? <Badge tone={state === "expired" ? "gray" : "blue"}>{state === "expired" ? "베타 종료" : "무료 베타"}</Badge> : <StateBadge state={state} />}
         {subscription.payment_addon ? <Badge tone="gray">결제 시스템 연동</Badge> : null}
       </div>
 

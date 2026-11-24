@@ -62,7 +62,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">내 사이트</h1>
           <p className="mt-1 text-sm text-ink-500">
-            AI로 만들면 구성 초안이 바로 나오고, 전문가에게 맡기면 {EXPERT_HOURS.min}~{EXPERT_HOURS.max}시간 안에 첫 완성본이 올라옵니다.
+            AI로 만들면 디자인 시안이 바로 나오고, 전문가에게 맡기면 {EXPERT_HOURS.min}~{EXPERT_HOURS.max}시간 안에 첫 완성본이 올라옵니다.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -162,7 +162,7 @@ export default async function DashboardPage() {
                   ) : null}
                   <p className="mt-3 line-clamp-2 text-[13px] text-ink-600">{p.brief.business?.tagline || p.brief.purpose || p.brief.prompt || "설명 없음"}</p>
                   {(toPrepare.get(p.id) ?? 0) > 0 ? (
-                    <p className="mt-2 inline-flex items-center gap-1 text-xs text-ink-500" title="대표·직원·매장·작업물처럼 실제 사진이 필요한 자리 (제작 정보에서 목록 확인)">
+                    <p className="mt-2 inline-flex items-center gap-1 text-xs text-ink-500" title="대표·직원·매장·작업물처럼 실제 사진이 필요한 영역 (제작 정보에서 목록 확인)">
                       <ImageIcon className="size-3.5" /> 준비할 사진 {toPrepare.get(p.id)}장
                     </p>
                   ) : null}

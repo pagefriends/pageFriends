@@ -128,7 +128,7 @@ export function AiBrief({
               </summary>
               <p className="mt-1.5 text-ink-500">시스템 프롬프트 (고정 부분은 캐시해 다시 읽을 때 싸다)</p>
               <pre className="mt-1 max-h-96 overflow-auto rounded bg-ink-100 p-2.5 text-[11px] leading-relaxed whitespace-pre-wrap">{preview.system}</pre>
-              <p className="mt-2 text-ink-500">메시지 (사이트 자료 · 문구 자리)</p>
+              <p className="mt-2 text-ink-500">메시지 (사이트 자료 · 문구 영역)</p>
               <pre className="mt-1 max-h-96 overflow-auto rounded bg-ink-100 p-2.5 text-[11px] leading-relaxed whitespace-pre-wrap">{preview.user}</pre>
             </details>
           </section>

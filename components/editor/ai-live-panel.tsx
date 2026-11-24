@@ -25,9 +25,9 @@ const STEPS: Record<LiveItem["kind"], string[]> = {
   ai: ["요청 확인", "고칠 방법 정하기", "바꿀 내용 쓰기", "새 화면 그리기"],
   bug: ["신고 확인", "원인 찾기", "고칠 내용 쓰기", "새 화면 그리기"],
 };
-const STAGE_INDEX: Record<LiveStage | "check", number> = { check: 0, thinking: 1, writing: 2, rendering: 3 };
+const STAGE_INDEX: Record<LiveStage | "check", number> = { check: 0, thinking: 1, writing: 2, rendering: 3, drawing: 3 };
 /** 처리 중인 네모 하나가 어느 단계면 몇 % 끝난 것으로 볼지 */
-const STAGE_SHARE: Record<LiveStage, number> = { thinking: 0.3, writing: 0.6, rendering: 0.85 };
+const STAGE_SHARE: Record<LiveStage, number> = { thinking: 0.3, writing: 0.6, drawing: 0.75, rendering: 0.85 };
 
 /** 걸린 시간 "7초" · "1분 5초" */
 function secs(ms: number): string {
@@ -126,7 +126,7 @@ export function AiLivePanel({
                 ]
                   .filter(Boolean)
                   .join(" · ") + ". 바뀐 화면은 왼쪽에서 바로 볼 수 있어요. 결과가 이상하면 '이상해요'를 눌러 오류 신고해 주세요."
-              : `요청 ${items.length}개를 확인했어요. 하나씩 순서대로 처리하고, 끝날 때마다 화면이 바로 바뀌어요. 그동안은 새 네모를 그릴 수 없어요.`}
+              : `요청 ${items.length}개를 확인했어요. 하나씩 순서대로 처리하고, 끝날 때마다 화면이 바로 바뀌어요. 그동안은 새 박스를 그릴 수 없어요.`}
         </p>
         {progress ? (
           <div
@@ -313,7 +313,7 @@ function StateChip({ item, isNext, elapsed }: { item: LiveItem; isNext: boolean;
   const map: Record<LiveItem["state"], { text: string; cls: string }> = {
     queued: isNext ? { text: "확인 중", cls: "bg-sky-100 text-sky-800" } : { text: "대기", cls: "bg-ink-100 text-ink-600" },
     working: { text: `${bug ? "확인하는 중" : "고치는 중"}${time}`, cls: "bg-sky-500 text-white" },
-    done: { text: `${bug ? "고침 완료" : "반영 완료"}${time}`, cls: "bg-brand-600 text-white" },
+    done: { text: `${bug ? "수정 완료" : "반영 완료"}${time}`, cls: "bg-brand-600 text-white" },
     asked: item.shortage ? { text: "토큰 부족", cls: "bg-red-100 text-mark" } : { text: "질문 남김", cls: "bg-brand-100 text-brand-800" },
     handoff:
       item.unable && item.unable !== "later"

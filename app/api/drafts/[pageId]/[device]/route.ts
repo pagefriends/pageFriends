@@ -22,7 +22,7 @@ const paramsSchema = z.object({ pageId: z.uuid(), device: z.enum(["mobile", "tab
  */
 export async function GET(_request: Request, ctx: RouteContext<"/api/drafts/[pageId]/[device]">) {
   const parsed = paramsSchema.safeParse(await ctx.params);
-  if (!parsed.success) return apiError(404, "NOT_FOUND", "초안을 찾을 수 없습니다.");
+  if (!parsed.success) return apiError(404, "NOT_FOUND", "시안을 찾을 수 없습니다.");
   const { pageId, device } = parsed.data;
 
   const user = await getSessionUser();
@@ -30,11 +30,11 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/drafts/[pag
 
   const supabase = await createClient();
   const { data: page } = await supabase.from("project_pages").select("id, project_id, path, screenshots").eq("id", pageId).maybeSingle();
-  if (!page) return apiError(404, "NOT_FOUND", "초안을 찾을 수 없습니다.");
+  if (!page) return apiError(404, "NOT_FOUND", "시안을 찾을 수 없습니다.");
   const { data: project } = await supabase.from("projects").select("brief").eq("id", page.project_id).maybeSingle();
   const brief = (project?.brief ?? null) as ProjectBrief | null;
   const planned = brief?.site?.pages.find((p) => p.path === page.path);
-  if (!brief?.site || !brief.business || !planned) return apiError(404, "NOT_FOUND", "초안을 찾을 수 없습니다.");
+  if (!brief?.site || !brief.business || !planned) return apiError(404, "NOT_FOUND", "시안을 찾을 수 없습니다.");
 
   const stored = (page as Pick<ProjectPageRow, "screenshots">).screenshots[device];
   // 디자인 문서는 사이트 주인이 직접 고칠 수도 있으므로 designOf 가 값을 다시 검사한다.

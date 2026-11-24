@@ -166,28 +166,28 @@ export function applyCollectionChanges(
     for (const f of ch.fields ?? []) {
       const fk = typeof f.key === "string" ? f.key.trim() : "";
       if (!isValidKey(fk)) {
-        rejected.push(`${key}.${f.key}: 칸 키`);
+        rejected.push(`${key}.${f.key}: 항목 키`);
         continue;
       }
       if (!isFieldType(f.type)) {
-        rejected.push(`${key}.${fk}: 칸 종류 ${f.type}`);
+        rejected.push(`${key}.${fk}: 항목 종류 ${f.type}`);
         continue;
       }
       if (fields.some((x) => x.key === fk)) continue;
       const was = existing?.fields.find((x) => x.key === fk)?.type;
       if (was && !sameColumn(was, f.type)) {
-        rejected.push(`${key}.${fk}: 이미 있는 칸의 종류(${FIELD_TYPE_LABEL[was]})는 바꿀 수 없음`);
+        rejected.push(`${key}.${fk}: 이미 있는 항목의 종류(${FIELD_TYPE_LABEL[was]})는 바꿀 수 없음`);
         fields.push({ key: fk, label: cleanLabel(f.label) || fk, type: was });
         continue;
       }
       if (fields.length >= COLLECTION_LIMITS.fields) {
-        rejected.push(`${key}: 칸은 ${COLLECTION_LIMITS.fields}개까지`);
+        rejected.push(`${key}: 항목은 ${COLLECTION_LIMITS.fields}개까지`);
         break;
       }
       fields.push({ key: fk, label: cleanLabel(f.label) || fk, type: f.type });
     }
     if (!fields.length) {
-      rejected.push(`${key}: 칸이 없는 목록`);
+      rejected.push(`${key}: 항목이 없는 목록`);
       continue;
     }
 

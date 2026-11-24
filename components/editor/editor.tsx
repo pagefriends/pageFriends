@@ -246,26 +246,29 @@ export function ProjectEditor({
    * 고객이 무엇이 이상한지 적고 요청하기를 누르면 오류 확인 AI 가 먼저 본다 (최근 AI 변경이면 되돌린다)
    */
   const reportProblem = (it: LiveItem) => {
-    const target = pages.find((p) => p.id === it.pageId);
+    // AI 가 지운 페이지면 그 페이지가 목록에 없다 → 첫 페이지 위쪽(메뉴)에 신고 박스를 만든다
+    const gone = !pages.some((p) => p.id === it.pageId);
+    const target = gone ? pages[0] : pages.find((p) => p.id === it.pageId);
     const s = target?.screenshots[it.device];
     if (!target || !s) return;
     closeLive();
     const id = newDraftId();
+    const region = gone ? { x: 0, y: 0, w: 1, h: Math.min(0.08, 100 / s.height) } : it.region;
     const box: DraftBox = {
       id,
-      x: it.region.x * s.width,
-      y: it.region.y * s.height,
-      w: it.region.w * s.width,
-      h: it.region.h * s.height,
+      x: region.x * s.width,
+      y: region.y * s.height,
+      w: region.w * s.width,
+      h: region.h * s.height,
       kind: "bug",
       message: `AI가 "${it.message.slice(0, 40)}" 요청을 반영한 뒤 이상해요: `,
     };
-    const k = draftKey(it.pageId, it.device);
+    const k = draftKey(target.id, it.device);
     setDrafts((prev) => ({ ...prev, [k]: [...(prev[k] ?? []), box] }));
-    setPageId(it.pageId);
+    setPageId(target.id);
     setDevice(it.device);
     setSelectedId(id);
-    setNotice("오류 신고 네모를 만들었어요. 무엇이 이상한지 적고 요청하기를 눌러 주세요. AI가 먼저 확인해요 (무료).");
+    setNotice("오류 신고 박스를 만들었어요. 무엇이 이상한지 적고 요청하기를 눌러 주세요. AI가 먼저 확인해요 (무료).");
   };
 
   /** 작업 화면 닫기: 끝났으면 결과를 읽어 오고, 아직 진행 중이면 예전처럼 위쪽 표시로 계속 알려 준다 */
@@ -311,7 +314,7 @@ export function ProjectEditor({
   /** 새 화면으로 바꾼다. 옛 화면에 그린 네모는 위치가 맞지 않으므로 지운다 (남은 게 있으면 묻는다) */
   const showNewVersion = () => {
     const left = Object.values(drafts).reduce((n, l) => n + l.length, 0);
-    if (left > 0 && !window.confirm(`새 화면에서는 지금 그린 네모 ${left}개의 위치가 맞지 않아 지워져요. 새 화면을 볼까요?`)) return;
+    if (left > 0 && !window.confirm(`새 화면에서는 지금 그린 박스 ${left}개의 위치가 맞지 않아 지워져요. 새 화면을 볼까요?`)) return;
     setDrafts({});
     setSelectedId(null);
     setError(null);
@@ -498,8 +501,8 @@ export function ProjectEditor({
           <span className="truncate text-sm font-semibold">{projectName}</span>
           {demo ? <Badge tone="sky" className="shrink-0 whitespace-nowrap">체험 모드</Badge> : null}
           {shot.draft ? (
-            <Badge tone="gray" className="shrink-0 whitespace-nowrap" title={buildNote ?? "위저드에서 정한 메뉴·내용으로 그린 구성 초안입니다."}>
-              구성 초안
+            <Badge tone="gray" className="shrink-0 whitespace-nowrap" title={buildNote ?? "위저드에서 정한 메뉴·내용으로 그린 디자인 시안입니다."}>
+              디자인 시안
             </Badge>
           ) : null}
           {buildNote ? <span className="hidden truncate text-xs text-ink-500 xl:inline">{buildNote}</span> : null}
@@ -507,9 +510,9 @@ export function ProjectEditor({
         <div className="flex min-w-0 items-center gap-3 text-xs text-ink-500">
           {notice ? <span className="truncate text-brand-700">{notice}</span> : null}
           {liveBatch ? (
-            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold text-sky-700" title="AI 가 보낸 네모를 하나씩 고치고 있어요">
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold text-sky-700" title="AI 가 보낸 박스를 하나씩 고치고 있어요">
               {progress?.done ? <SparklesIcon className="size-3.5" /> : <LoaderCircleIcon className="size-3.5 animate-spin" />}
-              {progress?.done ? "AI 작업 끝" : "AI 작업 중"} {progress ? `${liveDone}/${progress.items.length}` : ""}
+              {progress?.done ? "AI 작업 완료" : "AI 작업 중"} {progress ? `${liveDone}/${progress.items.length}` : ""}
             </span>
           ) : !demo && ai?.enabled && live && live.open > 0 && !newer ? (
             <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-brand-700" title="AI가 요청을 고치고 있어요">
@@ -529,7 +532,7 @@ export function ProjectEditor({
               title="고친 내용을 실제 사이트에 올려요. AI가 수정 확인 · 보안 검사를 먼저 해요."
             >
               <RocketIcon className="size-3.5" />
-              {website.active ?? (website.ready && !website.published ? "사이트 공개하기" : "사이트에 올리기")}
+              {website.active ?? "사이트에 올리기"}
               {!website.active && website.waiting > 0 ? <CountChip strong>{website.waiting}</CountChip> : null}
             </Link>
           ) : null}
@@ -588,7 +591,7 @@ export function ProjectEditor({
             <div className="flex items-start gap-3 border-b border-brand-200 bg-brand-50 px-4 py-2.5 text-[13px] leading-relaxed text-ink-900">
               <LoaderCircleIcon className="mt-0.5 size-4 shrink-0 animate-spin text-brand-700" />
               <p className="flex-1">
-                AI가 고르신 디자인 유형에 맞춰 첫 디자인을 다듬고 있어요. 보통 1~2분 걸리고, 끝나면 여기에 &lsquo;새 화면 보기&rsquo; 가 떠요. 지금 그린 네모는 새 화면에서 다시 그려야 해요.
+                AI가 고르신 디자인 유형에 맞춰 첫 디자인을 다듬고 있어요. 보통 1~2분 걸리고, 끝나면 여기에 &lsquo;새 화면 보기&rsquo; 가 떠요. 지금 그린 박스는 새 화면에서 다시 그려야 해요.
               </p>
             </div>
           ) : null}
@@ -679,7 +682,7 @@ export function ProjectEditor({
                       <span className="ml-1.5 text-[11px] text-ink-400">{p.path}</span>
                     </span>
                     {n > 0 ? (
-                      <span className="grid min-w-4 shrink-0 place-items-center bg-mark px-1 text-[10px] text-white" title="아직 보내지 않은 네모">
+                      <span className="grid min-w-4 shrink-0 place-items-center bg-mark px-1 text-[10px] text-white" title="아직 보내지 않은 박스">
                         {n}
                       </span>
                     ) : null}

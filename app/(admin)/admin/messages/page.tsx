@@ -22,7 +22,7 @@ export default async function AdminMessagesPage() {
     <div>
       <h1 className="text-2xl font-bold tracking-tight">사이트 메시지</h1>
       <p className="mt-1 text-sm text-ink-500">
-        네모와 상관없이 사용자와 주고받는 대화입니다. 답을 기다리는 사이트 {unread}곳. 먼저 말을 걸려면 요청 상세의 &lsquo;사이트 메시지 열기&rsquo; 로 들어가세요.
+        박스와 상관없이 사용자와 주고받는 대화입니다. 답을 기다리는 사이트 {unread}곳. 먼저 말을 걸려면 요청 상세의 &lsquo;사이트 메시지 열기&rsquo; 로 들어가세요.
       </p>
 
       {!available ? (

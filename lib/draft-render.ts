@@ -52,13 +52,13 @@ export type SectionRect = { id: string; x: number; y: number; w: number; h: numb
 
 export const SECTION_LABEL: Record<string, string> = {
   header: "헤더 (로고 · 메뉴 · 버튼)",
-  hero: "첫 화면",
+  hero: "메인 화면",
   offerings: "서비스 카드",
   strengths: "강점",
   about: "소개",
   reviews: "후기",
-  cta: "아래 행동 유도 띠",
-  title: "페이지 제목 띠",
+  cta: "하단 배너",
+  title: "페이지 제목 배너",
   subnav: "하위 메뉴 탭",
   main: "본문",
   list: "관리자 목록",
@@ -515,6 +515,8 @@ function header(ctx: Ctx, y: number): number {
   const ly = y + (h - logo) / 2;
   const initial = [...ctx.in.siteName.trim()][0] ?? "P";
   svg += box(pad, ly, logo, logo, ctx.primary, { rx: RAD.logo }) + text(pad + logo / 2, ly + logo / 2, initial, { size: Math.round(logo * 0.46), weight: 800, fill: ctx.onPrimary, anchor: "middle", h: true });
+  // 로고 자리: 로고 사진이 있으면 편집 화면이 이 네모 위에 겹쳐 보여 준다 (AI 로고 만들기 · 직접 올리기)
+  ctx.slots.push({ id: "logo", x: r(pad), y: r(ly), w: logo, h: logo });
   const nameSize = ctx.desk ? 20 : 17;
   const nameX = pad + logo + 10;
   const cy = y + h / 2;

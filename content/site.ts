@@ -37,8 +37,8 @@ export type Solution = {
 };
 
 const COMMON_FEATURES: Solution["features"] = [
-  { title: "AI가 초안, 전문가가 마무리", body: "브리프를 넣으면 AI가 첫 완성본을 만들고, 사람 전문가가 구조·문구·디테일을 검수합니다." },
-  { title: "네모 그려서 수정 요청", body: "완성 화면 위에 빨간 네모를 그리고 번호별로 적으면 AI가 바로 고칩니다. 바뀐 화면을 보고 '사이트에 올리기'를 누르면 끝." },
+  { title: "AI가 시안, 전문가가 마무리", body: "브리프를 넣으면 AI가 첫 완성본을 만들고, 사람 전문가가 구조·문구·디테일을 검수합니다." },
+  { title: "박스 그려서 수정 요청", body: "완성 화면 위에 빨간 박스를 그리고 번호별로 적으면 AI가 바로 고칩니다. 바뀐 화면을 보고 '사이트에 올리기'를 누르면 끝." },
   { title: "3~7일 안에 첫 완성본", body: `필수 정보 입력이 끝나면 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일 안에 첫 완성본이 대시보드에 올라옵니다.` },
 ];
 
@@ -49,14 +49,14 @@ export const SOLUTIONS: Solution[] = [
     short: "프롬프트만으로 시작하는 제작",
     eyebrow: "AI 제작",
     headline: "설명만 하면 AI가 사이트를 만듭니다",
-    intro: "템플릿 없이 글로만 설명해도 됩니다. AI가 구조·문구·디자인 초안을 만들고, 전문가가 다듬어 며칠 안에 완성본을 올립니다.",
-    tags: ["프롬프트 제작", "구조 설계", "문구 작성", "디자인 초안", "전문가 검수", "반응형"],
-    hashtags: ["#프롬프트", "#AI초안", "#전문가검수"],
-    deliverables: ["사이트 구조 설계", "페이지별 문구", "디자인 초안", "모바일·웹 반응형", "수정 요청 편집기"],
+    intro: "템플릿 없이 글로만 설명해도 됩니다. AI가 구조·문구·디자인 시안을 만들고, 전문가가 다듬어 며칠 안에 완성본을 올립니다.",
+    tags: ["프롬프트 제작", "구조 설계", "문구 작성", "디자인 시안", "전문가 검수", "반응형"],
+    hashtags: ["#프롬프트", "#AI시안", "#전문가검수"],
+    deliverables: ["사이트 구조 설계", "페이지별 문구", "디자인 시안", "모바일·웹 반응형", "수정 요청 편집기"],
     features: COMMON_FEATURES,
     faq: [
       { q: "디자인 지식이 없어도 되나요?", a: "네. 업종·목적·원하는 느낌만 적으면 됩니다. 나머지는 AI 와 전문가가 채웁니다." },
-      { q: "결과물이 마음에 안 들면요?", a: "완성 화면 위에 네모를 그려 고칠 곳을 표시하면 됩니다. 플랜에 포함된 토큰·전문가 검수 요청으로 계속 다듬습니다." },
+      { q: "결과물이 마음에 안 들면요?", a: "완성 화면 위에 박스를 그려 고칠 곳을 표시하면 됩니다. 플랜에 포함된 토큰·전문가 검수 요청으로 계속 다듬습니다." },
     ],
     recommendedPlan: "starter",
     image: ph("wide", 1),
@@ -384,7 +384,7 @@ export const PHOTO_STATS = [
 ];
 
 export const WHY_CARDS = [
-  { icon: "shield", title: "품질은 사람과 프로세스가 보장", body: "AI 초안을 전문가가 검수합니다. 구조 · 문구 · 반응형까지 사람이 봅니다." },
+  { icon: "shield", title: "품질은 사람과 프로세스가 보장", body: "AI 시안을 전문가가 검수합니다. 구조 · 문구 · 반응형까지 사람이 봅니다." },
   { icon: "zap", title: "빠르게 시작", body: "템플릿 또는 프롬프트로 5분 안에 시작. 견적 · 미팅 없이 바로 제작에 들어갑니다." },
   { icon: "coins", title: "투명한 요금", body: `월간 · 연간 ${PLANS.length}개 플랜. AI 는 실제 쓴 토큰만큼만 차감되고 한도를 넘으면 크레딧으로.` },
   { icon: "clock", title: "믿을 수 있는 속도", body: `첫 완성본 ${DELIVERY_DAYS.min}~${DELIVERY_DAYS.max}일, AI 수정은 보통 몇 시간 안에 반영됩니다.` },
@@ -394,14 +394,14 @@ export const WHY_CARDS = [
 export const COMMAND_STEPS = [
   { n: 1, title: "필수 정보 입력", body: "사이트 이름, 업종, 목적, 페이지 구성, 디자인 톤. 템플릿을 고르거나 프롬프트만 적어도 됩니다.", image: ph("wide", 3) },
   { n: 2, title: "제작 진행 확인", body: "대시보드에서 상태를 봅니다. 완성되면 페이지별 · 디바이스별 캡처가 올라옵니다.", image: ph("wide", 4) },
-  { n: 3, title: "네모로 수정 요청", body: "캡처 위에 빨간 네모를 그리고 번호별로 적으면 AI가 바로 고칩니다. 사람이 확인할 일은 전문가 검수 요청으로 보냅니다.", image: ph("wide", 5) },
+  { n: 3, title: "박스로 수정 요청", body: "캡처 위에 빨간 박스를 그리고 번호별로 적으면 AI가 바로 고칩니다. 사람이 확인할 일은 전문가 검수 요청으로 보냅니다.", image: ph("wide", 5) },
   { n: 4, title: "반영 확인, 운영 시작", body: "요청 내역에서 접수 · 처리중 · 반영 완료와 답변을 확인합니다. 답변도 같은 화면에 달립니다.", image: ph("wide", 6) },
 ];
 
 export type CompareRow = { label: string; body: string; cells: ("yes" | "no" | "partial")[] };
 export const COMPARE_COLUMNS = ["플랫폼", "속도", "품질", "지원", "비용"];
 export const COMPARE_ROWS: CompareRow[] = [
-  { label: "페이지프렌즈", body: "템플릿 · 프롬프트로 시작해 며칠 안에 완성. 수정은 네모로 요청.", cells: ["yes", "yes", "yes", "yes", "yes"] },
+  { label: "페이지프렌즈", body: "템플릿 · 프롬프트로 시작해 며칠 안에 완성. 수정은 박스로 요청.", cells: ["yes", "yes", "yes", "yes", "yes"] },
   { label: "직접 제작 (노코드)", body: "빠르지만 결과물이 어설프고, 완성까지 손이 많이 갑니다.", cells: ["partial", "partial", "no", "no", "yes"] },
   { label: "프리랜서", body: "사람마다 편차가 크고, 매번 찾고 관리해야 합니다.", cells: ["no", "partial", "partial", "no", "partial"] },
   { label: "에이전시", body: "품질은 좋지만 견적 · 미팅 · 긴 일정과 높은 비용.", cells: ["no", "no", "yes", "partial", "no"] },
@@ -410,7 +410,7 @@ export const COMPARE_ROWS: CompareRow[] = [
 export type Testimonial = { quote: string; name: string; role: string; metric: string; metricLabel: string; avatar: Img; logo: Img; sample: true; storySlug: string };
 /** 샘플 후기 — 실제 고객 후기로 교체 필요 */
 export const TESTIMONIALS: Testimonial[] = [
-  { quote: "네모 그려서 요청하는 게 이렇게 편할 줄 몰랐어요. 전화로 설명할 필요가 없어졌습니다.", name: "김OO", role: "카페 모닝 대표", metric: "5일", metricLabel: "첫 완성본까지", avatar: ph("avatar", 1), logo: ph("logo", 1), sample: true, storySlug: "cafe-morning" },
+  { quote: "박스 그려서 요청하는 게 이렇게 편할 줄 몰랐어요. 전화로 설명할 필요가 없어졌습니다.", name: "김OO", role: "카페 모닝 대표", metric: "5일", metricLabel: "첫 완성본까지", avatar: ph("avatar", 1), logo: ph("logo", 1), sample: true, storySlug: "cafe-morning" },
   { quote: "결제 시스템까지 한 번에 붙여서 오픈 첫 주에 주문을 받았습니다.", name: "이OO", role: "핸드메이드 샵 운영", metric: "1주", metricLabel: "오픈 후 첫 주문", avatar: ph("avatar", 2), logo: ph("logo", 2), sample: true, storySlug: "handmade-shop" },
   { quote: "문구 수정은 AI 로 바로, 사진 교체는 전문가에게. 나눠서 요청하니 빠르고 정확했어요.", name: "박OO", role: "피부과 실장", metric: "3종", metricLabel: "모바일 · 태블릿 · 웹", avatar: ph("avatar", 3), logo: ph("logo", 3), sample: true, storySlug: "clinic-care" },
   { quote: "에이전시 견적의 1/10 로 시작했고, 규모가 커지면서 플랜만 올렸습니다.", name: "최OO", role: "스타트업 마케팅 리드", metric: "4개", metricLabel: "플랜 중 선택", avatar: ph("avatar", 4), logo: ph("logo", 4), sample: true, storySlug: "startup-landing" },
@@ -435,11 +435,11 @@ export type Story = {
 };
 /** 샘플 고객 사례 — 실제 사례로 교체 필요 */
 export const STORIES: Story[] = [
-  { slug: "cafe-morning", company: "카페 모닝", industry: "small-business", solution: "cafe-store", headline: "동네 카페가 전화 대신 사이트로 예약을 받기까지", summary: "메뉴 · 위치 · 예약을 한 페이지에. 스타터 플랜으로 5일 만에 오픈.", metrics: [{ value: "5일", label: "첫 완성본" }, { value: "4", label: "페이지" }, { value: "스타터", label: "플랜" }], quote: "네모 그려서 요청하는 게 이렇게 편할 줄 몰랐어요.", quoteBy: "김OO, 카페 모닝 대표", body: ["카페 모닝은 인스타그램으로만 손님을 받던 동네 카페였습니다. 메뉴와 위치를 물어보는 DM 이 하루 수십 건이었고, 예약은 전화로만 받았습니다.", "템플릿 '카페 데일리' 를 고르고 필수 정보를 입력한 뒤 5일 만에 첫 완성본이 올라왔습니다. 메뉴 문구와 가격은 AI 반영으로 바로 고치고, 매장 사진 교체는 전문가에게 요청했습니다.", "지금은 예약 폼과 카카오톡 채널 버튼으로 문의가 들어옵니다."], image: ph("photo", 1), logo: ph("logo", 1), sample: true },
+  { slug: "cafe-morning", company: "카페 모닝", industry: "small-business", solution: "cafe-store", headline: "동네 카페가 전화 대신 사이트로 예약을 받기까지", summary: "메뉴 · 위치 · 예약을 한 페이지에. 스타터 플랜으로 5일 만에 오픈.", metrics: [{ value: "5일", label: "첫 완성본" }, { value: "4", label: "페이지" }, { value: "스타터", label: "플랜" }], quote: "박스 그려서 요청하는 게 이렇게 편할 줄 몰랐어요.", quoteBy: "김OO, 카페 모닝 대표", body: ["카페 모닝은 인스타그램으로만 손님을 받던 동네 카페였습니다. 메뉴와 위치를 물어보는 DM 이 하루 수십 건이었고, 예약은 전화로만 받았습니다.", "템플릿 '카페 데일리' 를 고르고 필수 정보를 입력한 뒤 5일 만에 첫 완성본이 올라왔습니다. 메뉴 문구와 가격은 AI 반영으로 바로 고치고, 매장 사진 교체는 전문가에게 요청했습니다.", "지금은 예약 폼과 카카오톡 채널 버튼으로 문의가 들어옵니다."], image: ph("photo", 1), logo: ph("logo", 1), sample: true },
   { slug: "handmade-shop", company: "핸드메이드 샵", industry: "small-business", solution: "shop", headline: "결제까지 붙인 쇼핑몰을 한 번에", summary: "비즈니스 플랜 + 결제 시스템 옵션으로 상품 등록부터 결제까지.", metrics: [{ value: "1주", label: "오픈 후 첫 주문" }, { value: "12", label: "페이지" }, { value: "비즈니스", label: "플랜" }], quote: "결제 시스템까지 한 번에 붙여서 오픈 첫 주에 주문을 받았습니다.", quoteBy: "이OO, 핸드메이드 샵 운영", body: ["수제 소품을 SNS 로 팔던 운영자는 주문 · 입금 확인을 손으로 하고 있었습니다.", "비즈니스 플랜에서 결제 시스템 옵션을 켜고 상품 · 장바구니 · 결제 · 주문 관리자 페이지까지 한 번에 만들었습니다.", "오픈 첫 주에 사이트에서 첫 주문이 들어왔습니다."], image: ph("photo", 2), logo: ph("logo", 2), sample: true },
-  { slug: "clinic-care", company: "케어 피부과", industry: "small-business", solution: "clinic", headline: "진료 안내와 예약을 세 가지 화면에서", summary: "모바일 · 태블릿 · 웹 화면을 각각 확인하고 수정 요청.", metrics: [{ value: "3종", label: "디바이스 화면" }, { value: "8", label: "페이지" }, { value: "비즈니스", label: "플랜" }], quote: "문구 수정은 AI 로 바로, 사진 교체는 전문가에게.", quoteBy: "박OO, 케어 피부과 실장", body: ["진료 과목 · 의료진 · 예약 페이지를 만들고, 태블릿 화면에서 표가 깨지는 것을 네모로 표시해 전문가에게 요청했습니다.", "문구 수정은 AI 반영으로 몇 시간 안에 처리됐습니다."], image: ph("photo", 3), logo: ph("logo", 3), sample: true },
+  { slug: "clinic-care", company: "케어 피부과", industry: "small-business", solution: "clinic", headline: "진료 안내와 예약을 세 가지 화면에서", summary: "모바일 · 태블릿 · 웹 화면을 각각 확인하고 수정 요청.", metrics: [{ value: "3종", label: "디바이스 화면" }, { value: "8", label: "페이지" }, { value: "비즈니스", label: "플랜" }], quote: "문구 수정은 AI 로 바로, 사진 교체는 전문가에게.", quoteBy: "박OO, 케어 피부과 실장", body: ["진료 과목 · 의료진 · 예약 페이지를 만들고, 태블릿 화면에서 표가 깨지는 것을 박스로 표시해 전문가에게 요청했습니다.", "문구 수정은 AI 반영으로 몇 시간 안에 처리됐습니다."], image: ph("photo", 3), logo: ph("logo", 3), sample: true },
   { slug: "startup-landing", company: "런치 스타트업", industry: "startup", solution: "landing", headline: "사전예약 랜딩페이지를 이틀 만에", summary: "광고 집행 전 랜딩페이지와 신청 폼을 빠르게.", metrics: [{ value: "2일", label: "랜딩 완성" }, { value: "1", label: "페이지" }, { value: "스타터", label: "플랜" }], quote: "에이전시 견적의 1/10 로 시작했습니다.", quoteBy: "최OO, 마케팅 리드", body: ["광고 집행 일정이 정해진 상태에서 랜딩페이지가 필요했습니다.", "프롬프트만으로 시작해 이틀 만에 신청 폼이 붙은 랜딩페이지가 나왔습니다."], image: ph("photo", 4), logo: ph("logo", 4), sample: true },
-  { slug: "agency-multi", company: "브릿지 에이전시", industry: "agency", solution: "company", headline: "에이전시 회사 소개 사이트를 전문가와 함께", summary: "프로 플랜으로 문구는 AI, 큰 작업은 전문가에게 나눠 맡겨 운영.", metrics: [{ value: "1개", label: "사이트" }, { value: "월 5회", label: "전문가 검수 요청" }, { value: "프로", label: "플랜" }], quote: "큰 작업만 전문가에게 맡깁니다.", quoteBy: "정OO, 에이전시 대표", body: ["소규모 에이전시가 외주로 관리하던 회사 소개 사이트를 페이지프렌즈로 옮겼습니다.", "문구 · 색 수정은 AI 반영으로 바로 하고, 포트폴리오 구역을 새로 만드는 일은 프로 플랜의 전문가 검수 요청으로 맡깁니다."], image: ph("photo", 5), logo: ph("logo", 5), sample: true },
+  { slug: "agency-multi", company: "브릿지 에이전시", industry: "agency", solution: "company", headline: "에이전시 회사 소개 사이트를 전문가와 함께", summary: "프로 플랜으로 문구는 AI, 큰 작업은 전문가에게 나눠 맡겨 운영.", metrics: [{ value: "1개", label: "사이트" }, { value: "월 5회", label: "전문가 검수 요청" }, { value: "프로", label: "플랜" }], quote: "큰 작업만 전문가에게 맡깁니다.", quoteBy: "정OO, 에이전시 대표", body: ["소규모 에이전시가 외주로 관리하던 회사 소개 사이트를 페이지프렌즈로 옮겼습니다.", "문구 · 색 수정은 AI 반영으로 바로 하고, 포트폴리오 섹션을 새로 만드는 일은 프로 플랜의 전문가 검수 요청으로 맡깁니다."], image: ph("photo", 5), logo: ph("logo", 5), sample: true },
   { slug: "academy-plus", company: "플러스 학원", industry: "small-business", solution: "academy", headline: "공지와 수강 신청이 되는 학원 사이트", summary: "게시판(CMS)과 수강 신청 폼을 비즈니스 플랜으로.", metrics: [{ value: "6", label: "페이지" }, { value: "무료", label: "오류 신고" }, { value: "비즈니스", label: "플랜" }], quote: "오류 신고는 차감이 없어서 마음 놓고 알려줄 수 있어요.", quoteBy: "한OO, 학원 원장", body: ["공지사항을 카카오톡으로만 보내던 학원이 게시판과 시간표 페이지를 만들었습니다.", "수강 신청 폼의 오류를 오류 신고로 알렸고, 토큰 차감 없이 고쳐졌습니다."], image: ph("photo", 6), logo: ph("logo", 6), sample: true },
 ];
 export const STORY_BY_SLUG: Record<string, Story> = Object.fromEntries(STORIES.map((s) => [s.slug, s]));
@@ -449,7 +449,7 @@ export const POST_CATEGORIES = ["제작 팁", "운영", "비교", "AI", "사례"
 /** 샘플 글 — 실제 글로 교체 필요 */
 export const POSTS: Post[] = [
   { slug: "brief-that-works", category: "제작 팁", title: "AI 가 잘 만드는 브리프 쓰는 법 5가지", excerpt: "업종, 목적, 고객, 톤, 참고 사이트. 다섯 가지만 제대로 적으면 첫 완성본의 품질이 달라집니다.", date: "2026-09-20", author: "페이지프렌즈 팀", readMinutes: 4, image: ph("wide", 7), body: ["첫 완성본의 품질은 브리프에서 결정됩니다. 위저드가 묻는 항목은 다섯 가지뿐이지만, 각 항목을 어떻게 적느냐에 따라 결과가 크게 달라집니다.", "1. 업종은 구체적으로. '카페' 보다 '디저트 중심의 동네 카페' 가 낫습니다.", "2. 목적은 한 문장으로. 방문자가 무엇을 하길 원하는지 적으세요.", "3. 주요 고객은 나이 · 상황으로. '20~30대 직장인, 점심시간에 방문' 처럼.", "4. 디자인 톤은 최대 3개. 서로 어울리는 것으로 고르세요.", "5. 참고 사이트는 '왜 좋은지' 를 함께 적으세요."], sample: true },
-  { slug: "box-request-guide", category: "제작 팁", title: "네모 하나에 요청 하나: 수정 요청이 빨리 반영되는 요령", excerpt: "영역은 좁게, 문장은 짧게, 종류는 정확하게. 편집기를 잘 쓰는 세 가지 원칙.", date: "2026-09-15", author: "페이지프렌즈 팀", readMinutes: 3, image: ph("wide", 8), body: ["편집기의 빨간 네모는 요청 하나를 뜻합니다. 한 네모에 여러 요청을 적으면 처리 순서가 꼬입니다.", "영역은 고칠 곳만 좁게 잡고, 문장은 '무엇을 어떻게' 로 짧게 적으세요.", "문구 · 색 · 간격은 AI 반영, 사진 교체 · 구조 변경은 전문가 검수 요청, 동작 오류는 오류 신고(무료)입니다."], sample: true },
+  { slug: "box-request-guide", category: "제작 팁", title: "박스 하나에 요청 하나: 수정 요청이 빨리 반영되는 요령", excerpt: "영역은 좁게, 문장은 짧게, 종류는 정확하게. 편집기를 잘 쓰는 세 가지 원칙.", date: "2026-09-15", author: "페이지프렌즈 팀", readMinutes: 3, image: ph("wide", 8), body: ["편집기의 빨간 박스는 요청 하나를 뜻합니다. 한 박스에 여러 요청을 적으면 처리 순서가 꼬입니다.", "영역은 고칠 곳만 좁게 잡고, 문장은 '무엇을 어떻게' 로 짧게 적으세요.", "문구 · 색 · 간격은 AI 반영, 사진 교체 · 구조 변경은 전문가 검수 요청, 동작 오류는 오류 신고(무료)입니다."], sample: true },
   { slug: "tokens-explained", category: "AI", title: "토큰제는 어떻게 계산되나요?", excerpt: "횟수가 아니라 실제 사용량. 플랜 한도, 크레딧, 초기화 시점을 정리했습니다.", date: "2026-09-10", author: "페이지프렌즈 팀", readMinutes: 5, image: ph("wide", 9), body: ["AI 반영 요청은 '주 N회' 가 아니라 실제 사용한 토큰만큼 차감됩니다.", "플랜마다 월 토큰 한도가 있고, 결제 기간마다 초기화됩니다. 한도를 넘으면 토큰 크레딧에서 차감됩니다.", "요청 1건은 대략 1만 토큰 안팎입니다. 사용량은 편집기와 결제 페이지에서 실시간으로 볼 수 있습니다."], sample: true },
   { slug: "agency-vs-subscription", category: "비교", title: "에이전시 vs 프리랜서 vs 구독형 제작, 무엇이 맞을까", excerpt: "비용 · 속도 · 품질 · 운영을 기준으로 네 가지 선택지를 비교했습니다.", date: "2026-09-05", author: "페이지프렌즈 팀", readMinutes: 6, image: ph("wide", 10), body: ["사이트를 만드는 방법은 크게 네 가지입니다. 직접 만들기, 프리랜서, 에이전시, 그리고 구독형 제작.", "한 번 만들고 끝나는 사이트는 없습니다. 만든 뒤 얼마나 쉽게 고칠 수 있는지가 총비용을 결정합니다."], sample: true },
   { slug: "shop-checklist", category: "운영", title: "쇼핑몰 오픈 전 체크리스트 12가지", excerpt: "결제 테스트부터 배송 정책, 교환 · 환불 안내까지. 오픈 전에 꼭 확인할 것.", date: "2026-08-28", author: "페이지프렌즈 팀", readMinutes: 7, image: ph("wide", 11), body: ["결제 테스트는 실제 카드로 소액 결제 후 취소까지 해보세요.", "배송 · 교환 · 환불 정책은 상품 상세와 별도 페이지 두 곳에 두세요."], sample: true },
@@ -468,7 +468,7 @@ export const RESOURCE_CATEGORIES: { key: Resource["category"]; label: string }[]
 export const RESOURCES: Resource[] = [
   { slug: "guide-first-site", category: "guide", title: "처음 만드는 홈페이지 가이드 (2026)", excerpt: "업종별 페이지 구성 예시와 브리프 템플릿을 담은 무료 가이드.", image: ph("photo", 7), href: "/blog/brief-that-works", sample: true },
   { slug: "guide-shop", category: "guide", title: "쇼핑몰 오픈 체크리스트 전자책", excerpt: "결제 · 배송 · 교환 정책까지 12가지 항목.", image: ph("photo", 8), href: "/blog/shop-checklist", sample: true },
-  { slug: "webinar-editor", category: "webinar", title: "웨비나: 편집기로 수정 요청 잘 보내는 법", excerpt: "네모 · 종류 · 토큰. 30분 안에 편집기를 익힙니다.", image: ph("photo", 9), href: "/demo", sample: true },
+  { slug: "webinar-editor", category: "webinar", title: "웨비나: 편집기로 수정 요청 잘 보내는 법", excerpt: "박스 · 종류 · 토큰. 30분 안에 편집기를 익힙니다.", image: ph("photo", 9), href: "/demo", sample: true },
   { slug: "podcast-owners", category: "podcast", title: "팟캐스트: 사장님들의 사이트 이야기", excerpt: "카페 · 학원 · 쇼핑몰 운영자가 말하는 사이트 운영.", image: ph("photo", 10), href: "/customer-stories", sample: true },
   { slug: "recipe-landing", category: "recipe", title: "레시피: 사전예약 랜딩페이지 구성", excerpt: "히어로 · 혜택 · 신청 폼. 한 페이지 구성 공식.", image: ph("photo", 11), href: "/solutions/landing", sample: true },
 ];
@@ -505,7 +505,7 @@ export const VALUES = [
   { title: "숨은 비용 없음", body: "플랜 · 토큰 · 크레딧 · 템플릿. 모든 가격을 공개합니다." },
   { title: "우리 실수는 우리가", body: "오류 신고는 어떤 한도에서도 차감하지 않습니다." },
   { title: "복잡한 절차 없이", body: "견적 · 미팅 · 계약서 없이 5분 안에 시작합니다." },
-  { title: "당신이 전문가일 필요는 없습니다", body: "디자인 · 개발 지식이 없어도 네모 하나로 요청이 끝납니다." },
+  { title: "당신이 전문가일 필요는 없습니다", body: "디자인 · 개발 지식이 없어도 박스 하나로 요청이 끝납니다." },
 ];
 
 export type Job = { title: string; team: string; type: string; location: string };
@@ -535,10 +535,10 @@ export const HELP_FAQ: { group: string; items: { q: string; a: string }[] }[] = 
         a: "수정은 모두 AI가 바로 합니다(쓴 만큼 토큰 차감). 결제 · 알림톡처럼 서류가 필요한 연결이나 사실 확인처럼 AI가 할 수 없는 일이면 토큰을 깎지 않고 방법을 안내합니다. 전문가 검수 요청은 전문가가 사이트를 검수해 결과를 남기는 것이고, 플랜마다 월 횟수가 있습니다.",
       },
       { q: "오류 신고는 무엇인가요?", a: "우리 쪽 실수로 생긴 오류를 알리는 요청입니다. 토큰 · 횟수 어디에서도 차감하지 않습니다." },
-      { q: "네모 여러 개를 한 번에 보낼 수 있나요?", a: "네. 페이지 · 디바이스에 상관없이 그린 네모를 '요청하기' 로 한 묶음으로 보냅니다." },
+      { q: "박스 여러 개를 한 번에 보낼 수 있나요?", a: "네. 페이지 · 디바이스에 상관없이 그린 박스를 '요청하기' 로 한 번에 보냅니다." },
       { q: "담당자의 답변에 다시 답할 수 있나요?", a: "네. 요청 내역에서 요청마다 답글을 달 수 있습니다. 답글은 토큰이나 횟수를 쓰지 않습니다. 담당자가 질문을 남기면 '확인 필요' 로 표시되고, 답글을 보내면 작업이 이어집니다." },
       { q: "답변이 왔는지 어떻게 아나요?", a: "로그인하면 위쪽 종 아이콘과 대시보드의 '확인할 내용' 에 새 답변 · 상태 변경 · 메시지가 표시됩니다. 누르면 그 대화로 바로 갑니다." },
-      { q: "네모와 상관없는 문의는 어디에 남기나요?", a: "내 사이트의 '메시지' 에 남기면 담당자가 답합니다. 진행 상황, 자료 전달, 계정 · 결제 문의에 이용해 주세요. 화면을 고쳐 달라는 요청은 편집 화면에서 네모로 보내야 처리됩니다." },
+      { q: "박스와 상관없는 문의는 어디에 남기나요?", a: "내 사이트의 '메시지' 에 남기면 담당자가 답합니다. 진행 상황, 자료 전달, 계정 · 결제 문의에 이용해 주세요. 화면을 고쳐 달라는 요청은 편집 화면에서 박스로 보내야 처리됩니다." },
     ],
   },
   {

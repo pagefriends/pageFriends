@@ -62,7 +62,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
       </Link>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold tracking-tight">
-          {project.name} · {page.name} · {request.seq}번 네모
+          {project.name} · {page.name} · {request.seq}번 박스
         </h1>
         <Badge tone={st.tone}>{st.label}</Badge>
         <Badge tone={REQUEST_KIND_TONE[request.kind]}>{REQUEST_KIND_LABEL[request.kind]}</Badge>
@@ -141,7 +141,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
           {siblings.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>같은 묶음의 다른 요청 ({siblings.length})</CardTitle>
+                <CardTitle>함께 보낸 다른 요청 ({siblings.length})</CardTitle>
               </CardHeader>
               <ul className="divide-y divide-ink-100">
                 {siblings.map((s) => (
@@ -178,7 +178,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
                 ) : null}
                 {reqStyles.length || refTemplateId ? (
                   <p className="text-xs text-ink-700">
-                    이 네모의 옵션:{" "}
+                    이 박스의 옵션:{" "}
                     {[
                       reqStyles.length ? `디자인 유형 ${reqStyles.map((id, i) => `${i === 0 ? "★" : ""}${STYLE_BY_ID[id].label}`).join(" · ")}` : null,
                       refTemplateId ? `참고 템플릿 ${refTemplate?.name ?? "(목록에 없음)"}` : null,
@@ -233,7 +233,7 @@ export default async function AdminRequestDetailPage({ params }: PageProps<"/adm
               {brief.prompt ? <Row k="프롬프트" v={brief.prompt} /> : null}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium">
                 <Link href={`/admin/projects/${project.id}`} className="text-brand-600 hover:underline">
-                  제작 정보 전체 (메뉴 · 이미지 자리)
+                  제작 정보 전체 (메뉴 · 이미지 영역)
                 </Link>
                 <Link href={`/admin?project=${project.id}&status=all`} className="text-brand-600 hover:underline">
                   이 프로젝트의 모든 요청 보기

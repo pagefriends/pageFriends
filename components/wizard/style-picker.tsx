@@ -172,7 +172,7 @@ export function StylePreview({
   const pad = { compact: 18, normal: 26, airy: 36 }[theme.density];
   const center = theme.heroLayout === "center";
   const wide = theme.heroLayout === "wide";
-  const title = tagline.trim() || "한 줄 소개가 첫 화면 제목이 돼요";
+  const title = tagline.trim() || "한 줄 소개가 메인 화면 제목이 돼요";
   const image = (
     <div
       className="grid place-items-center text-[10px]"
@@ -182,7 +182,7 @@ export function StylePreview({
     </div>
   );
   return (
-    <div className="overflow-hidden rounded-md border border-ink-200" aria-label="첫 화면 미리보기" style={{ background: p.bg, color: p.text }}>
+    <div className="overflow-hidden rounded-md border border-ink-200" aria-label="메인 화면 미리보기" style={{ background: p.bg, color: p.text }}>
       <div className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: `1px solid ${p.line}` }}>
         <span className="grid size-5 shrink-0 place-items-center text-[10px] font-bold" style={{ background: p.primary, color: p.onPrimary, borderRadius: Math.min(radius, 6) }}>
           {[...(siteName.trim() || "P")][0]}

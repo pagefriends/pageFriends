@@ -171,7 +171,7 @@ export async function updateProjectStatusAction(projectId: string, status: strin
     const label = PROJECT_STATUS[s.data].label;
     const body =
       s.data === "live" && (old === "building" || old === "brief")
-        ? "사이트 제작을 마쳤어요. 편집 화면에서 확인해 주세요. 고칠 곳은 빨간 네모로 요청하시면 돼요. 확인이 끝나면 편집 화면 위의 '웹사이트 공개 요청' 을 눌러 주세요 — 확인용 서버에서 먼저 점검한 뒤 실제 웹사이트로 공개해 드려요."
+        ? "사이트 제작을 마쳤어요. 편집 화면에서 확인해 주세요. 고칠 곳은 빨간 박스로 요청하시면 돼요. 확인이 끝나면 편집 화면 위의 '웹사이트 공개 요청' 을 눌러 주세요 — 확인용 서버에서 먼저 점검한 뒤 실제 웹사이트로 공개해 드려요."
         : `사이트 상태가 '${label}'${josa(label, "으로/로").slice(label.length)} 바뀌었습니다.`;
     await supabase.rpc("admin_post_message", { p_project_id: projectId, p_body: body });
   }

@@ -34,7 +34,7 @@ export default function HomePage() {
               완성됩니다
             </Display>
             <Lead className="mt-6 max-w-xl">
-              템플릿 또는 프롬프트로 시작해 {DELIVERY_DAYS.min}~{DELIVERY_DAYS.max}일 안에 첫 완성본을 받습니다. 고칠 곳은 화면 위에 네모를 그려 요청하면 AI 와 전문가가 반영합니다.
+              템플릿 또는 프롬프트로 시작해 {DELIVERY_DAYS.min}~{DELIVERY_DAYS.max}일 안에 첫 완성본을 받습니다. 고칠 곳은 화면 위에 박스를 그려 요청하면 AI 와 전문가가 반영합니다.
             </Lead>
             <div className="mt-8 flex flex-wrap gap-3">
               <Pill href="/signup">시작하기</Pill>

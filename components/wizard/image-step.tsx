@@ -65,13 +65,13 @@ export function ImageStep({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-ink-700">
-        지금 구성에서 이미지가 들어갈 자리는 <b>{images.length}곳</b>
+        지금 구성에서 이미지가 들어갈 영역은 <b>{images.length}곳</b>
         {totalCount > images.length ? ` (사진 ${totalCount}장)` : ""}이에요.
       </p>
 
       {guided ? (
-        <Tip title="이미지 자리란?">
-          사이트에는 첫 화면 큰 사진, 서비스 카드 사진처럼 이미지가 들어갈 자리가 있어요. AI로 바로 채우거나, 비워 두고 나중에 직접 찍은 사진으로 채울 수 있어요.
+        <Tip title="이미지 영역이란?">
+          사이트에는 메인 화면 큰 사진, 서비스 카드 사진처럼 이미지가 들어갈 영역이 있어요. AI로 바로 채우거나, 비워 두고 나중에 직접 찍은 사진으로 채울 수 있어요.
         </Tip>
       ) : null}
 
@@ -97,7 +97,7 @@ export function ImageStep({
             <Badge tone="red">토큰 많이 사용</Badge>
           </span>
           <span className="mt-1 block text-[13px] text-ink-500">
-            AI가 자리마다 어울리는 이미지를 직접 만들어 넣어요. AI로 만들 수 있는 자리 {aiSlots.length}곳 · 1장에 약 {formatTokens(APPROX_TOKENS_PER_IMAGE)} 토큰
+            AI가 영역마다 어울리는 이미지를 직접 만들어 넣어요. AI로 만들 수 있는 영역 {aiSlots.length}곳 · 1장에 약 {formatTokens(APPROX_TOKENS_PER_IMAGE)} 토큰
             (글 수정 요청 1건의 약 {Math.round(APPROX_TOKENS_PER_IMAGE / APPROX_TOKENS_PER_AI_REQUEST)}배).
           </span>
           {!hasPlan ? (
@@ -127,14 +127,14 @@ export function ImageStep({
               을 구매해 주세요.
             </p>
           ) : (
-            <p className="mt-1 text-[13px] opacity-90">실제 사용량은 이미지를 만든 뒤 기록되고, 요청 내역에서 진행 상황을 볼 수 있어요. 고른 자리는 아래에서 바꿀 수 있어요.</p>
+            <p className="mt-1 text-[13px] opacity-90">실제 사용량은 이미지를 만든 뒤 기록되고, 요청 내역에서 진행 상황을 볼 수 있어요. 고른 영역은 아래에서 바꿀 수 있어요.</p>
           )}
         </Alert>
       ) : (
         <Alert tone="gray">
-          <p className="font-semibold">이미지 자리는 비워 둔 채로 만들어요</p>
+          <p className="font-semibold">이미지 영역은 비워 둔 채로 만들어요</p>
           <p className="mt-1">
-            빈 자리마다 <b>어떤 이미지가 필요한지</b> 적어 둬요. 편집 화면에서 확인하고, 사진을 준비하거나 그 자리만 AI로 만들어 달라고 요청하면 돼요.
+            빈 영역마다 <b>어떤 이미지가 필요한지</b> 적어 둬요. 편집 화면에서 확인하고, 사진을 준비하거나 그 영역만 AI로 만들어 달라고 요청하면 돼요.
           </p>
         </Alert>
       )}
@@ -143,7 +143,7 @@ export function ImageStep({
         <p className="flex gap-2 text-[13px] leading-relaxed text-ink-500">
           <ImageIcon className="mt-0.5 size-4 shrink-0" />
           <span>
-            대표·구성원 사진, 매장·상품·작업물처럼 <b className="text-ink-700">실제 모습이어야 하는 자리 {realSlots.length}곳</b>은 AI로 만들지 않고 비워 둬요. 실제와 다른
+            대표·구성원 사진, 매장·상품·작업물처럼 <b className="text-ink-700">실제 모습이어야 하는 영역 {realSlots.length}곳</b>은 AI로 만들지 않고 비워 둬요. 실제와 다른
             사진이 들어가면 고객이 오해할 수 있어서예요.
           </span>
         </p>
@@ -152,7 +152,7 @@ export function ImageStep({
       <div className="rounded-md border border-ink-200">
         <button type="button" onClick={() => setListOpen(!showList)} className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold">
           <span>
-            이미지 자리 목록 <span className="font-normal text-ink-500">· {images.length}곳{generate ? ` · AI로 만들 자리 ${images.filter((s) => s.generate).length}곳` : ""}{!generate ? ` · 비워 둘 사진 ${emptyImageCount(images)}장` : ""}</span>
+            이미지 영역 목록 <span className="font-normal text-ink-500">· {images.length}곳{generate ? ` · AI로 만들 영역 ${images.filter((s) => s.generate).length}곳` : ""}{!generate ? ` · 비워 둘 사진 ${emptyImageCount(images)}장` : ""}</span>
           </span>
           <ChevronDownIcon className={cn("size-4 transition-transform", showList && "rotate-180")} />
         </button>
@@ -174,7 +174,7 @@ export function ImageStep({
                           disabled={!canPick}
                           onChange={(e) => onOverride(s.id, { generate: e.target.checked })}
                           aria-label={`${s.label} AI로 만들기`}
-                          title={s.source === "real" ? "실제 사진이 필요한 자리라 AI로 만들지 않아요" : !generate ? "위에서 'AI로 이미지 만들어 넣기' 를 켜면 고를 수 있어요" : undefined}
+                          title={s.source === "real" ? "실제 사진이 필요한 영역이라 AI로 만들지 않아요" : !generate ? "위에서 'AI로 이미지 만들어 넣기' 를 켜면 고를 수 있어요" : undefined}
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -213,7 +213,7 @@ export function ImageStep({
                 </ul>
               </section>
             ))}
-            {expert ? <p className="border-t border-ink-100 px-4 py-2.5 text-xs text-ink-500">설명을 고치면 빈 자리에 적히는 글과 AI에게 주는 지시가 함께 바뀝니다.</p> : null}
+            {expert ? <p className="border-t border-ink-100 px-4 py-2.5 text-xs text-ink-500">설명을 고치면 빈 영역에 적히는 글과 AI에게 주는 지시가 함께 바뀝니다.</p> : null}
           </div>
         ) : null}
       </div>

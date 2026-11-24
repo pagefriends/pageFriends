@@ -154,7 +154,7 @@ export function BenchmarkEditor({
                 })}
               </div>
               <Field label="이 사이트의 어떤 점이 좋았나요?" optional htmlFor={`bm-note-${i}`} className="mt-3" hint={guided ? "적어 주신 내용을 AI 와 담당자가 그대로 참고해요. 구체적일수록 좋아요." : undefined}>
-                <Textarea id={`bm-note-${i}`} value={b.note} onChange={(e) => set(i, { note: e.target.value })} placeholder="예: 첫 화면에 사진이 크게 있고, 메뉴가 단순해서 찾기 쉬워요" className="min-h-16" maxLength={300} />
+                <Textarea id={`bm-note-${i}`} value={b.note} onChange={(e) => set(i, { note: e.target.value })} placeholder="예: 메인 화면에 사진이 크게 있고, 메뉴가 단순해서 찾기 쉬워요" className="min-h-16" maxLength={300} />
               </Field>
               {problem ? <p className="mt-2 text-xs text-mark">{problem}</p> : null}
             </li>

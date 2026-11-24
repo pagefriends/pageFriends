@@ -15,8 +15,8 @@ export const metadata: Metadata = { title: "회사 소개" };
  */
 const MISSION = [
   { n: "01", title: "전달", body: "설명만 하면 된다는 약속을 지킵니다. 견적 · 미팅 · 계약서 없이 필수 정보만 받고, 며칠 안에 첫 완성본을 대시보드에 올립니다." },
-  { n: "02", title: "제작", body: "AI 가 초안을 만들고 사람이 마무리합니다. 구조 · 문구 · 반응형까지 전문가가 검수한 결과물만 내보냅니다." },
-  { n: "03", title: "발전", body: "만들고 끝이 아닙니다. 네모 하나로 수정을 요청하고, 규모가 커지면 플랜만 올리면 되는 구조로 사이트와 함께 성장합니다." },
+  { n: "02", title: "제작", body: "AI 가 시안을 만들고 사람이 마무리합니다. 구조 · 문구 · 반응형까지 전문가가 검수한 결과물만 내보냅니다." },
+  { n: "03", title: "발전", body: "만들고 끝이 아닙니다. 박스 하나로 수정을 요청하고, 규모가 커지면 플랜만 올리면 되는 구조로 사이트와 함께 성장합니다." },
 ];
 
 export default function AboutPage() {
@@ -35,7 +35,7 @@ export default function AboutPage() {
             </Display>
             <Lead className="mt-6 max-w-xl">
               페이지프렌즈는 AI 와 전문가가 함께 만드는 구독형 웹사이트 제작 서비스입니다. 템플릿이나 프롬프트로 시작하면 {DELIVERY_DAYS.min}~{DELIVERY_DAYS.max}일 안에 첫 완성본이
-              오고, 화면 위에 네모를 그려 수정을 요청합니다. 디자인 · 개발 지식은 필요 없습니다.
+              오고, 화면 위에 박스를 그려 수정을 요청합니다. 디자인 · 개발 지식은 필요 없습니다.
             </Lead>
             <div className="mt-8">
               <Pill href="/signup">시작하기</Pill>
@@ -96,7 +96,7 @@ export default function AboutPage() {
             <div>
               <QuoteIcon className="size-8 text-sky-400" aria-hidden />
               <p className="mt-4 max-w-3xl text-xl font-semibold leading-snug sm:text-2xl">
-                “좋은 사이트는 사장님의 시간을 돌려줍니다. 우리는 만드는 과정에서도 그 시간을 뺏지 않기로 했습니다. 설명 한 번, 네모 하나면 충분해야 합니다.”
+                “좋은 사이트는 사장님의 시간을 돌려줍니다. 우리는 만드는 과정에서도 그 시간을 뺏지 않기로 했습니다. 설명 한 번, 박스 하나면 충분해야 합니다.”
               </p>
               <p className="mt-5 flex flex-wrap items-center gap-2 text-sm text-white/60">
                 <span className="font-semibold text-white">{ceo.name}</span>

@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "우리 팀" };
  */
 const PILLARS = [
   { icon: BadgeCheckIcon, title: "검증된 전문가", body: "포트폴리오 심사와 실무 테스트를 통과한 디자이너 · 개발자 · 카피라이터만 전문가 팀에 합류합니다. 결과물은 팀 리드가 한 번 더 봅니다." },
-  { icon: WorkflowIcon, title: "일관된 품질 시스템", body: "브리프 → AI 초안 → 전문가 검수 → 디바이스별 캡처. 누가 맡아도 같은 순서, 같은 체크리스트로 진행하므로 품질 편차가 없습니다." },
+  { icon: WorkflowIcon, title: "일관된 품질 시스템", body: "브리프 → AI 시안 → 전문가 검수 → 디바이스별 캡처. 누가 맡아도 같은 순서, 같은 체크리스트로 진행하므로 품질 편차가 없습니다." },
   { icon: ScaleIcon, title: "언제나 합법적인 도구", body: "정식 라이선스의 폰트 · 아이콘 · 이미지와 상용 가능한 오픈소스만 씁니다. 완성된 사이트의 소유권은 고객에게 있습니다." },
 ];
 
@@ -30,7 +30,7 @@ export default function OurPeoplePage() {
             주소가 없습니다
           </>
         }
-        lead="서울 사무실과 전국의 원격 전문가가 한 팀으로 일합니다. AI 가 초안을 만들면 사람이 구조 · 문구 · 반응형을 검수하고, 수정 요청 하나하나에 사람이 답합니다."
+        lead="서울 사무실과 전국의 원격 전문가가 한 팀으로 일합니다. AI 가 시안을 만들면 사람이 구조 · 문구 · 반응형을 검수하고, 수정 요청 하나하나에 사람이 답합니다."
         primary={{ href: "/signup", label: "시작하기" }}
         secondary={{ href: "/careers", label: "함께 일하기" }}
         image={ph("photo", 6)}
@@ -52,7 +52,7 @@ export default function OurPeoplePage() {
               <Display className="mt-3">제작 화력</Display>
               <Lead tone="light" className="mt-5">
                 디자이너, 프론트엔드 개발자, 카피라이터, QA 가 한 브리프를 나눠 맡습니다. 필수 정보가 들어오면 {DELIVERY_DAYS.min}~{DELIVERY_DAYS.max}일 안에 첫 완성본을 올리고, 그 뒤로는
-                네모 하나에 요청 하나로 계속 다듬습니다.
+                박스 하나에 요청 하나로 계속 다듬습니다.
               </Lead>
               <p className="mt-4 text-[15px] leading-relaxed text-ink-600">문구 · 색 · 간격처럼 바로 고칠 수 있는 것은 AI 가 반영하고, 사진 교체 · 구조 변경처럼 판단이 필요한 것은 전문가가 직접 손을 댑니다. 우리 쪽 실수는 오류 신고로 알려주시면 무료로 고칩니다.</p>
             </div>

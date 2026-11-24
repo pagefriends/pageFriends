@@ -22,7 +22,12 @@ import {
   type DeviceKind,
   type Plan,
 } from "@/config/plans";
-import { isImageRequest } from "@/config/requests";
+import { IMAGE_REQUEST_TOKENS, isImageRequest } from "@/config/requests";
+import { aiTakes, generateImage, IMAGE_COST_USD, imageConfigured, logoPrompt, photoPrompt } from "@/lib/ai/image";
+import { applyPageChanges, planImages, remapPath, splitExtra, type ImageJob } from "@/lib/ai/site-changes";
+import { replaceSlotPhoto, restoreSlotPhotos } from "@/lib/photos";
+import { draftScreenshots } from "@/lib/projects";
+import { pageFullName, type SitePlan } from "@/lib/site-plan";
 import { templateDesign } from "@/config/template-designs";
 import { CONNECT_KINDS, UNABLE_KINDS, UNABLE_LABEL, unableGuide, type ConnectKind, type UnableKind } from "@/config/unable";
 import { aiConfigured, callStructured, type CallResult } from "@/lib/ai/claude";
@@ -47,6 +52,7 @@ import { getServerEnv } from "@/lib/env";
 import { isMissingSchema } from "@/lib/messages";
 import { planOfUser, tokenBalance } from "@/lib/quota";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { randomUUID } from "node:crypto";
 import type { ProjectBrief, Region, RequestOptions } from "@/lib/types/db";
 import { formatDateTime } from "@/lib/utils";
 
@@ -193,6 +199,79 @@ async function saveDesign(admin: Admin, site: Site, from: DesignDoc, to: DesignD
   return "error";
 }
 
+/**
+ * 페이지를 더하거나 뺀 계획을 저장한다 (brief.site + 페이지 행 + 페이지 순서). 디자인 저장(saveDesign) 바로 앞에 부르고,
+ * 디자인 저장이 실패하면 undo 로 되돌린다. 디자인 버전이 그 사이 바뀌었으면 conflict.
+ * 지운 페이지의 행은 지우지 않는다 (그 페이지의 요청 기록이 같이 지워지지 않게) — 계획에서만 빠지고 편집 화면 · 사이트에서 안 보인다.
+ * 예전에 지웠던 주소로 다시 만들면 그 행을 되살린다.
+ */
+async function saveSitePlan(
+  admin: Admin,
+  site: Site,
+  next: SitePlan,
+  design: DesignDoc,
+  expectedVersion: number,
+): Promise<{ site: Site; undo: () => Promise<void> } | "conflict" | "error"> {
+  const prevBrief = site.brief;
+  const brief: ProjectBrief = { ...prevBrief, site: next };
+  const devices = [...new Set(site.pages.flatMap((p) => Object.keys(p.screenshots ?? {})))] as DeviceKind[];
+  const byPath = new Map(site.pages.map((p) => [p.path, p]));
+  const planned = new Set((prevBrief.site?.pages ?? []).map((p) => p.path));
+  const inserted: string[] = [];
+  const revived: { id: string; name: string; screenshots: LayoutPage["screenshots"] }[] = [];
+  const rows: LayoutPage[] = [];
+  const drawBrief: ProjectBrief = { ...brief, design };
+  for (const [i, p] of next.pages.entries()) {
+    const old = byPath.get(p.path);
+    if (old && planned.has(p.path)) {
+      rows.push(old);
+      continue;
+    }
+    const id = old?.id ?? randomUUID();
+    const screenshots = draftScreenshots(drawBrief, next, i, id, devices.length ? devices : ["desktop", "tablet", "mobile"]);
+    const name = pageFullName(p);
+    if (old) {
+      const { error } = await admin.from("project_pages").update({ name, screenshots }).eq("id", id);
+      if (error) return "error";
+      revived.push({ id, name: old.name, screenshots: old.screenshots });
+    } else {
+      const { error } = await admin.from("project_pages").insert({ id, project_id: site.projectId, name, path: p.path, sort_order: i, screenshots });
+      if (error) {
+        console.error("[ai] page insert", error.message);
+        return "error";
+      }
+      inserted.push(id);
+    }
+    rows.push({ ...(old ?? {}), id, path: p.path, name, screenshots } as LayoutPage);
+  }
+  const dropNew = async () => {
+    if (inserted.length) await admin.from("project_pages").delete().in("id", inserted);
+    for (const r of revived) await admin.from("project_pages").update({ name: r.name, screenshots: r.screenshots }).eq("id", r.id);
+  };
+  // 계획 저장 (디자인 버전이 그대로일 때만)
+  let q = admin.from("projects").update({ brief }).eq("id", site.projectId);
+  q = prevBrief.design ? q.eq("brief->design->>version", String(expectedVersion)) : q.is("brief->design", null);
+  const { data: upd, error } = await q.select("id");
+  if (error || !upd?.length) {
+    await dropNew();
+    if (error) console.error("[ai] site plan", error.message);
+    return error ? "error" : "conflict";
+  }
+  // 편집 화면의 페이지 순서 = 계획 순서 (계획에서 빠진 페이지는 뒤로)
+  const order = new Map(next.pages.map((p, i) => [p.path, i]));
+  const all = [...site.pages, ...rows.filter((r) => inserted.includes(r.id))];
+  for (const [i, p] of all.entries()) {
+    await admin.from("project_pages").update({ sort_order: order.get(p.path) ?? 1000 + i }).eq("id", p.id);
+  }
+  return {
+    site: { ...site, brief, pages: rows },
+    undo: async () => {
+      await admin.from("projects").update({ brief: prevBrief }).eq("id", site.projectId);
+      await dropNew();
+    },
+  };
+}
+
 function harnessSite(site: Site, design: DesignDoc, cms?: boolean): HarnessSite {
   return { brief: site.brief, design, template: site.template, cms };
 }
@@ -291,7 +370,7 @@ export async function reapStaleRuns(admin: Admin = createAdminClient()): Promise
       .eq("awaiting_user", false)
       .lt("created_at", old)
       .limit(50);
-    const waiting = ((reqs as { id: string; kind: string; message: string }[] | null) ?? []).filter((r) => r.kind === "bug" || !isImageRequest(r.message));
+    const waiting = ((reqs as { id: string; kind: string; message: string }[] | null) ?? []).filter((r) => aiTakes(r));
     if (waiting.length) {
       // AI 가 질문한 적이 있는 요청(답을 받고 다시 처리할 차례)은 그대로 둔다
       const { data: touched } = await admin.from("ai_runs").select("request_id").in("request_id", waiting.map((r) => r.id));
@@ -440,7 +519,7 @@ export async function startSiteBuild(projectId: string, opts: { force?: boolean 
     const { error: statusErr } = await admin.from("projects").update({ status: "review" }).eq("id", projectId).in("status", ["brief", "building"]);
     if (statusErr) console.error("[ai] build status", statusErr.message);
     const tagLine = tags.length ? `고르신 디자인 유형(${tagNames(tags)})에 맞춰` : "업종에 맞춰";
-    await postSiteMessage(admin, projectId, `AI가 ${tagLine} 첫 디자인을 만들었어요. ${to.notes ?? ""}\n편집기에서 바로 확인하고, 고칠 곳은 빨간 네모로 요청해 주세요.`.trim());
+    await postSiteMessage(admin, projectId, `AI가 ${tagLine} 첫 디자인을 만들었어요. ${to.notes ?? ""}\n편집기에서 바로 확인하고, 고칠 곳은 빨간 박스로 요청해 주세요.`.trim());
     return { ok: true, message: "AI 가 첫 디자인을 만들었습니다." };
   } catch (e) {
     console.error("[ai] build", e);
@@ -478,7 +557,7 @@ export type QueueItem = { id: string; kind: "ai" | "bug"; page_id: string; devic
  */
 export async function batchQueue(admin: Admin, batchId: string): Promise<QueueItem[]> {
   const { data } = await admin.from("change_requests").select("id, project_id, kind, page_id, device, seq, message").eq("batch_id", batchId).in("kind", ["ai", "bug"]).limit(200);
-  const rows = ((data as (Omit<QueueItem, "pageName" | "path"> & { project_id: string })[] | null) ?? []).filter((r) => r.kind === "bug" || !isImageRequest(r.message));
+  const rows = ((data as (Omit<QueueItem, "pageName" | "path"> & { project_id: string })[] | null) ?? []).filter((r) => aiTakes(r));
   if (!rows.length) return [];
   const { data: pages } = await admin.from("project_pages").select("id, name, path, sort_order").eq("project_id", rows[0].project_id);
   const pageById = new Map(((pages as { id: string; name: string; path: string; sort_order: number }[] | null) ?? []).map((p) => [p.id, p]));
@@ -517,7 +596,7 @@ export async function processBatch(batchId: string): Promise<void> {
           const d = done.get(o.id);
           return {
             order: edits.indexOf(o) + 1,
-            where: `${o.pageName} (${o.path}) · ${DEVICE_LABEL[o.device]} 화면 · 네모 ${o.seq}`,
+            where: `${o.pageName} (${o.path}) · ${DEVICE_LABEL[o.device]} 화면 · 박스 ${o.seq}`,
             message: o.message,
             state: d ? d.state : "waiting",
             summary: d?.summary,
@@ -590,8 +669,30 @@ type RecentRun = {
   id: string;
   created_at: string;
   input: { message?: string; page?: string; device?: DeviceKind } | null;
-  applied: { changes?: AppliedChange[]; layoutBefore?: LayoutSnap; layoutAfter?: LayoutSnap } | null;
+  applied: {
+    changes?: AppliedChange[];
+    layoutBefore?: LayoutSnap;
+    layoutAfter?: LayoutSnap;
+    siteBefore?: SitePlan;
+    siteAfter?: SitePlan;
+    images?: { slotId: string; added: string; moved: string[] }[];
+  } | null;
 };
+
+/** 되돌리기: 페이지를 더하거나 뺀 변경이고 지금 계획이 그 결과 그대로면 그 전 계획으로 (최근 것부터) */
+function revertSite(site: SitePlan | undefined, runs: RecentRun[]): SitePlan | null {
+  if (!site) return null;
+  let cur = site;
+  let changed = false;
+  for (const run of runs) {
+    const a = run.applied;
+    if (!a?.siteBefore || !a.siteAfter) continue;
+    if (JSON.stringify(cur.pages) !== JSON.stringify(a.siteAfter.pages)) continue;
+    cur = a.siteBefore;
+    changed = true;
+  }
+  return changed ? cur : null;
+}
 
 /**
  * 오류 신고 하나를 AI 가 먼저 확인한다. 고객에게 비용이 들지 않는다 (우리 쪽 실수를 고치는 일).
@@ -717,9 +818,13 @@ export async function processBugReport(requestId: string): Promise<ProcessResult
         copyLimits(current.brief),
       );
       const backLayout = revertLayout(before, picked);
-      const changes = [
+      const backSite = revertSite(current.brief.site, picked);
+      const backImages = picked.flatMap((r) => r.applied?.images ?? []);
+      const changes: AppliedChange[] = [
         ...visibleChanges(current.brief, before, applied, page.path),
-        ...(backLayout ? [{ kind: "section" as const, key: "revert", before: "AI가 바꾼 구역 · 메뉴 · 폼", after: "구역 · 메뉴 · 폼을 그 전으로 되돌림" }] : []),
+        ...(backLayout ? [{ kind: "section" as const, key: "revert", before: "AI가 바꾼 섹션 · 메뉴 · 폼", after: "섹션 · 메뉴 · 폼을 그 전으로 되돌림" }] : []),
+        ...(backSite ? [{ kind: "page" as const, key: "revert", before: "", after: "더하거나 지운 페이지를 그 전으로 되돌림" }] : []),
+        ...(backImages.length ? [{ kind: "image" as const, key: "revert", before: "", after: "AI가 만든 그림을 그 전 사진으로 되돌림" }] : []),
       ];
       if (!changes.length) return handOff(`${summary ? `${summary} ` : ""}AI가 고칠 값을 찾지 못했어요.`, { applied: { changes: [], rejected } });
       const to: DesignDoc = {
@@ -731,7 +836,19 @@ export async function processBugReport(requestId: string): Promise<ProcessResult
         updatedAt: new Date().toISOString(),
       };
       await setLive(admin, runId, { stage: "rendering", decision: out.decision, summary });
-      const saved = await saveDesign(admin, current, before, to);
+      let saved: "ok" | "conflict" | "error" = "ok";
+      let target = current;
+      let undoSite: (() => Promise<void>) | null = null;
+      if (backSite) {
+        const s = await saveSitePlan(admin, current, backSite, to, before.version);
+        if (s === "conflict" || s === "error") saved = s;
+        else {
+          target = s.site;
+          undoSite = s.undo;
+        }
+      }
+      if (saved === "ok") saved = await saveDesign(admin, target, before, to);
+      if (saved !== "ok" && undoSite) await undoSite();
       if (saved === "conflict" && attempt === 0) {
         const fresh = await loadSite(admin, site.projectId);
         if (!fresh) break;
@@ -740,6 +857,8 @@ export async function processBugReport(requestId: string): Promise<ProcessResult
         continue;
       }
       if (saved !== "ok") break;
+      // 그림: 새로 만든 그림을 치우고 그 전 사진을 제자리로 (최근 것부터)
+      for (const img of backImages) await restoreSlotPhotos(site.projectId, img.added, img.moved);
       const { error } = await admin.rpc("ai_finish_request", {
         p_request_id: requestId,
         p_status: "done",
@@ -779,7 +898,7 @@ export async function processBugReport(requestId: string): Promise<ProcessResult
  * 처리 중 진행 단계 (편집기 "AI 작업 중" 화면). 처리 중인 실행의 output 칸에 { live } 로 적어 두고, 끝나면 진짜 출력으로 덮어쓴다.
  * thinking AI 가 고칠 방법을 정하는 중 · writing 답을 쓰는 중(앞쪽 decision · summary 가 오면 같이) · rendering 새 화면을 그리는 중
  */
-type LiveStage = { stage: "thinking" | "writing" | "rendering"; decision?: string; summary?: string };
+type LiveStage = { stage: "thinking" | "writing" | "rendering" | "drawing"; decision?: string; summary?: string };
 
 async function setLive(admin: Admin, runId: string | null, live: LiveStage): Promise<void> {
   if (!runId) return;
@@ -816,7 +935,7 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
   const req = data as RequestRow | null;
   if (!req) return { ok: false, message: "요청을 찾을 수 없습니다." };
   if (req.kind !== "ai") return { ok: false, message: "AI 반영 요청만 AI 가 처리합니다." };
-  if (isImageRequest(req.message)) return { ok: false, message: "이미지 생성 요청은 담당자가 처리합니다." };
+  if (!aiTakes(req)) return { ok: false, message: "그림 AI 키(OPENAI_API_KEY)가 없어 이미지 생성 요청은 담당자가 처리합니다." };
   if (!opts.force && (req.status !== "pending" || req.awaiting_user)) return { ok: false, message: "AI 차례가 아닙니다 (담당자가 맡았거나 사용자 답을 기다리는 중)." };
 
   const { count: running } = await admin.from("ai_runs").select("id", { count: "exact", head: true }).eq("request_id", requestId).eq("status", "running");
@@ -831,7 +950,7 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
   const site = await loadSite(admin, req.project_id);
   const page = site?.pages.find((p) => p.id === req.page_id);
   const planned = site && page ? plannedOf(site.brief, page.path) : undefined;
-  if (!site || !page || !planned || !page.screenshots[req.device]?.draft) return leave("이 사이트는 AI가 바로 고칠 수 없는 형식이에요.", "구성 초안으로 만든 사이트만 AI 가 고칠 수 있습니다.");
+  if (!site || !page || !planned || !page.screenshots[req.device]?.draft) return leave("이 사이트는 AI가 바로 고칠 수 없는 형식이에요.", "디자인 시안으로 만든 사이트만 AI 가 고칠 수 있습니다.");
 
   const plan = await ownerPlan(admin, site.userId);
   if (!plan) return leave("지금 플랜으로는 AI가 처리할 수 없어요.", "사이트 주인의 플랜이 없습니다.");
@@ -993,33 +1112,68 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       await finishRun(admin, runId, { status: "asked", output: out, ...callFields(res) });
       return { ok: true, message: "플랜에 관리자 페이지가 없어 사용자에게 알렸습니다.", outcome: "asked" };
     }
+    // 페이지 더하기 · 빼기 · 그림(사진 · 로고) 줄은 따로 검사한다 (lib/ai/site-changes.ts)
+    const extra = splitExtra(out.layoutChanges);
+    // 위저드 · "AI로 만들기" 의 이미지 생성 요청은 접수할 때 그림 1장 토큰을 이미 받았다
+    const prepaid = isImageRequest(req.message) ? 1 : 0;
     // 반영: 그 사이 다른 수정이 먼저 반영됐으면(버전 충돌) 최신 디자인에 같은 변경을 다시 얹는다 (한 번)
     let current = site;
     let before = from;
     for (let attempt = 0; attempt < 2; attempt++) {
-      const pagePaths = current.brief.site?.pages.map((p) => p.path) ?? [];
+      const curSite = current.brief.site as SitePlan;
+      const pg =
+        extra.pages.length && current.brief.business
+          ? applyPageChanges(curSite, extra.pages, { business: current.brief.business, siteName: current.brief.siteName }, plan.pageRange?.max ?? 50)
+          : null;
+      const pathMap = pg?.pathMap ?? new Map<string, string>();
+      let newSite = pg?.site ?? curSite;
+      let jobs: ImageJob[] = [];
+      const imageRejected: string[] = [];
+      if (extra.images.length) {
+        if (!imageConfigured()) imageRejected.push("그림을 그리는 AI가 아직 준비되지 않았어요.");
+        else {
+          const im = planImages(newSite, extra.images.map((l) => ({ ...l, page: remapPath(l.page, pathMap) })), page.path);
+          newSite = im.site;
+          jobs = im.jobs;
+          imageRejected.push(...im.rejected);
+          // 토큰: 새로 받는 그림만큼 남아 있어야 그린다
+          const extraTokens = Math.max(0, jobs.length - prepaid) * IMAGE_REQUEST_TOKENS;
+          if (extraTokens > 0) {
+            const { left } = await tokenBalance(admin, site.userId, plan);
+            if (left !== null && left < extraTokens + res.billed) {
+              imageRejected.push("남은 토큰이 모자라 그림은 만들지 못했어요.");
+              jobs = jobs.slice(0, prepaid);
+            }
+          }
+        }
+      }
+      const siteChanged = newSite !== curSite;
+      const briefNow: ProjectBrief = siteChanged ? { ...current.brief, site: newSite } : current.brief;
+      const pagePaths = newSite.pages.map((p) => p.path);
       const { doc, applied, rejected } = applyChanges(
         before,
         {
           theme: out.themeChanges.map((c) => ({ key: c.key, value: c.value })),
-          copy: out.copyChanges.map((c) => ({ scope: c.scope, path: c.scope === "page" ? c.path || page.path : null, key: c.key, value: c.value })),
+          copy: out.copyChanges.map((c) => ({ scope: c.scope, path: c.scope === "page" ? remapPath(c.path || page.path, pathMap) : null, key: c.key, value: c.value })),
         },
         pagePaths,
-        copyLimits(current.brief),
+        copyLimits(briefNow),
       );
       // 관리자 목록은 디자인 문서의 정의만 바뀐다 (글은 공용 DB 의 site_records — 표를 만들 일이 없어 바로 끝난다)
       const data = wantsData ? applyCollectionChanges(doc.collections ?? [], out.collectionChanges, pagePaths) : null;
       // 구역 · 메뉴 · 폼 (lib/page-layout.ts 가 다시 검사한다)
-      const lay = out.layoutChanges.length
-        ? applyLayoutChanges({ layout: doc.layout, menu: doc.menu, forms: doc.forms }, splitLayoutChanges(out.layoutChanges, page.path), current.brief.site?.pages ?? [])
+      const rest = extra.rest.map((l) => ({ ...l, page: remapPath(l.page, pathMap), after: l.target === "menu" ? remapPath(l.after, pathMap) : l.after }));
+      const lay = rest.length
+        ? applyLayoutChanges({ layout: doc.layout, menu: doc.menu, forms: doc.forms }, splitLayoutChanges(rest, page.path), newSite.pages)
         : null;
       const changes: AppliedChange[] = [
-        ...visibleChanges(current.brief, before, applied, page.path),
+        ...(pg?.applied ?? []),
+        ...visibleChanges(briefNow, before, applied, page.path),
         ...(data?.applied ?? []).map((d) => ({ kind: "data" as const, key: d.key, before: d.before, after: d.after })),
         ...(lay?.applied ?? []).map((d) => ({ kind: d.kind, key: d.key, path: d.path, before: d.before, after: d.after })),
       ];
-      const allRejected = [...rejected, ...(data?.rejected ?? []), ...(lay?.rejected ?? [])];
-      if (!changes.length) {
+      const allRejected = [...(pg?.rejected ?? []), ...imageRejected, ...rejected, ...(data?.rejected ?? []), ...(lay?.rejected ?? [])];
+      if (!changes.length && !jobs.length) {
         // AI 가 할 수 있다고 봤지만 바꿀 값이 없었다 → 담당자가 손으로 하는 작은 일
         return await handOffWork("later", null, `${summary ? `${summary} ` : ""}AI가 바꿀 수 있는 값을 찾지 못했어요.`, out, {
           applied: { changes: [], rejected: allRejected },
@@ -1035,8 +1189,24 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
         aiPending: false,
         updatedAt: new Date().toISOString(),
       };
-      await setLive(admin, runId, { stage: "rendering", decision: out.decision, summary });
-      const saved = await saveDesign(admin, current, before, to);
+      // 디자인 · 페이지가 바뀌었을 때만 화면을 다시 그린다 (사진만 바꾸면 사진 자리에 겹쳐 보이므로 그대로)
+      const redraw = changes.length > 0 || siteChanged;
+      let saved: "ok" | "conflict" | "error" = "ok";
+      if (redraw) {
+        await setLive(admin, runId, { stage: "rendering", decision: out.decision, summary });
+        let target = current;
+        let undoSite: (() => Promise<void>) | null = null;
+        if (siteChanged) {
+          const s = await saveSitePlan(admin, current, newSite, to, before.version);
+          if (s === "conflict" || s === "error") saved = s;
+          else {
+            target = s.site;
+            undoSite = s.undo;
+          }
+        }
+        if (saved === "ok") saved = await saveDesign(admin, target, before, to);
+        if (saved !== "ok" && undoSite) await undoSite();
+      }
       if (saved === "conflict" && attempt === 0) {
         const fresh = await loadSite(admin, site.projectId);
         if (!fresh) break;
@@ -1045,14 +1215,48 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
         continue;
       }
       if (saved !== "ok") break;
-      const tokens = (req.tokens_used ?? 0) + res.billed;
+
+      // 그림: 화면을 저장한 뒤 한 장씩 그린다 (한 장에 15~60초). 실패한 그림은 이유만 알린다
+      const images: { slotId: string; added: string; moved: string[]; model: string; ms: number }[] = [];
+      let imageCost = 0;
+      for (const job of jobs) {
+        await setLive(admin, runId, { stage: "drawing", decision: out.decision, summary: `${job.logo ? "로고" : `"${job.slot.label}"`} 그리는 중… (1분쯤 걸려요)` });
+        const drawBrief: ProjectBrief = { ...briefNow, design: to };
+        const g = await generateImage({
+          prompt: job.logo ? logoPrompt(drawBrief, job.request || req.message) : photoPrompt(drawBrief, job.slot, job.request || req.message),
+          ratio: job.slot.ratio,
+          logo: job.logo,
+        });
+        imageCost += IMAGE_COST_USD;
+        if (!g.ok) {
+          console.error("[ai] image", g.error);
+          allRejected.push(`"${job.slot.label}" 그림을 만들지 못했어요${g.refused ? " (그림 AI의 안전 기준에 걸렸어요)" : ""}.`);
+          continue;
+        }
+        try {
+          const { photo, moved } = await replaceSlotPhoto(site.projectId, job.slot.id, g.bytes, g.contentType);
+          images.push({ slotId: job.slot.id, added: photo.name, moved, model: g.model, ms: g.durationMs });
+          changes.push({ kind: "image", key: job.slot.id, path: job.page, before: moved.join(","), after: `${job.logo ? "로고" : "사진"} 새로 만듦: ${job.slot.label}` });
+        } catch (err) {
+          console.error("[ai] image save", err);
+          allRejected.push(`"${job.slot.label}" 그림을 저장하지 못했어요.`);
+        }
+      }
+      if (!changes.length) {
+        // 그림만 요청했는데 하나도 만들지 못했다 → 담당자에게 (미리 받은 그림 토큰은 담당자가 처리하며 그대로 쓴다)
+        await handOff(`${allRejected.join(" ")} ${HUMAN_LATER}`.trim(), { output: out, applied: { changes: [], rejected: allRejected }, ...callFields(res) });
+        return { ok: false, message: "그림을 만들지 못해 담당자에게 넘겼습니다.", outcome: "handoff", summary: allRejected.join(" ") };
+      }
+      const imageTokens = Math.max(0, images.length - prepaid) * IMAGE_REQUEST_TOKENS;
+      const tokens = (req.tokens_used ?? 0) + res.billed + imageTokens;
+      const notDone = allRejected.length ? `\n못 한 것: ${allRejected.slice(0, 3).join(" ")}` : "";
       const changed = changes.map(describeChange).join("\n· ");
       // 관리자 목록을 만들었거나 바꿨으면 글을 올릴 곳을 알려 준다 (대화의 주소는 링크로 보인다)
       const adminLink = data?.applied.some((d) => d.after) ? `\n관리자 페이지에서 글을 올릴 수 있어요: ${getServerEnv().APP_URL}/projects/${site.projectId}/admin` : "";
       const { error } = await admin.rpc("ai_finish_request", {
         p_request_id: requestId,
         p_status: "done",
-        p_body: `AI가 반영했어요. ${summary}\n· ${changed}${adminLink}`.slice(0, 2000),
+        p_body: `AI가 반영했어요. ${summary}\n· ${changed}${adminLink}${notDone}`.slice(0, 2000),
         p_awaiting_user: false,
         p_tokens: tokens,
         p_monthly_ai_tokens: plan.monthlyAiTokens,
@@ -1066,10 +1270,14 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
           rejected: allRejected,
           // 오류 신고의 되돌리기가 구역 · 메뉴 · 폼을 이 요청 전으로 돌릴 수 있게 앞뒤 값을 남긴다
           ...(lay?.applied.length ? { layoutBefore: layoutOf(before), layoutAfter: layoutOf(to) } : {}),
+          // 페이지 · 그림 되돌리기용
+          ...(siteChanged ? { siteBefore: curSite, siteAfter: newSite } : {}),
+          ...(images.length ? { images } : {}),
         },
-        design_version_after: to.version,
-        tokens_billed: res.billed,
+        design_version_after: redraw ? to.version : before.version,
+        tokens_billed: res.billed + imageTokens,
         ...callFields(res),
+        cost_usd: Math.round((res.costUsd + imageCost) * 1_000_000) / 1_000_000,
       });
       return { ok: true, message: "AI 가 반영했습니다.", outcome: "applied", summary: [summary, ...changes.map(describeChange)].filter(Boolean).join(" / ").slice(0, 400) };
     }
