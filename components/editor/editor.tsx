@@ -141,6 +141,8 @@ export function ProjectEditor({
   const [focusTick, setFocusTick] = useState(0);
   const prevStates = useRef(new Map<string, LiveItem["state"]>());
   const refreshedFor = useRef(0);
+  /** 반영이 끝난 박스 (사진 · 로고는 디자인 버전이 그대로이거나 화면을 그린 뒤에 저장되므로, 끝날 때 한 번 더 새로 읽는다) */
+  const refreshedDone = useRef<Set<string>>(new Set());
   const followed = useRef<string | null>(null);
   const pendingFocus = useRef<{ pageId: string; device: DeviceKind; region: { x: number; y: number; w: number; h: number } } | null>(null);
   const locked = Boolean(liveBatch);
@@ -165,10 +167,12 @@ export function ProjectEditor({
     setOffsetMs(Date.now() - Date.parse(p.now));
     setProgress(p);
     // 디자인이 바뀌었으면 바로 새로 그린다 (작업 중에는 그리던 네모가 없으므로 묻지 않는다)
+    const newlyDone = p.items.filter((i) => i.state === "done" && !refreshedDone.current.has(i.id));
+    for (const i of newlyDone) refreshedDone.current.add(i.id);
     if (p.version > shownVersion && refreshedFor.current < p.version) {
       refreshedFor.current = p.version;
       router.refresh();
-    }
+    } else if (newlyDone.length) router.refresh();
     // 고치는 네모(없으면 다음 차례)를 따라간다
     const target = p.items.find((i) => i.state === "working") ?? (p.done ? undefined : p.items.find((i) => i.state === "queued"));
     if (target && followed.current !== target.id) {

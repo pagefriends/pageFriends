@@ -98,7 +98,12 @@ export function requestsBySlot<R extends Pick<ExistingRequest, "page_id" | "devi
 }
 
 export function toRegion(d: DraftBox, shot: Screenshot): Region {
-  return { x: d.x / shot.width, y: d.y / shot.height, w: d.w / shot.width, h: d.h / shot.height };
+  // 페이지 맨 위 · 가장자리에 그리면 박스가 그림 밖으로 조금 나갈 수 있다 → 그림 안으로 잘라서 보낸다
+  const x0 = Math.max(0, Math.min(d.x, shot.width));
+  const y0 = Math.max(0, Math.min(d.y, shot.height));
+  const x1 = Math.max(x0, Math.min(d.x + d.w, shot.width));
+  const y1 = Math.max(y0, Math.min(d.y + d.h, shot.height));
+  return { x: x0 / shot.width, y: y0 / shot.height, w: (x1 - x0) / shot.width, h: (y1 - y0) / shot.height };
 }
 
 /** 사이트 전체에서 이미지 자리마다 그 자리에 보낸 가장 최근 요청의 상태 (제작 정보 화면 · 준비할 사진 수). requests 는 최신순 */
