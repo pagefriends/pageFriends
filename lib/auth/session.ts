@@ -2,8 +2,8 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 
-import { getPlan, type Plan, type PlanCode } from "@/config/plans";
-import { effectiveSubscription, type SubscriptionState } from "@/lib/subscriptions";
+import type { Plan } from "@/config/plans";
+import { effectiveSubscription, usablePlan, type SubscriptionState } from "@/lib/subscriptions";
 import { createClient } from "@/lib/supabase/server";
 import type { SubscriptionRow } from "@/lib/types/db";
 
@@ -57,5 +57,5 @@ export async function getSubscription(userId: string): Promise<SubscriptionInfo>
   const { data } = await supabase.from("subscriptions").select("*").eq("user_id", userId).maybeSingle();
   const sub = (data as SubscriptionRow | null) ?? null;
   const eff = effectiveSubscription(sub);
-  return { subscription: sub, plan: eff.usable ? getPlan(sub?.plan_code as PlanCode | undefined) : null, state: eff.state, graceUntil: eff.graceUntil };
+  return { subscription: sub, plan: usablePlan(sub), state: eff.state, graceUntil: eff.graceUntil };
 }

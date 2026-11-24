@@ -222,7 +222,12 @@ async function activateSubscription(a: { userId: string; planCode: PlanCode; cyc
   const admin = createAdminClient();
   const args = { p_user_id: a.userId, p_plan: a.planCode, p_payment_addon: a.paymentAddon, p_billing_key_enc: a.billingKeyEnc };
   const { error } = await admin.rpc("activate_subscription", { ...args, p_billing_cycle: a.cycle });
-  if (!error) return;
+  if (!error) {
+    // 결제로 시작했으니 무료 베타 표시를 끈다 (beta_started_at 은 남긴다 — 한 번만). 0014 전 DB 면 칸이 없어 건너뛴다
+    const { error: betaErr } = await admin.from("subscriptions").update({ beta: false }).eq("user_id", a.userId).eq("beta", true);
+    if (betaErr && betaErr.code !== "42703" && betaErr.code !== "PGRST204") console.error("[payments] beta off", betaErr.message);
+    return;
+  }
   if (error.code === "PGRST202" && a.cycle === "month") {
     const { error: legacy } = await admin.rpc("activate_subscription", args);
     if (!legacy) return;

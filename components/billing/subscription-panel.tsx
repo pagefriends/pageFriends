@@ -91,6 +91,7 @@ export function SubscriptionPanel({
 
   const periodEnd = formatDate(subscription.current_period_end);
   const disabled = pending || busy;
+  const beta = Boolean(subscription.beta);
   const cycle: BillingCycle = subscription.billing_cycle === "year" ? "year" : "month";
   // 다음 결제부터 바뀌기로 예약한 플랜 (내리기 · 연간 → 월간)
   const pendingPlan = subscription.pending_plan_code ? PLAN_BY_CODE[subscription.pending_plan_code] : null;
@@ -102,19 +103,19 @@ export function SubscriptionPanel({
     <div className="rounded-md border border-ink-200 bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-semibold">
-          {plan.name} 플랜 <span className="text-base font-medium text-ink-500">· {BILLING_CYCLE_LABEL[cycle]} 결제</span>
+          {plan.name} 플랜 <span className="text-base font-medium text-ink-500">· {beta ? "무료 베타" : `${BILLING_CYCLE_LABEL[cycle]} 결제`}</span>
         </h2>
-        <StateBadge state={state} />
+        {beta ? <Badge tone={state === "expired" ? "gray" : "blue"}>{state === "expired" ? "베타 끝" : "무료 베타"}</Badge> : <StateBadge state={state} />}
         {subscription.payment_addon ? <Badge tone="gray">결제 시스템 연동</Badge> : null}
       </div>
 
       <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
-        <Row k="요금" v={`${formatKrw(planPrice(plan, cycle))} / ${BILLING_CYCLE_UNIT[cycle]}`} />
+        <Row k="요금" v={beta ? "무료 (베타)" : `${formatKrw(planPrice(plan, cycle))} / ${BILLING_CYCLE_UNIT[cycle]}`} />
         <Row k="현재 기간" v={`${formatDate(subscription.current_period_start)} ~ ${periodEnd}`} />
         {state === "active" && subscription.next_payment_at ? (
           <Row k="다음 결제" v={`${formatDate(subscription.next_payment_at)} · ${formatKrw(planPrice(nextPlan, nextCycle))}`} />
         ) : null}
-        {state === "cancelling" ? <Row k="이용 종료" v={`${periodEnd} (해지 예약됨)`} /> : null}
+        {state === "cancelling" ? <Row k="이용 종료" v={beta ? `${periodEnd} (자동 결제 없음)` : `${periodEnd} (해지 예약됨)`} /> : null}
         {state === "past_due" ? <Row k="재시도" v={`${subscription.failed_attempts}/${maxAttempts}회 실패 · 다음 자동 재시도 ${subscription.next_payment_at ? formatDate(subscription.next_payment_at) : "-"}`} /> : null}
       </dl>
 
@@ -144,8 +145,18 @@ export function SubscriptionPanel({
           {maxAttempts}회 연속 실패하면 구독이 해지됩니다. 지금 다시 결제하거나 다른 카드를 등록하세요.
         </Alert>
       ) : null}
-      {state === "cancelling" ? <Alert tone="gray" className="mt-4">해지가 예약되어 있습니다. {periodEnd}까지 이용할 수 있고 이후 자동 결제되지 않습니다. 마음이 바뀌면 해지를 취소하세요.</Alert> : null}
-      {state === "expired" || state === "cancelled" ? (
+      {beta && state === "cancelling" ? (
+        <Alert tone="blue" className="mt-4">
+          무료 베타 기간이에요. {periodEnd}까지 무료로 쓸 수 있고, 끝나도 자동으로 결제되지 않아요.
+        </Alert>
+      ) : null}
+      {beta && state === "expired" ? (
+        <Alert tone="gray" className="mt-4">
+          무료 베타가 끝났어요. 계속 쓰려면 아래에서 플랜을 골라 주세요.
+        </Alert>
+      ) : null}
+      {!beta && state === "cancelling" ? <Alert tone="gray" className="mt-4">해지가 예약되어 있습니다. {periodEnd}까지 이용할 수 있고 이후 자동 결제되지 않습니다. 마음이 바뀌면 해지를 취소하세요.</Alert> : null}
+      {!beta && (state === "expired" || state === "cancelled") ? (
         <Alert tone="gray" className="mt-4">
           구독이 종료되었습니다. 수정 요청을 계속하려면 아래에서 플랜을 다시 선택하세요.
         </Alert>
@@ -157,43 +168,45 @@ export function SubscriptionPanel({
         </Alert>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {state === "past_due" ? (
-          <Button onClick={() => run(retryPaymentAction)} disabled={disabled}>
-            {disabled ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
-            지금 다시 결제
-          </Button>
-        ) : null}
-        {state !== "expired" && state !== "cancelled" ? (
-          <Button variant="outline" onClick={changeCard} disabled={disabled}>
-            {mock ? "결제 수단 변경 (mock)" : "결제 수단 변경"}
-          </Button>
-        ) : null}
-        {state === "active" || state === "past_due" ? (
-          <Button
-            variant="ghost"
-            className="text-ink-500"
-            disabled={disabled}
-            onClick={() => {
-              if (window.confirm(`구독을 해지할까요? ${periodEnd}까지는 계속 이용할 수 있고, 그 뒤로는 결제되지 않습니다.`)) run(cancelSubscriptionAction);
-            }}
-          >
-            구독 해지
-          </Button>
-        ) : null}
-        {state === "cancelling" ? (
-          <Button variant="secondary" onClick={() => run(resumeSubscriptionAction)} disabled={disabled}>
-            해지 취소
-          </Button>
-        ) : null}
-        {state === "expired" || state === "cancelled" ? (
-          <Link href="/billing?plan=business" className="text-sm font-medium text-brand-600 hover:underline">
-            플랜 다시 선택
-          </Link>
-        ) : null}
-      </div>
+      {!beta ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {state === "past_due" ? (
+            <Button onClick={() => run(retryPaymentAction)} disabled={disabled}>
+              {disabled ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+              지금 다시 결제
+            </Button>
+          ) : null}
+          {state !== "expired" && state !== "cancelled" ? (
+            <Button variant="outline" onClick={changeCard} disabled={disabled}>
+              {mock ? "결제 수단 변경 (mock)" : "결제 수단 변경"}
+            </Button>
+          ) : null}
+          {state === "active" || state === "past_due" ? (
+            <Button
+              variant="ghost"
+              className="text-ink-500"
+              disabled={disabled}
+              onClick={() => {
+                if (window.confirm(`구독을 해지할까요? ${periodEnd}까지는 계속 이용할 수 있고, 그 뒤로는 결제되지 않습니다.`)) run(cancelSubscriptionAction);
+              }}
+            >
+              구독 해지
+            </Button>
+          ) : null}
+          {state === "cancelling" ? (
+            <Button variant="secondary" onClick={() => run(resumeSubscriptionAction)} disabled={disabled}>
+              해지 취소
+            </Button>
+          ) : null}
+          {state === "expired" || state === "cancelled" ? (
+            <Link href="/billing?plan=business" className="text-sm font-medium text-brand-600 hover:underline">
+              플랜 다시 선택
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
-      {mock && (state === "active" || state === "past_due") ? (
+      {mock && !beta && (state === "active" || state === "past_due") ? (
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded border border-dashed border-ink-300 p-3 text-xs text-ink-500">
           <span>개발용 · 갱신 웹훅 시뮬레이션:</span>
           <Button size="sm" variant="outline" onClick={() => simulate("paid")} disabled={disabled}>

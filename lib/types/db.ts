@@ -29,6 +29,9 @@ export type SubscriptionRow = {
   failed_attempts: number;
   last_failure_at: string | null;
   last_failure_reason: string | null;
+  /** 무료 베타 구독인지 · 무료 베타를 받은 시각 (0014). 0014 전에는 컬럼이 없다 */
+  beta?: boolean;
+  beta_started_at?: string | null;
   /** 결제 주기 (0009). 0009 전에는 컬럼이 없다 → 월간으로 본다 (cycleOf) */
   billing_cycle?: BillingCycle;
   /** 다음 결제부터 바뀌기로 예약한 플랜 · 주기 (내리기 · 연간 → 월간). 0009 */

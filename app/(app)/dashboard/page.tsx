@@ -16,6 +16,8 @@ import { listProjects } from "@/lib/projects";
 import { listProjectPhotos } from "@/lib/photos";
 import { NO_RELEASE, listReleaseSummaries } from "@/lib/releases";
 import { realPhotoCount } from "@/lib/site-plan";
+import { getBetaStatus } from "@/lib/beta";
+import { FREE_BETA } from "@/config/beta";
 import { cn, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "내 사이트" };
@@ -26,7 +28,9 @@ export const metadata: Metadata = { title: "내 사이트" };
  */
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [{ plan }, projects, summary] = await Promise.all([getSubscription(user.id), listProjects(user.id), getMessageSummary()]);
+  const [{ plan, subscription }, projects, summary] = await Promise.all([getSubscription(user.id), listProjects(user.id), getMessageSummary()]);
+  const beta = await getBetaStatus(subscription);
+  const betaPlanName = PLAN_BY_CODE[FREE_BETA.planCode].name;
   const [news, releases] = await Promise.all([
     newsCount(summary.total) > 0 ? listNews(projects.map((p) => p.id)) : Promise.resolve([]),
     listReleaseSummaries(projects.map((p) => p.id)),
@@ -80,9 +84,15 @@ export default async function DashboardPage() {
 
       {!plan ? (
         <Alert tone="blue" className="mt-6 flex items-center justify-between gap-4">
-          <span>아직 플랜이 없습니다. 플랜을 선택해야 수정 요청을 보낼 수 있습니다.</span>
-          <Link href="/billing" className="shrink-0 font-medium underline">
-            플랜 선택
+          {beta.canStart ? (
+            <span>
+              지금은 무료 베타예요. {betaPlanName} 플랜을 {FREE_BETA.months}개월 동안 무료로 쓸 수 있어요 (결제 정보 없이 · 남은 자리 {beta.seatsLeft}곳).
+            </span>
+          ) : (
+            <span>아직 플랜이 없습니다. 플랜을 선택해야 수정 요청을 보낼 수 있습니다.</span>
+          )}
+          <Link href={beta.canStart ? "/billing#beta" : "/billing"} className="shrink-0 font-medium underline">
+            {beta.canStart ? "무료로 시작하기" : "플랜 선택"}
           </Link>
         </Alert>
       ) : null}

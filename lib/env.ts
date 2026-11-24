@@ -22,6 +22,8 @@ export const serverEnvSchema = z.object({
   APP_ENCRYPTION_KEY: optionalString,
   /** "true" 면 포트원을 호출하지 않고 결제를 성공 처리한다. 로컬 개발 전용 — 운영에서는 반드시 비운다. */
   PAYMENTS_MOCK: optionalString,
+  /** "on" 이면 무료 베타를 받는다 (config/beta.ts · lib/beta.ts). 사업자등록 · 결제 전 */
+  FREE_BETA: optionalString,
 
   APP_URL: z.preprocess(emptyToUndefined, z.url().default("http://localhost:3000")),
 

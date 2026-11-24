@@ -2,8 +2,8 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getPlan, type Plan, type PlanCode } from "@/config/plans";
-import { effectiveSubscription } from "@/lib/subscriptions";
+import type { Plan } from "@/config/plans";
+import { usablePlan } from "@/lib/subscriptions";
 import { createClient } from "@/lib/supabase/server";
 import type { CreditRow, SubscriptionRow } from "@/lib/types/db";
 
@@ -18,7 +18,7 @@ export type TokenBalance = { monthly: number | null; used: number; credits: numb
 export async function planOfUser(db: SupabaseClient, userId: string): Promise<Plan | null> {
   const { data } = await db.from("subscriptions").select("*").eq("user_id", userId).maybeSingle();
   const sub = (data as SubscriptionRow | null) ?? null;
-  return effectiveSubscription(sub).usable ? getPlan(sub?.plan_code as PlanCode | undefined) : null;
+  return usablePlan(sub);
 }
 
 /**

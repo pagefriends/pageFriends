@@ -12,12 +12,15 @@ import {
   DELIVERY_DAYS,
   PAYMENT_SETUP_FEE_KRW,
   PLANS,
+  PLAN_BY_CODE,
   REQUEST_KIND_LABEL,
   TEMPLATE_PRICE_KRW,
   creditAmountLabel,
   formatKrw,
 } from "@/config/plans";
+import { FREE_BETA } from "@/config/beta";
 import { TESTIMONIALS } from "@/content/site";
+import { betaEnabled } from "@/lib/beta";
 
 export const metadata: Metadata = { title: "요금제" };
 
@@ -115,6 +118,15 @@ export default function PricingPage() {
             플랜은 {PLANS.length}개, 숨은 비용은 없습니다. 월간으로 시작하거나 연간으로 두 달 치를 아끼세요. 언제든 상위 플랜으로 바꿀 수 있고, AI 는 실제 사용한 토큰만큼만
             차감됩니다.
           </Lead>
+          {betaEnabled() ? (
+            <p className="mt-8 max-w-2xl rounded-md border border-white/20 bg-white/5 px-4 py-3 text-sm text-white/90">
+              지금은 <b>무료 베타</b> 기간이에요. 가입하면 {PLAN_BY_CODE[FREE_BETA.planCode].name} 플랜을 {FREE_BETA.months}개월 동안 무료로 쓸 수 있어요 (결제 정보 없이 ·
+              선착순 {FREE_BETA.seats}곳).{" "}
+              <Link href="/signup?next=/billing" className="font-semibold underline">
+                무료로 시작하기
+              </Link>
+            </p>
+          ) : null}
           <div className="mt-12">
             <PlanGrid tone="dark" ctaBase="/signup" />
           </div>

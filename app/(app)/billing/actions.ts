@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/session";
+import { BetaError, startBeta } from "@/lib/beta";
 import { cancelPendingChange, cancelSubscription, resumeSubscription, retryNow, SubscriptionError } from "@/lib/subscriptions";
+import { formatDate } from "@/lib/utils";
 
 export type BillingActionResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -57,5 +59,20 @@ export async function retryPaymentAction(): Promise<BillingActionResult> {
     return { ok: true, message: "결제가 완료되어 구독이 정상화되었습니다." };
   } catch (e) {
     return toResult(e);
+  }
+}
+
+/** 무료 베타 시작: 결제 없이 정해진 플랜을 몇 달 동안 연다 (lib/beta.ts) */
+export async function startBetaAction(): Promise<BillingActionResult> {
+  const user = await requireUser("/billing");
+  try {
+    const { until } = await startBeta(user.id);
+    revalidatePath("/billing");
+    revalidatePath("/dashboard");
+    return { ok: true, message: `무료 베타를 시작했어요. ${formatDate(until)}까지 무료로 쓸 수 있어요.` };
+  } catch (e) {
+    if (e instanceof BetaError) return { ok: false, error: e.message };
+    console.error("[beta] start", e);
+    return { ok: false, error: "무료 베타를 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요." };
   }
 }

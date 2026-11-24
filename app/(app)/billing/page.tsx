@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { BetaCard } from "@/components/billing/beta-card";
 import { PayButton } from "@/components/billing/pay-button";
 import { PaymentReturnHandler } from "@/components/billing/payment-return";
 import { SubscribeCard } from "@/components/billing/subscribe-card";
 import { SubscriptionPanel } from "@/components/billing/subscription-panel";
 import { PlanGrid } from "@/components/pricing/plan-grid";
 import { Alert } from "@/components/ui/card";
+import { FREE_BETA } from "@/config/beta";
 import {
   APPROX_TOKENS_PER_AI_REQUEST,
   APPROX_TOKENS_PER_IMAGE,
@@ -22,6 +24,7 @@ import {
   type PlanCode,
 } from "@/config/plans";
 import { getSubscription, requireUser } from "@/lib/auth/session";
+import { getBetaStatus } from "@/lib/beta";
 import { getClientEnv, paymentsAvailable } from "@/lib/env";
 import { getQuota } from "@/lib/quota";
 import { MAX_RENEWAL_ATTEMPTS, currentTerms, cycleOf } from "@/lib/subscriptions";
@@ -39,7 +42,8 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
   const selected = typeof sp.plan === "string" && sp.plan in PLAN_BY_CODE && !PLAN_BY_CODE[sp.plan as PlanCode].hidden ? (sp.plan as PlanCode) : null;
 
   const [{ subscription, plan, state, graceUntil }, payments] = await Promise.all([getSubscription(user.id), listPayments(user.id)]);
-  const quota = await getQuota(user.id, plan);
+  const [quota, beta] = await Promise.all([getQuota(user.id, plan), getBetaStatus(subscription)]);
+  const betaPlan = PLAN_BY_CODE[FREE_BETA.planCode];
   const env = getClientEnv();
   const avail = paymentsAvailable();
   const cycle: BillingCycle | null = subscription && plan ? cycleOf(subscription) : null;
@@ -52,7 +56,8 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
       <p className="mt-1 text-sm text-ink-500">
         {plan ? (
           <>
-            현재 <span className="font-medium text-ink-900">{plan.name}</span> 플랜 ({BILLING_CYCLE_LABEL[cycle ?? "month"]} 결제) · 기간 종료 {formatDate(subscription!.current_period_end)}
+            현재 <span className="font-medium text-ink-900">{plan.name}</span> 플랜{" "}
+            {subscription?.beta ? "(무료 베타)" : `(${BILLING_CYCLE_LABEL[cycle ?? "month"]} 결제)`} · 기간 종료 {formatDate(subscription!.current_period_end)}
           </>
         ) : (
           "아직 사용 가능한 플랜이 없습니다. 플랜을 선택하면 제작과 수정 요청이 시작됩니다."
@@ -62,6 +67,18 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
       <Suspense>
         <PaymentReturnHandler />
       </Suspense>
+
+      {beta.canStart ? (
+        <div className="mt-6 max-w-2xl">
+          <BetaCard
+            planName={betaPlan.name}
+            months={FREE_BETA.months}
+            seatsLeft={beta.seatsLeft}
+            monthlyExpert={Math.min(betaPlan.monthlyExpert ?? FREE_BETA.monthlyExpert, FREE_BETA.monthlyExpert)}
+            tokens={formatTokens(betaPlan.monthlyAiTokens ?? 0)}
+          />
+        </div>
+      ) : null}
 
       {subscription ? (
         <div className="mt-6 max-w-2xl">
@@ -78,7 +95,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
         </div>
       ) : null}
 
-      {!avail.enabled ? (
+      {!avail.enabled && !beta.open ? (
         <Alert tone="gray" className="mt-4">
           결제 설정이 없어 실제 결제가 비활성화되어 있습니다. .env.local 에 {avail.missing.join(", ")} 를 채우거나 개발용 <code>PAYMENTS_MOCK=true</code> 를 켜세요.
         </Alert>
@@ -104,7 +121,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/billing"
       <section className="mt-8">
         <h2 className="text-lg font-semibold">플랜 선택</h2>
         <div className="mt-4">
-          <PlanGrid tone="dark" currentPlan={plan?.code ?? null} currentCycle={cycle} initialCycle={wantCycle} ctaBase="/billing" />
+          <PlanGrid tone="dark" currentPlan={subscription?.beta ? null : (plan?.code ?? null)} currentCycle={subscription?.beta ? null : cycle} initialCycle={wantCycle} ctaBase="/billing" />
         </div>
       </section>
 

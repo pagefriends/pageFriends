@@ -2,7 +2,8 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { BILLING_CYCLE_LABEL, PLAN_BY_CODE, cycleMonths, planPrice, type BillingCycle, type PlanCode } from "@/config/plans";
+import { FREE_BETA } from "@/config/beta";
+import { BILLING_CYCLE_LABEL, PLAN_BY_CODE, cycleMonths, getPlan, planPrice, type BillingCycle, type Plan, type PlanCode } from "@/config/plans";
 import type { SessionUser } from "@/lib/auth/session";
 import type { CurrentTerms } from "@/lib/billing-quote";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
@@ -69,6 +70,17 @@ export function effectiveSubscription(sub: SubscriptionRow | null, now = new Dat
   return { state: "active", usable: true, graceUntil: null };
 }
 
+/**
+ * 지금 쓸 수 있는 플랜 (만료 · 해지면 null). 무료 베타 구독이면 전문가 요청 한도를 FREE_BETA.monthlyExpert 로 줄인다 (사람 손이 드는 일).
+ * 사용자 화면 · 요청 제출 · AI 엔진이 모두 이것으로 한도를 정한다.
+ */
+export function usablePlan(sub: SubscriptionRow | null, now = new Date()): Plan | null {
+  if (!sub || !effectiveSubscription(sub, now).usable) return null;
+  const plan = getPlan(sub.plan_code);
+  if (!plan || !sub.beta) return plan;
+  return { ...plan, monthlyExpert: plan.monthlyExpert === null ? FREE_BETA.monthlyExpert : Math.min(plan.monthlyExpert, FREE_BETA.monthlyExpert) };
+}
+
 /** 결제 주기 (0009 전 행은 컬럼이 없어 월간) */
 export function cycleOf(sub: Pick<SubscriptionRow, "billing_cycle">): BillingCycle {
   return sub.billing_cycle === "year" ? "year" : "month";
@@ -89,7 +101,8 @@ export function nextTerms(sub: SubscriptionRow): { planCode: PlanCode; cycle: Bi
 
 /** 결제 화면 · 금액 계산(quoteChange)에 넘기는 지금 구독. 이용할 수 없는 구독(만료 · 해지됨)은 null */
 export function currentTerms(sub: SubscriptionRow | null, now = new Date()): CurrentTerms | null {
-  if (!sub) return null;
+  // 무료 베타는 낸 돈이 없으니 결제로 바꿀 때 새로 시작하는 것으로 계산한다 (남은 기간을 빼 주지 않는다)
+  if (!sub || sub.beta) return null;
   const eff = effectiveSubscription(sub, now);
   if (!eff.usable) return null;
   return {
@@ -309,6 +322,7 @@ async function chargeNow(sub: SubscriptionRow, billingKey: string): Promise<void
 export async function cancelSubscription(user: SessionUser): Promise<void> {
   const sub = await loadSubscription(user.id);
   if (!sub || sub.status === "cancelled") throw new SubscriptionError(400, "해지할 구독이 없습니다.");
+  if (sub.beta) throw new SubscriptionError(400, "무료 베타는 기간이 끝나면 저절로 끝나요 (결제되지 않아요).");
   if (sub.cancel_at_period_end) return;
   await clearRenewal(sub);
   const admin = createAdminClient();
@@ -360,6 +374,7 @@ export async function cancelPendingChange(user: SessionUser): Promise<void> {
 export async function resumeSubscription(user: SessionUser): Promise<void> {
   const sub = await loadSubscription(user.id);
   if (!sub || !sub.cancel_at_period_end || sub.status === "cancelled") throw new SubscriptionError(400, "해지 예약 상태가 아닙니다.");
+  if (sub.beta) throw new SubscriptionError(400, "무료 베타는 이어서 쓰려면 플랜을 결제해 주세요.");
   if (new Date(sub.current_period_end) <= new Date()) throw new SubscriptionError(400, "이미 만료되었습니다. 플랜을 다시 선택하세요.");
   const admin = createAdminClient();
   const { data } = await admin
