@@ -1,5 +1,6 @@
 import type { DeviceKind } from "@/config/plans";
 import { SITE_DATA_DRAFT_ROWS } from "@/config/site-data";
+import { builtinSections, menuPages, sectionOrder, type Block, type FormField, type FormFieldType, type PageLayout } from "@/lib/page-layout";
 import { formatCell, type Collection, type CollectionRow } from "@/lib/collections";
 import { copyOf, paletteOf, rulesDesign, type DesignDoc, type Palette, type Theme } from "@/lib/design-doc";
 import {
@@ -190,6 +191,8 @@ type Ctx = {
   sections: SectionRect[];
   /** 아직 그리지 않은 관리자 목록 — 아래 행동 유도 띠가 있는 페이지면 띠 바로 앞에 그린다 */
   pendingList: Collection | null;
+  /** 구역 순서를 따로 그릴 때: 본문(PAGE)이 끝에서 아래 행동 유도 띠를 그리지 않게 한다 */
+  skipCta: boolean;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -706,6 +709,7 @@ function ctaBand(ctx: Ctx, y: number): number {
     ctx.pendingList = null;
     y = collectionList(ctx, y, list, true);
   }
+  if (ctx.skipCta) return y;
   const purposes = ctx.in.business.purposes;
   const title = cp(
     ctx,
@@ -1031,6 +1035,165 @@ function formButton(ctx: Ctx, x: number, y: number, w: number, label: string, ke
   ctx.fields.push({ key, x: r(x), y: r(y), w: r(w), h: 54, text: label });
 }
 
+const FIELD_PLACEHOLDER: Record<FormFieldType, string> = {
+  text: "입력하세요",
+  phone: "010-0000-0000",
+  email: "example@email.com",
+  date: "날짜를 고르세요",
+  time: "시간을 고르세요",
+  number: "숫자를 입력하세요",
+  longtext: "자유롭게 적어 주세요",
+  select: "골라 주세요  ▾",
+  checkbox: "",
+};
+
+/** 폼 항목들 (디자인 문서 forms · 폼 구역). 끝난 y */
+function formFields(ctx: Ctx, x: number, y: number, w: number, fields: FormField[]): number {
+  for (const f of fields) {
+    const label = `${f.label}${f.required ? " *" : ""}`;
+    if (f.type === "checkbox") {
+      ctx.out.push(box(x, y, 18, 18, C.card, { rx: 4, stroke: C.stroke }) + text(x + 28, y + 9, fit(label, 14, w - 28), { size: 14, fill: C.body }));
+      y += 38;
+      continue;
+    }
+    y = formField(ctx, x, y, w, label, FIELD_PLACEHOLDER[f.type], f.type === "longtext" ? 120 : 50);
+  }
+  return y;
+}
+
+// ---------------------------------------------------------------------------------------------
+// 새 구역 (디자인 문서 layout · lib/page-layout.ts) — AI 가 더하는 글 · 지도 · 영상 · SNS · 자주 묻는 질문 · 폼 · 버튼
+// ---------------------------------------------------------------------------------------------
+
+function blockSection(ctx: Ctx, y: number, b: Block): number {
+  const key = (k: string) => `block:${b.id}.${k}`;
+  return section(
+    ctx,
+    y,
+    b.type === "button" ? ctx.tint : C.bg,
+    (top) => {
+      const center = b.type === "button";
+      let yy = b.title ? heading(ctx, center ? ctx.pad : ctx.pad, top, b.title, null, { center, keys: { title: key("title") } }) : top;
+      if (b.body) {
+        const lines = wrap(b.body, ctx.s.body, Math.min(ctx.cw, 820), b.type === "text" ? 8 : 3);
+        const x = center ? ctx.W / 2 : ctx.pad;
+        ctx.out.push(para(x, yy, lines, { size: ctx.s.body, lh: ctx.s.body + 12, fill: C.body, anchor: center ? "middle" : "start" }));
+        field(ctx, key("body"), x, yy, lines, { size: ctx.s.body, lh: ctx.s.body + 12, anchor: center ? "middle" : "start" });
+        yy += lines.length * (ctx.s.body + 12) + 24;
+      }
+      switch (b.type) {
+        case "text":
+          return yy - (b.body ? 24 : 0);
+        case "map": {
+          const h = ctx.mob ? 220 : 340;
+          ctx.out.push(box(ctx.pad, yy, ctx.cw, h, C.soft2, { rx: RAD.card }));
+          const cx = ctx.pad + ctx.cw / 2;
+          const cy = yy + h / 2 - 10;
+          ctx.out.push(`<path d="M${r(cx)} ${r(cy + 22)} C ${r(cx - 4)} ${r(cy + 10)} ${r(cx - 16)} ${r(cy + 2)} ${r(cx - 16)} ${r(cy - 8)} A 16 16 0 1 1 ${r(cx + 16)} ${r(cy - 8)} C ${r(cx + 16)} ${r(cy + 2)} ${r(cx + 4)} ${r(cy + 10)} ${r(cx)} ${r(cy + 22)} Z" fill="${ctx.primary}"/>` + `<circle cx="${r(cx)}" cy="${r(cy - 8)}" r="6" fill="${C.bg}"/>`);
+          ctx.out.push(text(cx, yy + h - 34, fit(b.address, 15, ctx.cw - 40), { size: 15, weight: 600, fill: C.ink, anchor: "middle" }));
+          return yy + h;
+        }
+        case "video": {
+          const w = Math.min(ctx.cw, 960);
+          const h = Math.round((w * 9) / 16);
+          const x = ctx.pad + (ctx.cw - w) / 2;
+          ctx.out.push(box(x, yy, w, h, "#0f172a", { rx: RAD.card }));
+          const cx = x + w / 2;
+          const cy = yy + h / 2;
+          ctx.out.push(`<circle cx="${r(cx)}" cy="${r(cy)}" r="34" fill="#ef4444"/><polygon points="${r(cx - 10)},${r(cy - 15)} ${r(cx - 10)},${r(cy + 15)} ${r(cx + 16)},${r(cy)}" fill="#ffffff"/>`);
+          return yy + h;
+        }
+        case "sns": {
+          let x = ctx.pad;
+          let ly = yy;
+          for (const l of b.links) {
+            const bt = secondaryButton(x, ly, l.label, { size: 15, h: 46 });
+            if (x + bt.w > ctx.pad + ctx.cw && x > ctx.pad) {
+              x = ctx.pad;
+              ly += 58;
+            }
+            ctx.out.push(secondaryButton(x, ly, l.label, { size: 15, h: 46 }).svg);
+            x += bt.w + 12;
+          }
+          return ly + 46;
+        }
+        case "faq": {
+          let fy = yy;
+          b.items.forEach((it, i) => {
+            const open = i === 0 && Boolean(it.a);
+            ctx.out.push(`<circle cx="${r(ctx.pad + 18)}" cy="${r(fy + 36)}" r="16" fill="${ctx.tint2}"/>` + text(ctx.pad + 18, fy + 36, "Q", { size: 14, weight: 800, fill: ctx.primaryText, anchor: "middle" }));
+            ctx.out.push(text(ctx.pad + 52, fy + 36, fit(it.q, 16, ctx.cw - 90, true), { size: 16, weight: 600, fill: C.ink }) + chevron(ctx.pad + ctx.cw - 20, fy + 36, C.faint));
+            let h = 72;
+            if (open) {
+              const al = wrap(it.a, 15, ctx.cw - 110, 3);
+              ctx.out.push(box(ctx.pad + 52, fy + 66, ctx.cw - 72, al.length * 24 + 28, C.soft, { rx: Math.min(8, RAD.card) }) + para(ctx.pad + 70, fy + 80, al, { size: 15, lh: 24, fill: C.body }));
+              h = 66 + al.length * 24 + 44;
+            }
+            fy += h;
+            ctx.out.push(hline(ctx.pad, ctx.pad + ctx.cw, fy));
+          });
+          return fy;
+        }
+        case "form": {
+          const w = ctx.desk ? Math.min(ctx.cw, 680) : ctx.cw;
+          let fy = formFields(ctx, ctx.pad, yy, w, b.fields.length ? b.fields : [{ label: "이름", type: "text", required: true }, { label: "연락처", type: "phone", required: true }]);
+          formButton(ctx, ctx.pad, fy, w, b.button || "보내기", key("button"));
+          fy += 54;
+          return fy;
+        }
+        case "button": {
+          const bt = primaryButton(ctx, ctx.W / 2, yy, b.button || b.title || "바로가기", { size: 16, h: 52, center: true });
+          ctx.out.push(bt.svg);
+          ctx.fields.push({ key: key("button"), x: r(ctx.W / 2 - bt.w / 2), y: r(yy), w: r(bt.w), h: 52, text: b.button || b.title });
+          return yy + 52;
+        }
+      }
+    },
+    `block:${b.id}`,
+  );
+}
+
+/** 홈의 기본 구역 (lib/page-layout.ts builtinSections("home") 와 같은 id) */
+const HOME_PART: Record<string, Compose> = {
+  hero: (ctx, y) => hero(ctx, y),
+  offerings: (ctx, y) =>
+    offeringGrid(ctx, y, {
+      bg: C.bg,
+      title: cp(ctx, "offerings.title", ctx.offerMenu),
+      sub: cp(ctx, "offerings.subtitle", `${josa(ctx.in.siteName, "이/가")} 준비한 ${ctx.offerMenu}`),
+      max: 6,
+      mobileCols: 1,
+      aspect: ctx.mob ? 0.62 : 0.72,
+      keys: { title: "offerings.title", sub: "offerings.subtitle" },
+    }),
+  strengths: (ctx, y) => strengths(ctx, y),
+  about: (ctx, y) => aboutTeaser(ctx, y),
+  reviews: (ctx, y) => reviewCards(ctx, y, 3, true),
+  cta: (ctx, y) => ctaBand(ctx, y),
+};
+
+/** 구역 순서가 정해진 페이지: 순서대로 그린다 (기본 구역 · 새 구역) */
+function renderLayout(ctx: Ctx, y: number, layout: PageLayout, listed: Collection | undefined): number {
+  const kind = ctx.in.page.kind;
+  for (const id of sectionOrder(kind, layout)) {
+    const block = layout.blocks.find((b) => b.id === id);
+    if (block) y = blockSection(ctx, y, block);
+    else if (kind === "home") y = HOME_PART[id]?.(ctx, y) ?? y;
+    else if (id === "cta") {
+      ctx.skipCta = false;
+      y = ctaBand(ctx, y);
+    } else if (id === "main") {
+      if (listed && LIST_REPLACES.has(kind)) y = collectionList(ctx, y, listed, false);
+      else {
+        ctx.skipCta = true;
+        y = PAGE[kind](ctx, y);
+        ctx.skipCta = false;
+      }
+    }
+  }
+  return y;
+}
+
 // ---------------------------------------------------------------------------------------------
 // 관리자 목록
 // ---------------------------------------------------------------------------------------------
@@ -1135,20 +1298,8 @@ type Compose = (ctx: Ctx, y: number) => number;
 
 const PAGE: Record<PageKind, Compose> = {
   home: (ctx, y) => {
-    y = hero(ctx, y);
-    y = offeringGrid(ctx, y, {
-      bg: C.bg,
-      title: cp(ctx, "offerings.title", ctx.offerMenu),
-      sub: cp(ctx, "offerings.subtitle", `${josa(ctx.in.siteName, "이/가")} 준비한 ${ctx.offerMenu}`),
-      max: 6,
-      mobileCols: 1,
-      aspect: ctx.mob ? 0.62 : 0.72,
-      keys: { title: "offerings.title", sub: "offerings.subtitle" },
-    });
-    y = strengths(ctx, y);
-    y = aboutTeaser(ctx, y);
-    y = reviewCards(ctx, y, 3, true);
-    return ctaBand(ctx, y);
+    for (const id of builtinSections("home")) y = HOME_PART[id](ctx, y);
+    return y;
   },
 
   about: (ctx, y) => {
@@ -1402,10 +1553,14 @@ const PAGE: Record<PageKind, Compose> = {
     section(ctx, y, C.bg, (top) => {
       const formW = ctx.desk ? ctx.cw * 0.58 : ctx.cw;
       let fy = top;
-      fy = formField(ctx, ctx.pad, fy, formW, "이름 *", "이름을 입력하세요");
-      fy = formField(ctx, ctx.pad, fy, formW, "연락처 *", "010-0000-0000");
-      fy = formField(ctx, ctx.pad, fy, formW, "이메일", "example@email.com");
-      fy = formField(ctx, ctx.pad, fy, formW, "문의 내용 *", "궁금한 점을 자유롭게 적어 주세요", 150);
+      const custom = ctx.doc.forms?.[ctx.in.page.path];
+      if (custom) fy = formFields(ctx, ctx.pad, fy, formW, custom);
+      else {
+        fy = formField(ctx, ctx.pad, fy, formW, "이름 *", "이름을 입력하세요");
+        fy = formField(ctx, ctx.pad, fy, formW, "연락처 *", "010-0000-0000");
+        fy = formField(ctx, ctx.pad, fy, formW, "이메일", "example@email.com");
+        fy = formField(ctx, ctx.pad, fy, formW, "문의 내용 *", "궁금한 점을 자유롭게 적어 주세요", 150);
+      }
       ctx.out.push(box(ctx.pad, fy, 18, 18, C.card, { rx: 4, stroke: C.stroke }) + text(ctx.pad + 28, fy + 9, "개인정보 수집·이용에 동의합니다", { size: 14, fill: C.body }));
       fy += 42;
       formButton(ctx, ctx.pad, fy, formW, cp(ctx, "contact.button", "문의 보내기"), "contact.button");
@@ -1429,18 +1584,22 @@ const PAGE: Record<PageKind, Compose> = {
     section(ctx, y, C.bg, (top) => {
       const formW = ctx.desk ? ctx.cw * 0.58 : ctx.cw;
       let fy = top;
-      if (ctx.mob) {
-        fy = formField(ctx, ctx.pad, fy, formW, "예약 날짜 *", "날짜를 고르세요");
-        fy = formField(ctx, ctx.pad, fy, formW, "시간 *", "시간을 고르세요");
-      } else {
-        const half = (formW - 16) / 2;
-        formField(ctx, ctx.pad, fy, half, "예약 날짜 *", "날짜를 고르세요");
-        fy = formField(ctx, ctx.pad + half + 16, fy, half, "시간 *", "시간을 고르세요");
+      const custom = ctx.doc.forms?.[ctx.in.page.path];
+      if (custom) fy = formFields(ctx, ctx.pad, fy, formW, custom);
+      else {
+        if (ctx.mob) {
+          fy = formField(ctx, ctx.pad, fy, formW, "예약 날짜 *", "날짜를 고르세요");
+          fy = formField(ctx, ctx.pad, fy, formW, "시간 *", "시간을 고르세요");
+        } else {
+          const half = (formW - 16) / 2;
+          formField(ctx, ctx.pad, fy, half, "예약 날짜 *", "날짜를 고르세요");
+          fy = formField(ctx, ctx.pad + half + 16, fy, half, "시간 *", "시간을 고르세요");
+        }
+        fy = formField(ctx, ctx.pad, fy, formW, "인원", "인원을 입력하세요");
+        fy = formField(ctx, ctx.pad, fy, formW, "이름 *", "이름을 입력하세요");
+        fy = formField(ctx, ctx.pad, fy, formW, "연락처 *", "010-0000-0000");
+        fy = formField(ctx, ctx.pad, fy, formW, "요청 사항", "남기실 말씀이 있으면 적어 주세요", 110);
       }
-      fy = formField(ctx, ctx.pad, fy, formW, "인원", "인원을 입력하세요");
-      fy = formField(ctx, ctx.pad, fy, formW, "이름 *", "이름을 입력하세요");
-      fy = formField(ctx, ctx.pad, fy, formW, "연락처 *", "010-0000-0000");
-      fy = formField(ctx, ctx.pad, fy, formW, "요청 사항", "남기실 말씀이 있으면 적어 주세요", 110);
       formButton(ctx, ctx.pad, fy, formW, cp(ctx, "reservation.button", "예약하기"), "reservation.button");
       fy += 54;
       const cardX = ctx.desk ? ctx.pad + formW + 56 : ctx.pad;
@@ -1609,7 +1768,7 @@ export function renderDraft(input: DraftInput, forceHeight?: number): DraftResul
       tint: p.tint,
       tint2: p.tint2,
       cta: copyOf(doc, input.page.path, "site.cta") ?? ctaLabel(input.business.category, input.business.purposes),
-      menu: headerMenu(input.plan.pages),
+      menu: headerMenu(menuPages(input.plan.pages, doc.menu)),
       offerMenu: ind.offeringMenu,
       images: new Map(input.plan.images.map((i) => [i.id, i])),
       out: [],
@@ -1617,7 +1776,13 @@ export function renderDraft(input: DraftInput, forceHeight?: number): DraftResul
       fields: [],
       sections: [],
       pendingList: null,
+      skipCta: false,
     };
+    // 메뉴 이름을 바꿨으면 이 페이지의 제목 띠 · 경로에도 같은 이름을 쓴다
+    if (doc.menu) {
+      const named = menuPages(input.plan.pages, { ...doc.menu, hidden: [], order: [] }).find((p) => p.path === input.page.path);
+      if (named) ctx.in = { ...input, page: { ...input.page, label: named.label, group: named.group } };
+    }
 
     let y = header(ctx, 0);
     if (input.page.kind !== "home") {
@@ -1625,7 +1790,12 @@ export function renderDraft(input: DraftInput, forceHeight?: number): DraftResul
       y = subNav(ctx, y);
     }
     const listed = (doc.collections ?? []).find((c) => c.page === input.page.path);
-    if (listed && LIST_REPLACES.has(input.page.kind)) y = collectionList(ctx, y, listed, false);
+    const layout = doc.layout?.[input.page.path];
+    if (layout) {
+      ctx.pendingList = listed && !LIST_REPLACES.has(input.page.kind) ? listed : null;
+      y = renderLayout(ctx, y, layout, listed);
+      if (ctx.pendingList) y = collectionList(ctx, y, ctx.pendingList, true);
+    } else if (listed && LIST_REPLACES.has(input.page.kind)) y = collectionList(ctx, y, listed, false);
     else {
       // 본문 뒤에 붙인다. 아래 행동 유도 띠가 있으면 띠 앞에 그려진다 (ctaBand)
       ctx.pendingList = listed ?? null;

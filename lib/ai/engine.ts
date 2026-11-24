@@ -30,6 +30,7 @@ import { bugPrompt, buildPrompt, editPrompt, tagNames, type BatchPeer, type Edit
 import { copyLimits, copySlots, plannedOf, renderPage, rerender, type LayoutPage } from "@/lib/ai/layout";
 import { BugOutput, BuildOutput, EditOutput } from "@/lib/ai/schemas";
 import { applyCollectionChanges } from "@/lib/collections";
+import { applyLayoutChanges, splitLayoutChanges } from "@/lib/page-layout";
 import {
   THEME_KEYS,
   applyChanges,
@@ -568,7 +569,29 @@ function revertChanges(doc: DesignDoc, runs: { applied: { changes?: AppliedChang
   };
 }
 
-type RecentRun = { id: string; created_at: string; input: { message?: string; page?: string; device?: DeviceKind } | null; applied: { changes?: AppliedChange[] } | null };
+type LayoutSnap = { layout: DesignDoc["layout"] | null; menu: DesignDoc["menu"] | null; forms: DesignDoc["forms"] | null };
+const layoutOf = (d: DesignDoc): LayoutSnap => ({ layout: d.layout ?? null, menu: d.menu ?? null, forms: d.forms ?? null });
+
+/** 되돌리기: 고른 변경 중 구역 · 메뉴 · 폼을 바꾼 것이 있고, 지금 값이 그 변경의 결과 그대로면 그 전 값으로 (최근 것부터) */
+function revertLayout(doc: DesignDoc, runs: RecentRun[]): LayoutSnap | null {
+  let cur = layoutOf(doc);
+  let changed = false;
+  for (const run of runs) {
+    const a = run.applied;
+    if (!a?.layoutBefore || !a.layoutAfter) continue;
+    if (JSON.stringify(cur) !== JSON.stringify(a.layoutAfter)) continue;
+    cur = a.layoutBefore;
+    changed = true;
+  }
+  return changed ? cur : null;
+}
+
+type RecentRun = {
+  id: string;
+  created_at: string;
+  input: { message?: string; page?: string; device?: DeviceKind } | null;
+  applied: { changes?: AppliedChange[]; layoutBefore?: LayoutSnap; layoutAfter?: LayoutSnap } | null;
+};
 
 /**
  * 오류 신고 하나를 AI 가 먼저 확인한다. 고객에게 비용이 들지 않는다 (우리 쪽 실수를 고치는 일).
@@ -693,9 +716,20 @@ export async function processBugReport(requestId: string): Promise<ProcessResult
         pagePaths,
         copyLimits(current.brief),
       );
-      const changes = visibleChanges(current.brief, before, applied, page.path);
+      const backLayout = revertLayout(before, picked);
+      const changes = [
+        ...visibleChanges(current.brief, before, applied, page.path),
+        ...(backLayout ? [{ kind: "section" as const, key: "revert", before: "AI가 바꾼 구역 · 메뉴 · 폼", after: "구역 · 메뉴 · 폼을 그 전으로 되돌림" }] : []),
+      ];
       if (!changes.length) return handOff(`${summary ? `${summary} ` : ""}AI가 고칠 값을 찾지 못했어요.`, { applied: { changes: [], rejected } });
-      const to: DesignDoc = { ...doc, version: before.version + 1, source: "ai", aiPending: false, updatedAt: new Date().toISOString() };
+      const to: DesignDoc = {
+        ...doc,
+        ...(backLayout ? { layout: backLayout.layout ?? undefined, menu: backLayout.menu ?? undefined, forms: backLayout.forms ?? undefined } : {}),
+        version: before.version + 1,
+        source: "ai",
+        aiPending: false,
+        updatedAt: new Date().toISOString(),
+      };
       await setLive(admin, runId, { stage: "rendering", decision: out.decision, summary });
       const saved = await saveDesign(admin, current, before, to);
       if (saved === "conflict" && attempt === 0) {
@@ -975,11 +1009,16 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       );
       // 관리자 목록은 디자인 문서의 정의만 바뀐다 (글은 공용 DB 의 site_records — 표를 만들 일이 없어 바로 끝난다)
       const data = wantsData ? applyCollectionChanges(doc.collections ?? [], out.collectionChanges, pagePaths) : null;
+      // 구역 · 메뉴 · 폼 (lib/page-layout.ts 가 다시 검사한다)
+      const lay = out.layoutChanges.length
+        ? applyLayoutChanges({ layout: doc.layout, menu: doc.menu, forms: doc.forms }, splitLayoutChanges(out.layoutChanges, page.path), current.brief.site?.pages ?? [])
+        : null;
       const changes: AppliedChange[] = [
         ...visibleChanges(current.brief, before, applied, page.path),
         ...(data?.applied ?? []).map((d) => ({ kind: "data" as const, key: d.key, before: d.before, after: d.after })),
+        ...(lay?.applied ?? []).map((d) => ({ kind: d.kind, key: d.key, path: d.path, before: d.before, after: d.after })),
       ];
-      const allRejected = [...rejected, ...(data?.rejected ?? [])];
+      const allRejected = [...rejected, ...(data?.rejected ?? []), ...(lay?.rejected ?? [])];
       if (!changes.length) {
         // AI 가 할 수 있다고 봤지만 바꿀 값이 없었다 → 담당자가 손으로 하는 작은 일
         return await handOffWork("later", null, `${summary ? `${summary} ` : ""}AI가 바꿀 수 있는 값을 찾지 못했어요.`, out, {
@@ -990,6 +1029,7 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       const to: DesignDoc = {
         ...doc,
         ...(data ? { collections: data.collections } : {}),
+        ...(lay ? { layout: lay.state.layout, menu: lay.state.menu, forms: lay.state.forms } : {}),
         version: before.version + 1,
         source: "ai",
         aiPending: false,
@@ -1021,7 +1061,12 @@ export async function processAiRequest(requestId: string, opts: { force?: boolea
       await finishRun(admin, runId, {
         status: "applied",
         output: out,
-        applied: { changes, rejected: allRejected },
+        applied: {
+          changes,
+          rejected: allRejected,
+          // 오류 신고의 되돌리기가 구역 · 메뉴 · 폼을 이 요청 전으로 돌릴 수 있게 앞뒤 값을 남긴다
+          ...(lay?.applied.length ? { layoutBefore: layoutOf(before), layoutAfter: layoutOf(to) } : {}),
+        },
         design_version_after: to.version,
         tokens_billed: res.billed,
         ...callFields(res),

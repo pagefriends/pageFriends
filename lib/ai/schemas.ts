@@ -58,6 +58,24 @@ export const EditOutput = z.object({
       }),
     )
     .describe("관리자 목록을 만들거나 바꿀 때만. 아니면 빈 목록"),
+  layoutChanges: z
+    .array(
+      z.object({
+        target: z.enum(["section", "menu", "form"]).describe("section 구역 · menu 메뉴 · form 문의 · 예약 폼"),
+        op: z.string().describe("section: add · move · remove · show · edit / menu: rename · rename_group · move · hide · show / form: set"),
+        page: z.string().describe("페이지 주소 (menu 면 그 메뉴의 페이지 주소)"),
+        id: z.string().describe("section 의 move · remove · show · edit 대상 구역 id. 아니면 빈 글자"),
+        type: z.string().describe("section add 의 새 구역 종류: text · map · video · sns · faq · form · button. 아니면 빈 글자"),
+        after: z.string().describe("이 구역 id(메뉴면 페이지 주소) 다음에. 맨 위는 top. add 에서 빈 글자면 아래 띠 앞"),
+        title: z.string().describe("새 구역 제목 · 메뉴의 새 이름"),
+        body: z.string().describe("글 · 버튼 구역의 설명 글"),
+        url: z.string().describe("영상: 유튜브 주소 · 버튼: 이동할 주소"),
+        address: z.string().describe("지도 주소"),
+        lines: z.array(z.string()).describe("sns: '이름|주소' · faq: '질문|답' · 폼 항목: '이름|종류|필수' (종류 text·phone·email·date·time·number·longtext·select·checkbox, 필수 예/아니오) 한 줄에 하나"),
+        button: z.string().describe("폼 · 버튼 구역의 버튼 글"),
+      }),
+    )
+    .describe("구역 · 메뉴 · 폼을 바꿀 때만. 아니면 빈 목록"),
 });
 export type EditOutput = z.infer<typeof EditOutput>;
 

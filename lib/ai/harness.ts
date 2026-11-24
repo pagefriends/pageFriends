@@ -1,6 +1,7 @@
 import "server-only";
 
 import { STYLE_BY_ID, normalizeStyles, type StyleId } from "@/config/design-styles";
+import { builtinSections, menuPages, sectionName, sectionOrder } from "@/lib/page-layout";
 import { DEVICE_LABEL, type DeviceKind } from "@/config/plans";
 import { templateDesign, type TemplateDesign } from "@/config/template-designs";
 import { describeTheme, type DesignDoc } from "@/lib/design-doc";
@@ -55,6 +56,18 @@ const CORE = `당신은 페이지프렌즈의 웹사이트 디자이너 AI 입�
 - 목록 안의 실제 글(공지 내용 · 상품 이름 · 가격 · 일정)은 당신이 쓰지 않는다 — 사이트 주인이 관리자 페이지에서 올린다.
 - <관리자_목록> 에 지금 있는 목록과 이 사이트의 플랜에서 쓸 수 있는지가 있다. 쓸 수 없으면 목록을 만들지 말고 ask 로 "관리자 페이지(목록을 직접 올리고 고치기)는 비즈니스 플랜부터 쓸 수 있어요" 라고 알리고 어떻게 할지 묻는다.
 
+4) 구역 · 메뉴 · 폼 — <구역> · <메뉴> · <폼> 을 보고 layoutChanges 에 한 줄씩 넣는다
+- target=section 구역: op 는 move 옮기기 · remove 숨기기 · show 숨긴 기본 구역 다시 보이기 · add 새 구역 · edit 새 구역 내용 바꾸기. id 는 <구역> 의 id.
+  홈 기본 구역은 hero 첫 화면 · offerings 서비스 소개 · strengths 강점 · about 회사 소개 · reviews 고객 후기 · cta 아래 띠, 다른 페이지는 main 본문 · cta 아래 띠.
+  "후기를 위로" 처럼 말하면 move 로 after 에 앞에 둘 구역 id (맨 위는 top). 네모가 걸친 구역이 대상이거나 기준일 때가 많다.
+- add 의 type: text 글(title · body) · map 지도(address 필수) · video 영상(url 에 유튜브 주소 필수) · sns(lines '이름|주소') · faq(lines '질문|답') · form 폼(lines '이름|종류|필수', button) · button 버튼(button · url).
+  고객이 준 내용만 쓴다. 지도 주소 · 영상 주소 · SNS 주소가 요청에도 사이트 정보에도 없으면 ask 로 묻는다 (지어내지 않는다).
+  after = 그 구역 id 다음 (맨 위 top). 빈 글자면 아래 띠 앞.
+- edit 는 새 구역(b숫자)만: 바꿀 칸만 채운다. 기본 구역의 글은 copyChanges(문구 자리)로 고친다.
+- target=menu 메뉴: op rename(title 에 새 이름) · rename_group(묶음 이름, title) · move(after = 앞에 올 메뉴의 페이지 주소, 맨 앞 top) · hide · show. page 는 <메뉴> 의 주소. 홈은 바꿀 수 없다.
+- target=form 폼: op set, page 는 문의 · 예약 페이지 주소, lines 에 항목 전체를 순서대로 ('이름|종류|필수'). 지금 항목에 더하거나 빼서 다시 보낸다. 개인정보 동의는 checkbox.
+- 새 페이지 만들기 · 페이지 지우기 · 사진 · 로고 바꾸기는 아직 할 수 없다 (unable=later).
+
 ## 할 수 없는 것 (담당자에게 넘긴다)
 구역 추가 · 삭제 · 순서 바꾸기(관리자 목록 붙이기는 할 수 있다), 메뉴 · 페이지 바꾸기, 기능(문의 · 예약 폼 항목 · 결제 · 지도 · 회원가입 · 외부 서비스 연결), 사진 · 이미지 · 로고 만들기나 바꾸기, 문구 자리가 아닌 곳의 글(폼 항목 이름 · 후기 내용 · 가격표), 사실 확인이 필요한 내용.
 
@@ -70,7 +83,7 @@ const CORE = `당신은 페이지프렌즈의 웹사이트 디자이너 AI 입�
   · ask: 무엇을 원하는지 정말 알 수 없을 때만 한 가지를 짧게 묻는다. 합리적으로 짐작할 수 있으면 묻지 말고 apply.
   · unable: 바로 할 수 없는 요청. unable 에 갈래를 고르고 staffNote 에 담당자가 볼 메모를 적는다. 고객 토큰은 깎이지 않는다.
 - unable 갈래:
-  · later: "할 수 없는 것" 중 기능만 있으면 되는 일 (구역 추가 · 삭제 · 순서, 메뉴 · 페이지, 폼 항목, 문구 자리가 아닌 글, 지도 · 영상 · SNS 넣기, 사진 · 로고 바꾸기). 담당자가 이어서 한다.
+  · later: 아직 AI 기능이 없는 일 (새 페이지 만들기 · 페이지 지우기, 사진 · 로고 바꾸기, 기본 구역 안의 카드 · 표 모양 바꾸기, 문구 자리 · 새 구역이 아닌 곳의 글). 담당자가 이어서 한다.
   · connect: 서류나 고객 계정이 있어야 하는 연결 — 결제(payment) · 카카오 알림톡(alimtalk) · 문자(sms) · 카카오 · 네이버 로그인(social_login) · 내 도메인(domain) · 그 밖의 외부 서비스(external). connect 에 무엇인지 고른다. 필요한 서류는 화면이 안내한다.
   · review: 사람이 확인해야 하는 내용 — 가격 · 경력 · 수상 같은 사실 확인, "최고 · 1위" 같은 표현, 병원 · 건강식품 광고 표현, 약관 · 개인정보처리방침, 새 로고 디자인.
   · consult: 서비스 범위 밖 — 모바일 앱, 재고 · 회계 같은 맞춤 업무 시스템, 다른 회사 사이트를 그대로 베끼기.
@@ -109,6 +122,42 @@ export type HarnessSite = {
   /** 사이트 주인의 플랜이 관리자 목록(관리자 페이지)을 쓸 수 있는지 (수정 요청에서만) */
   cms?: boolean;
 };
+
+/** 이 페이지의 구역 순서 · 사이트 메뉴 · 폼 (수정 요청 지시서) */
+function layoutText(site: HarnessSite, pagePath: string, overlap: string[]): string {
+  const pages = site.brief.site?.pages ?? [];
+  const page = pages.find((p) => p.path === pagePath);
+  if (!page) return "";
+  const layout = site.design.layout?.[pagePath];
+  const order = sectionOrder(page.kind, layout);
+  const hidden = builtinSections(page.kind).filter((id) => !order.includes(id));
+  // 그림의 구역 id → 구역 순서의 id (홈은 같고, 다른 페이지의 본문 그림은 main)
+  const toLayoutId = (id: string) => (id.startsWith("block:") ? id.slice(6) : page.kind === "home" || id === "cta" ? id : ["header", "footer", "title", "subnav"].includes(id) ? null : "main");
+  const under = [...new Set(overlap.map(toLayoutId).filter((x): x is string => Boolean(x)))];
+  const view = menuPages(pages, site.design.menu);
+  const lines = [
+    `<구역 페이지="${pagePath}">`,
+    `지금 순서: ${order.map((id) => `${id}(${sectionName(id, layout)})`).join(" → ")}`,
+    hidden.length ? `숨긴 기본 구역: ${hidden.map((id) => `${id}(${sectionName(id, layout)})`).join(", ")}` : "숨긴 기본 구역: 없음",
+    `네모가 걸친 구역: ${under.join(", ") || "(없음)"}`,
+    ...(layout?.blocks ?? []).map((b) => `- ${b.id}: ${JSON.stringify(b)}`),
+    "</구역>",
+    "<메뉴>",
+    ...view.filter((p) => p.kind !== "home").map((p) => `- ${p.path} "${p.label}"${p.group ? ` (묶음 "${p.group}")` : ""}`),
+    ...(site.design.menu?.hidden.length ? [`메뉴에서 숨긴 페이지: ${site.design.menu.hidden.join(", ")}`] : []),
+    "</메뉴>",
+  ];
+  const formPages = pages.filter((p) => p.kind === "contact" || p.kind === "reservation");
+  if (formPages.length) {
+    lines.push("<폼>");
+    for (const p of formPages) {
+      const f = site.design.forms?.[p.path];
+      lines.push(`- ${p.path}: ${f ? f.map((x) => `${x.label}(${x.type}${x.required ? ",필수" : ""})`).join(", ") : p.kind === "contact" ? "기본 (이름 · 연락처 · 이메일 · 문의 내용)" : "기본 (예약 날짜 · 시간 · 인원 · 이름 · 연락처 · 요청 사항)"}`);
+    }
+    lines.push("</폼>");
+  }
+  return lines.join("\n");
+}
 
 /** 지금 있는 관리자 목록 (수정 요청 지시서) */
 function collectionsText(site: HarnessSite): string {
@@ -268,7 +317,8 @@ export function editPrompt(site: HarnessSite, req: EditRequest, layout: DraftRes
     slotsText(slots, () => (planned ? pageFullName(planned) : "")),
     "</문구_자리>",
     collectionsText(site),
-    "작업: edit. decision 을 고르고, apply 면 바꿀 값만 themeChanges · copyChanges · collectionChanges 에 넣으세요 (copyChanges 의 path 는 page 범위일 때 위 페이지 주소, site 범위면 빈 글자. 관리자 목록을 만들거나 바꾸지 않으면 collectionChanges 는 빈 목록).",
+    layoutText(site, req.pagePath, ctx.sections.map((s) => s.id)),
+    "작업: edit. decision 을 고르고, apply 면 바꿀 값만 themeChanges · copyChanges · collectionChanges · layoutChanges 에 넣으세요 (copyChanges 의 path 는 page 범위일 때 위 페이지 주소, site 범위면 빈 글자. 바꾸지 않는 칸은 빈 목록).",
   ].join("\n");
   return { system: [{ text: coreSystem(), cache: true }, { text: skillsText(skills), cache: true }], user, skills: [...POLICY_SKILLS, ...skills], region: ctx };
 }

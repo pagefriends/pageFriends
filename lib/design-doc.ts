@@ -1,5 +1,6 @@
 import { STYLE_BY_ID, mergeStyles, normalizeStyles, type StyleId, type StyleMerge } from "@/config/design-styles";
 import { sanitizeCollections, type Collection } from "@/lib/collections";
+import { sanitizeForms, sanitizeLayout, sanitizeMenu, type FormField, type MenuOverride, type PageLayout } from "@/lib/page-layout";
 import { contrastText } from "@/lib/site-plan";
 
 /**
@@ -79,6 +80,12 @@ export type DesignDoc = {
   copy: { site: CopyMap; pages: Record<string, CopyMap> };
   /** 관리자 목록 (글은 공용 DB 의 site_records 에 있다 — lib/site-data.ts). 없으면 빈 목록 */
   collections?: Collection[];
+  /** 페이지별 구역 순서 · 새 구역 (lib/page-layout.ts). 없으면 페이지 종류의 기본 구역 */
+  layout?: Record<string, PageLayout>;
+  /** 메뉴 이름 · 순서 · 숨기기 */
+  menu?: MenuOverride;
+  /** 문의 · 예약 폼 항목 (페이지 주소 → 항목) */
+  forms?: Record<string, FormField[]>;
   /** AI 가 태그를 어떻게 적용했는지 (사용자 · 관리자 화면) */
   appliedTags?: { tag: StyleId; how: string }[];
   /** AI 의 디자인 설명 */
@@ -418,6 +425,9 @@ export function designOf(brief: { design?: DesignDoc | null; tone?: string[]; st
     theme: sanitizeTheme(d.theme, fallback.theme),
     copy: { site: cleanCopy(d.copy?.site), pages: Object.fromEntries(Object.entries(d.copy?.pages ?? {}).map(([k, v]) => [k, cleanCopy(v)])) },
     collections: sanitizeCollections(d.collections),
+    layout: sanitizeLayout(d.layout),
+    menu: sanitizeMenu(d.menu),
+    forms: sanitizeForms(d.forms),
     appliedTags: Array.isArray(d.appliedTags) ? d.appliedTags.filter((a) => a && typeof a.how === "string").slice(0, 8) : undefined,
     notes: typeof d.notes === "string" ? d.notes.slice(0, 2000) : undefined,
     aiPending: d.aiPending === true,
@@ -549,7 +559,7 @@ export const THEME_KEYS: (keyof Theme)[] = [
 ];
 
 /** data = 관리자 목록 (key 는 목록 키, before · after 는 목록 요약. 만들었으면 before 가, 숨겼으면 after 가 빈 글자) */
-export type AppliedChange = { kind: "theme" | "copy" | "data"; key: string; path?: string; before: string; after: string };
+export type AppliedChange = { kind: "theme" | "copy" | "data" | "section" | "menu" | "form"; key: string; path?: string; before: string; after: string };
 
 /**
  * 바꿀 값을 검사해 새 문서를 만든다. 범위를 벗어난 값 · 모르는 키 · 없는 페이지는 버리고(rejected 에 이유), 실제로 바뀐 것만 applied 에 남긴다.
@@ -623,6 +633,10 @@ export function applyChanges(
 /** 바뀐 값 한 줄 (관리자 화면 · 대화) */
 export function describeChange(c: AppliedChange): string {
   if (c.kind === "copy") return `${fieldDef(c.key)?.label ?? c.key}: "${c.before || "기본 문구"}" → "${c.after}"`;
+  if (c.kind === "section" && c.key === "revert") return c.after;
+  if (c.kind === "section") return c.after.endsWith("추가") || c.after.endsWith("숨김") || c.after.includes("내용 바꿈") || c.after.includes("다시 보이기") ? c.after : `구역 순서: ${c.after}`;
+  if (c.kind === "menu") return `${c.before} → ${c.after}`;
+  if (c.kind === "form") return `폼 항목: ${c.before} → ${c.after}`;
   if (c.kind === "data") {
     if (!c.before) return `관리자 목록 만듦: ${c.after}`;
     if (!c.after) return `관리자 목록 숨김 (저장된 글은 그대로): ${c.before}`;
