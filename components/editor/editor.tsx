@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  BadgeCheckIcon,
   ClipboardListIcon,
+  GlobeIcon,
   ClockIcon,
   DatabaseIcon,
   LoaderCircleIcon,
@@ -16,14 +18,14 @@ import {
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { aiStatusAction, submitRequestsAction } from "@/app/(app)/projects/[id]/actions";
 import { AiLivePanel } from "@/components/editor/ai-live-panel";
 import { EditorCanvas, type CanvasHandle, type Flash, type LiveLabel } from "@/components/editor/canvas";
 import { RequestPanel } from "@/components/editor/request-panel";
-import { ReviewRequestButton } from "@/components/editor/review-request";
+import { ReviewPanel } from "@/components/editor/review-request";
 import { UNABLE_LABEL } from "@/config/unable";
 import { draftKey, requestsBySlot, shotVersion, toRegion, type DraftBox, type EditorPage, type EditorTemplate, type ExistingRequest, type SubmitItem } from "@/components/editor/types";
 import { CountChip } from "@/components/messages/count-chip";
@@ -73,6 +75,7 @@ export function ProjectEditor({
   templates = [],
   ai = null,
   siteAdmin = null,
+  children = null,
 }: {
   projectId: string;
   projectName: string;
@@ -84,8 +87,8 @@ export function ProjectEditor({
   /** 이 사이트의 알림 수. 대화 기능을 쓸 수 없으면(체험 모드 포함) null — "메시지" 링크를 숨긴다 */
   news?: ProjectNews | null;
   demo?: boolean;
-  /** 방금 만든 사이트의 첫 안내 */
-  welcome?: { text: string; tone: "blue" | "red" } | null;
+  /** 방금 만든 사이트의 첫 안내 (주소에 ?created=1 이 있을 때만 보인다. &images=failed 면 failed 문장) */
+  welcome?: { ok: string; failed: string } | null;
   /** 누가 만드는지 · 전문가 제작이면 첫 완성본 기한 (구성 초안 배지에 붙는다) */
   buildNote?: string | null;
   /**
@@ -104,8 +107,26 @@ export function ProjectEditor({
   ai?: { enabled: boolean; version: number; pending: boolean; open: number; batchId?: string | null } | null;
   /** 관리자 페이지 (AI 가 만든 관리자 목록 수). 체험 모드 · 예전 사이트는 null — 링크를 숨긴다 */
   siteAdmin?: { lists: number } | null;
+  /** 사이트 탭이 아닐 때 가운데에 보일 하위 페이지 (요청 내역 · 메시지 · 제작 정보 · 관리자 페이지 · 사이트에 올리기) */
+  children?: ReactNode;
 }) {
   const router = useRouter();
+  // 탭: 주소의 마지막 부분 (/projects/{id} = 사이트). 탭을 옮겨도 이 편집기는 그대로라 그리던 박스가 남는다
+  const pathname = usePathname();
+  const base = `/projects/${projectId}`;
+  const tab = demo ? "" : pathname.startsWith(`${base}/`) ? (pathname.slice(base.length + 1).split("/")[0] ?? "") : "";
+  const searchParams = useSearchParams();
+  const [welcomeMsg] = useState(() =>
+    welcome && searchParams.get("created") === "1"
+      ? searchParams.get("images") === "failed"
+        ? { text: welcome.failed, tone: "red" as const }
+        : { text: welcome.ok, tone: "blue" as const }
+      : null,
+  );
+  /** 사이트 화면이 필요한 일(페이지 고르기 · AI 작업 보기)을 하면 사이트 탭으로 돌아온다 */
+  const toSiteTab = useCallback(() => {
+    if (tab) router.push(base);
+  }, [tab, router, base]);
   const [pageId, setPageId] = useState(pages[0]?.id ?? "");
   const [device, setDevice] = useState<DeviceKind>(allowedDevices.includes("desktop") ? "desktop" : allowedDevices[0]);
   const [drafts, setDrafts] = useState<Record<string, DraftBox[]>>({});
@@ -256,6 +277,7 @@ export function ProjectEditor({
     const s = target?.screenshots[it.device];
     if (!target || !s) return;
     closeLive();
+    toSiteTab();
     const id = newDraftId();
     const region = gone ? { x: 0, y: 0, w: 1, h: Math.min(0.08, 100 / s.height) } : it.region;
     const box: DraftBox = {
@@ -328,13 +350,13 @@ export function ProjectEditor({
 
   // 첫 안내 주소(?created=1)는 새로 고침 때 다시 뜨지 않게 지운다. 보이던 안내는 닫을 때까지 남는다
   useEffect(() => {
-    if (!welcome) return;
+    if (!welcomeMsg) return;
     const url = new URL(window.location.href);
     if (!url.searchParams.has("created")) return;
     url.searchParams.delete("created");
     url.searchParams.delete("images");
     window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-  }, [welcome]);
+  }, [welcomeMsg]);
 
   const page = pages.find((p) => p.id === pageId) ?? pages[0];
   const shot = page?.screenshots[device];
@@ -438,6 +460,8 @@ export function ProjectEditor({
       refreshedFor.current = 0;
       setProgress(null);
       setLiveBatch(res.batchId);
+      // AI 가 고치는 모습은 사이트 화면에서 본다
+      toSiteTab();
       return;
     }
     // 사람이 보는 요청(전문가 · 오류 신고)은 답변 기한을 알려 준다
@@ -459,7 +483,7 @@ export function ProjectEditor({
 
   // AI 안내 줄: 새 화면이 준비됨 > 첫 제작 중 (AI 작업 중 화면에서는 화면이 알아서 바뀌므로 띄우지 않는다)
   const aiBanner = !demo && ai?.enabled && !liveBatch ? (newer ? "newer" : live?.pending ? "building" : null) : null;
-  const showBanner = Boolean((welcome && welcomeOpen) || aiBanner);
+  const showBanner = !tab && Boolean((welcomeMsg && welcomeOpen) || aiBanner);
 
   // AI 작업 중: 이 화면에 있는 보낸 네모의 라벨을 진행 상황으로 · 방금 반영한 곳.
   // 고치는 네모가 없으면 첫 대기 네모를 엔진이 확인하는 중이다
@@ -488,6 +512,25 @@ export function ProjectEditor({
     .map((f) => ({ x: f.region.x * shot.width, y: f.region.y * shot.height, w: f.region.w * shot.width, h: f.region.h * shot.height, label: f.label }));
   const liveDone = progress ? progress.items.filter((i) => i.state !== "queued" && i.state !== "working").length : 0;
 
+  // 위쪽 가운데 탭. 누르면 가운데만 바뀐다 (왼쪽 페이지 목록 · 오른쪽 수정 요청 칸은 그대로)
+  const tabs: { key: string; label: string; icon: typeof GlobeIcon; title: string; count?: number; strong?: boolean }[] = [
+    { key: "", label: "사이트", icon: GlobeIcon, title: buildNote ?? "사이트 화면에 빨간 박스를 그려 고칠 곳을 요청해요" },
+    { key: "review", label: "전문가 검수 요청", icon: BadgeCheckIcon, title: "고치는 일은 AI가 해요. 사람이 사이트를 한 번 더 확인해 줬으면 할 때 보내요." },
+    ...(siteAdmin
+      ? [{ key: "admin", label: "관리자 페이지", icon: DatabaseIcon, title: "공지 · 메뉴 · 상품처럼 자주 바뀌는 목록을 직접 올리고 고치는 곳", count: siteAdmin.lists }]
+      : []),
+    { key: "brief", label: "제작 정보", icon: ClipboardListIcon, title: "새 사이트를 만들 때 적은 내용 · 준비할 사진 목록" },
+    {
+      key: "requests",
+      label: "요청 내역",
+      icon: ClockIcon,
+      title: "보낸 요청과 처리 결과",
+      count: news ? news.unreadRequests + news.awaiting : 0,
+      strong: Boolean(news && news.awaiting > 0),
+    },
+    ...(news ? [{ key: "messages", label: "메시지", icon: MessageSquareIcon, title: "담당자와 주고받는 메시지", count: news.unreadGeneral }] : []),
+  ];
+
   return (
     <div
       className={cn(
@@ -498,7 +541,7 @@ export function ProjectEditor({
     >
       {/* 상단: 프로젝트명 + 상태 */}
       <div className="flex h-11 items-center justify-between gap-3 border-b border-ink-200 bg-surface px-4 lg:col-span-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-1 basis-0 items-center gap-3">
           <Link href={demo ? "/" : "/dashboard"} className="shrink-0 text-xs whitespace-nowrap text-ink-500 hover:text-ink-900">
             ← {demo ? "홈" : "내 사이트"}
           </Link>
@@ -509,10 +552,27 @@ export function ProjectEditor({
               디자인 시안
             </Badge>
           ) : null}
-          {buildNote ? <span className="hidden truncate text-xs text-ink-500 xl:inline">{buildNote}</span> : null}
         </div>
-        <div className="flex min-w-0 items-center gap-3 text-xs text-ink-500">
-          {notice ? <span className="truncate text-brand-700">{notice}</span> : null}
+        {!demo ? (
+          <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto text-xs" aria-label="편집 화면 탭">
+            {tabs.map((t) => (
+              <Link
+                key={t.key}
+                href={t.key ? `${base}/${t.key}` : base}
+                title={t.title}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 whitespace-nowrap",
+                  tab === t.key ? "bg-ink-900 font-semibold text-ink-50" : "text-ink-500 hover:bg-ink-100 hover:text-ink-900",
+                )}
+              >
+                <t.icon className="size-3.5" /> {t.label}
+                {t.count ? <CountChip strong={t.strong}>{t.count}</CountChip> : null}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
+        <div className="flex min-w-0 flex-1 basis-0 items-center justify-end gap-3 text-xs text-ink-500">
+          {notice ? <span className="hidden truncate text-brand-700 2xl:inline">{notice}</span> : null}
           {liveBatch ? (
             <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold text-sky-700" title="AI 가 보낸 박스를 하나씩 고치고 있어요">
               {progress?.done ? <SparklesIcon className="size-3.5" /> : <LoaderCircleIcon className="size-3.5 animate-spin" />}
@@ -525,57 +585,21 @@ export function ProjectEditor({
           ) : null}
           {!demo && website ? (
             <Link
-              href={`/projects/${projectId}/apply`}
+              href={`${base}/apply`}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 whitespace-nowrap",
-                // 올릴 것이 있으면 눈에 띄게 (끝난 수정이 있거나, 아직 한 번도 공개하지 않은 완성 사이트)
-                !website.active && website.ready && (website.waiting > 0 || !website.published)
-                  ? "rounded-full bg-sky-400 px-2.5 py-1 font-semibold text-night-950 hover:bg-sky-300"
-                  : "hover:text-ink-900",
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 font-semibold whitespace-nowrap",
+                tab === "apply"
+                  ? "bg-ink-900 text-ink-50"
+                  : // 올릴 것이 있으면 눈에 띄게 (끝난 수정이 있거나, 아직 한 번도 공개하지 않은 완성 사이트)
+                    !website.active && website.ready && (website.waiting > 0 || !website.published)
+                    ? "bg-sky-400 text-night-950 hover:bg-sky-300"
+                    : "border border-ink-200 text-ink-700 hover:bg-ink-100",
               )}
               title="고친 내용을 실제 사이트에 올려요. AI가 수정 확인 · 보안 검사를 먼저 해요."
             >
               <RocketIcon className="size-3.5" />
               {website.active ?? "사이트에 올리기"}
               {!website.active && website.waiting > 0 ? <CountChip strong>{website.waiting}</CountChip> : null}
-            </Link>
-          ) : null}
-          {!demo && page && shot ? (
-            <ReviewRequestButton
-              projectId={projectId}
-              pageId={page.id}
-              pageName={page.name}
-              device={device}
-              version={shotVersion(shot.url)}
-              quota={hasPlan ? quota.expert : null}
-              disabled={Boolean(liveBatch && !progress?.done)}
-            />
-          ) : null}
-          {!demo && siteAdmin ? (
-            <Link
-              href={`/projects/${projectId}/admin`}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink-900"
-              title="공지 · 메뉴 · 상품처럼 자주 바뀌는 목록을 직접 올리고 고치는 곳 (AI에게 목록을 만들어 달라고 요청하면 생겨요)"
-            >
-              <DatabaseIcon className="size-3.5" /> 관리자 페이지
-              {siteAdmin.lists > 0 ? <CountChip>{siteAdmin.lists}</CountChip> : null}
-            </Link>
-          ) : null}
-          {!demo ? (
-            <Link href={`/projects/${projectId}/brief`} className="hidden shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink-900 sm:inline-flex" title="새 사이트를 만들 때 적은 내용 · 준비할 사진 목록">
-              <ClipboardListIcon className="size-3.5" /> 제작 정보
-            </Link>
-          ) : null}
-          {!demo ? (
-            <Link href={`/projects/${projectId}/requests`} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink-900">
-              <ClockIcon className="size-3.5" /> 요청 내역
-              {news && news.unreadRequests + news.awaiting > 0 ? <CountChip strong={news.awaiting > 0}>{news.unreadRequests + news.awaiting}</CountChip> : null}
-            </Link>
-          ) : null}
-          {!demo && news ? (
-            <Link href={`/projects/${projectId}/messages`} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap hover:text-ink-900">
-              <MessageSquareIcon className="size-3.5" /> 메시지
-              {news.unreadGeneral > 0 ? <CountChip>{news.unreadGeneral}</CountChip> : null}
             </Link>
           ) : null}
         </div>
@@ -599,14 +623,14 @@ export function ProjectEditor({
               </p>
             </div>
           ) : null}
-          {welcome && welcomeOpen ? (
+          {welcomeMsg && welcomeOpen ? (
             <div
               className={cn(
                 "flex items-start gap-3 border-b px-4 py-2.5 text-[13px] leading-relaxed",
-                welcome.tone === "red" ? "border-red-200 bg-red-50 text-red-800" : "border-sky-200 bg-sky-50 text-ink-900",
+                welcomeMsg.tone === "red" ? "border-red-200 bg-red-50 text-red-800" : "border-sky-200 bg-sky-50 text-ink-900",
               )}
             >
-              <p className="flex-1">{welcome.text}</p>
+              <p className="flex-1">{welcomeMsg.text}</p>
               <button type="button" onClick={() => setWelcomeOpen(false)} className="grid size-6 shrink-0 place-items-center rounded text-ink-500 hover:bg-ink-100 hover:text-ink-900" aria-label="안내 닫기">
                 <XIcon className="size-3.5" />
               </button>
@@ -671,6 +695,8 @@ export function ProjectEditor({
                     onClick={() => {
                       setPageId(p.id);
                       setSelectedId(null);
+                      // 검수 탭은 고른 페이지를 검수하므로 그대로, 다른 탭이면 사이트 화면으로
+                      if (tab !== "review") toSiteTab();
                       if (!p.screenshots[device]) {
                         const first = DEVICE_ORDER.find((d) => allowedDevices.includes(d) && p.screenshots[d]);
                         if (first) setDevice(first);
@@ -704,7 +730,27 @@ export function ProjectEditor({
         </div>
       </aside>
 
-      {/* 가운데: 캔버스 (모바일은 화면 높이의 60%) */}
+      {/* 가운데: 사이트 탭이면 캔버스 (모바일은 화면 높이의 60%), 다른 탭이면 그 탭의 내용 */}
+      {tab === "review" ? (
+        <div className="overflow-y-auto bg-ink-50 lg:min-h-0">
+          <ReviewPanel
+            projectId={projectId}
+            pageId={page.id}
+            pageName={page.label ?? page.name}
+            device={device}
+            version={shotVersion(shot.url)}
+            quota={hasPlan ? quota.expert : null}
+            disabled={Boolean(liveBatch && !progress?.done)}
+            history={existing.filter((r) => r.kind === "expert")}
+            pageNameOf={(id) => {
+              const p = pages.find((x) => x.id === id);
+              return p ? (p.label ?? p.name) : "";
+            }}
+          />
+        </div>
+      ) : tab ? (
+        <div className="flex flex-col overflow-y-auto bg-ink-50 lg:min-h-0">{children}</div>
+      ) : (
       <div className="relative h-[60vh] lg:h-auto lg:min-h-0">
         <EditorCanvas
           key={`${page.id}:${device}`}
@@ -726,6 +772,7 @@ export function ProjectEditor({
           ref={canvasRef}
         />
       </div>
+      )}
 
       {/* 오른쪽: 요청 패널 (AI 작업 중에는 진행 패널) */}
       <div className="lg:min-h-0">

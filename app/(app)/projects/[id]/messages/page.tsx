@@ -1,4 +1,3 @@
-import { ClockIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -32,15 +31,7 @@ export default async function MessagesPage({ params }: PageProps<"/projects/[id]
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-8">
-      <div className="flex items-center justify-between gap-3">
-        <Link href={`/projects/${id}`} className="text-sm text-ink-500 hover:text-ink-900">
-          ← 편집 화면
-        </Link>
-        <Link href={`/projects/${id}/requests`} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
-          <ClockIcon className="size-3.5" /> 요청 내역
-        </Link>
-      </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">{data.project.name} · 메시지</h1>
+      <h1 className="text-2xl font-bold tracking-tight">메시지</h1>
       <p className="mt-1 text-sm text-ink-500">
         진행 상황이 궁금하거나 전할 내용이 있을 때 담당자에게 남기는 곳입니다. {SUPPORT.hours}에 답합니다. 화면을 고쳐 달라는 요청은{" "}
         <Link href={`/projects/${id}`} className="font-medium text-brand-600 hover:underline">

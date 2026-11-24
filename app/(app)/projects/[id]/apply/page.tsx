@@ -1,4 +1,4 @@
-import { ClockIcon, ExternalLinkIcon, GlobeIcon, MessageSquareIcon } from "lucide-react";
+import { ExternalLinkIcon, GlobeIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -59,20 +59,7 @@ export default async function ApplyPage({ params }: PageProps<"/projects/[id]/ap
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <div className="flex items-center justify-between gap-3">
-        <Link href={`/projects/${id}`} className="text-sm text-ink-500 hover:text-ink-900">
-          ← 편집 화면
-        </Link>
-        <div className="flex items-center gap-4 text-sm text-ink-500">
-          <Link href={`/projects/${id}/requests`} className="inline-flex items-center gap-1 hover:text-ink-900">
-            <ClockIcon className="size-3.5" /> 요청 내역
-          </Link>
-          <Link href={`/projects/${id}/messages`} className="inline-flex items-center gap-1 hover:text-ink-900">
-            <MessageSquareIcon className="size-3.5" /> 메시지
-          </Link>
-        </div>
-      </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">{project.name} · 사이트에 올리기</h1>
+      <h1 className="text-2xl font-bold tracking-tight">사이트에 올리기</h1>
       <p className="mt-1 text-sm leading-relaxed text-ink-500">
         편집 화면에서 고친 내용은 먼저 편집 화면에서만 보여요. 다 고쳤으면 &lsquo;사이트에 올리기&rsquo;를 눌러 주세요.
         AI가 모든 화면을 다시 확인하고 보안 검사를 한 뒤 실제 사이트에 올려요.

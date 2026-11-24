@@ -1,6 +1,4 @@
-import { MessageSquareIcon } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BriefDetails } from "@/components/brief/brief-details";
@@ -36,15 +34,7 @@ export default async function ProjectBriefPage({ params }: PageProps<"/projects/
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <div className="flex items-center justify-between gap-3">
-        <Link href={`/projects/${id}`} className="text-sm text-ink-500 hover:text-ink-900">
-          ← 편집 화면
-        </Link>
-        <Link href={`/projects/${id}/messages`} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
-          <MessageSquareIcon className="size-3.5" /> 담당자에게 메시지
-        </Link>
-      </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">{project.name} · 제작 정보</h1>
+      <h1 className="text-2xl font-bold tracking-tight">제작 정보</h1>
       <p className="mt-1 text-sm text-ink-500">새 사이트를 만들 때 적은 내용이에요. 바꾸고 싶은 점은 편집 화면에서 박스를 그려 요청하거나 담당자에게 메시지로 알려 주세요.</p>
 
       {empty.length > 0 ? (

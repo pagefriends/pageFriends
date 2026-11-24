@@ -1,4 +1,4 @@
-import { DatabaseIcon, MessageSquareIcon } from "lucide-react";
+import { DatabaseIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -66,15 +66,7 @@ export default async function SiteAdminPage({ params, searchParams }: PageProps<
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      <div className="flex items-center justify-between gap-3">
-        <Link href={`/projects/${id}`} className="text-sm text-ink-500 hover:text-ink-900">
-          ← 편집 화면
-        </Link>
-        <Link href={`/projects/${id}/messages`} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
-          <MessageSquareIcon className="size-3.5" /> 메시지
-        </Link>
-      </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">{data.project.name} · 관리자 페이지</h1>
+      <h1 className="text-2xl font-bold tracking-tight">관리자 페이지</h1>
       <p className="mt-1 text-sm text-ink-500">공지 · 메뉴 · 상품처럼 자주 바뀌는 목록을 여기서 직접 올리고 고쳐요. 올린 글은 사이트의 그 목록에 바로 보여요.</p>
 
       {!plan?.cms ? (

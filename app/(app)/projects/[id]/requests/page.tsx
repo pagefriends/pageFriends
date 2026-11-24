@@ -1,4 +1,4 @@
-import { MessageSquareIcon, RocketIcon } from "lucide-react";
+import { RocketIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -48,17 +48,7 @@ export default async function RequestsPage({ params }: PageProps<"/projects/[id]
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <div className="flex items-center justify-between gap-3">
-        <Link href={`/projects/${id}`} className="text-sm text-ink-500 hover:text-ink-900">
-          ← 편집 화면
-        </Link>
-        {threads.available ? (
-          <Link href={`/projects/${id}/messages`} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
-            <MessageSquareIcon className="size-3.5" /> 담당자에게 메시지
-          </Link>
-        ) : null}
-      </div>
-      <h1 className="mt-2 text-2xl font-bold tracking-tight">{data.project.name} · 요청 내역</h1>
+      <h1 className="text-2xl font-bold tracking-tight">요청 내역</h1>
       <p className="mt-1 text-sm text-ink-500">
         총 {requests.length}건 · 진행 중 {open}건. 요청은 AI가 바로 고치고, 전문가 검수 요청은{" "}
         {`${EXPERT_HOURS.min}~${EXPERT_HOURS.max}시간(${EXPERT_HOURS.min / 24}~${EXPERT_HOURS.max / 24}일)`} 안에 답변드려요. 오류 신고는 무료입니다.

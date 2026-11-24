@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { ProjectEditor } from "@/components/editor/editor";
@@ -30,6 +31,7 @@ export default function DemoPage() {
   const usedTokens = DEMO_USED_TOKENS;
   return (
     <div className="theme-dark flex flex-1 flex-col">
+      <Suspense>
       <ProjectEditor
         projectId="demo"
         projectName="카페 데일리 (체험)"
@@ -58,6 +60,7 @@ export default function DemoPage() {
         hasPlan
         demo
       />
+      </Suspense>
     </div>
   );
 }
